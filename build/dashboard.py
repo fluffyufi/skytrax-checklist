@@ -235,7 +235,7 @@ def build(wb, data):
     S.section(r, "Checkpoint summary")
     r += 1
     S.header(r, [("B", "C", "Checkpoint"), ("D", "E", "In scope"), ("F", "G", "Complete"),
-                 ("H", "H", "Justified N/A"), ("I", "I", "Open"),
+                 ("H", "H", "N/A (justified + rule)"), ("I", "I", "Open"),
                  ("J", "K", "Overdue"), ("L", "M", "Completion"),
                  ("N", LAST_COL, "What is checked")])
     first_cp = r + 1

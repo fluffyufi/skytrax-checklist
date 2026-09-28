@@ -183,34 +183,31 @@ def _ref_static(t):
     return t
 
 
-# Printable body height in sheet points, measured in LibreOffice PDF output: A4 landscape minus margins and
-# header/footer bands at the ~98 % row scale of fit-to-width: measured break points give 531-540 pt.
-PAGE_BODY_PT = 533.0
+# Printable body height in sheet points. Measured LibreOffice break points put the real capacity at
+# ~530-540 pt (row-height rounding varies); every page break is set manually at a conservative 522 pt, so the
+# engine's own breaks never fire and the simulation cannot drift (Excel's capacity is larger still).
+PAGE_BODY_PT = 522.0
 
 
 def _keep_bands_with_rows(ws, head_row, band_rows, last_row):
-    """Simulate pagination; add a manual break before a checkpoint band (or, on page 1, before the table
-    header) that would otherwise be stranded at the bottom of a page without its first check row."""
+    """Paginate explicitly: cover (page 1) ends before the table header; each later page is filled up to
+    PAGE_BODY_PT (including the repeated header) and a checkpoint band is always kept with its first row."""
     h = lambda r: ws.row_dimensions[r].height or 15  # noqa: E731
     title_h = h(head_row)
     bands = set(band_rows)
     used = 0.0
     for r in range(1, last_row + 1):
-        base = title_h if r > head_row else 0.0
-        if r == head_row:  # page 1 is a cover sheet: the checklist always starts on page 2
+        if r < head_row:
+            continue  # cover sheet: fixed content, checked by render
+        if r == head_row:
             ws.row_breaks.append(Break(id=r - 1))
             used = h(r)
             continue
-        if r in bands and r + 1 <= last_row and (r - 1) != head_row:
-            need = h(r) + h(r + 1)
-        else:
-            need = h(r)
-        if used + need > PAGE_BODY_PT and used > base + 1:
-            if need > h(r) and used + h(r) <= PAGE_BODY_PT:
-                ws.row_breaks.append(Break(id=r - 1))  # keep-with-next break
-            used = base + h(r)
-        else:
-            used += h(r)
+        need = h(r) + (h(r + 1) if r in bands and r + 1 <= last_row else 0)
+        if used + need > PAGE_BODY_PT and used > title_h + 1:
+            ws.row_breaks.append(Break(id=r - 1))
+            used = title_h
+        used += h(r)
 
 
 # ------------------------------------------------------------------ builder
