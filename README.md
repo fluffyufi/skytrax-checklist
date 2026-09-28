@@ -27,7 +27,7 @@ It covers all 22 legs of the *Skytrax Agenda 2026*, across 3 itineraries. Requir
 - **READY** requires every in-scope check to be complete, including the physical uplift. It also needs zero discrepancies, zero invalid entries, both documents on file and every clarification resolved.
 
 ## Items the reference does not settle
-These 30 check lines are marked **Clarification required** and hold readiness until confirmed:
+These 44 check lines (preparation and on-board lines counted separately) are marked **Clarification required** and hold readiness until confirmed:
 - whether EY receives toiletry kits;
 - where the A350 toiletry kits are uplifted on KUL→LHR legs;
 - whether table cloth is carried on CGK, HAN and HKG, where the matrix and note B78 disagree;
