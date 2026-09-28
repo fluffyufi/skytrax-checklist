@@ -1,0 +1,65 @@
+{
+ "updated": "28 Sep 18:25",
+ "checks": 738,
+ "pieces": [
+  {
+   "name": "1. Schedule & uplift requirements data",
+   "state": "run",
+   "round": 2,
+   "note": "Round 1 returned 10 defects; all fixed, awaiting round-2 critic"
+  },
+  {
+   "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
+   "state": "run",
+   "round": 1,
+   "note": "Core written; first full build + recalc running"
+  },
+  {
+   "name": "3. Dashboard",
+   "state": "run",
+   "round": 1,
+   "note": "Builder working"
+  },
+  {
+   "name": "4. Printable flight checklists P01\u2013P22",
+   "state": "run",
+   "round": 1,
+   "note": "Builder working"
+  },
+  {
+   "name": "5. Instructions & delivery",
+   "state": "wait",
+   "round": "",
+   "note": ""
+  }
+ ],
+ "gaps": [
+  {
+   "piece": "1. Schedule & uplift data",
+   "round": 1,
+   "gap": "No model for items loaded at a station other than the departure station: PEN/LGK return legs and KUL-sourced items on LHR/HKG departures had prep deadlines after the catering had already left KUL."
+  }
+ ],
+ "log": [
+  [
+   "17:40",
+   "Inspected schedule image and all 7 sheets of STD UPLIFT INFORMATION.xlsx"
+  ],
+  [
+   "17:50",
+   "Data layer built: time zones incl. LHR BST end 25 Oct and ADL ACDT start 4 Oct; round-trip catering for PEN and LGK returns"
+  ],
+  [
+   "17:55",
+   "Launched dashboard builder, printable builder and data critic in parallel"
+  ],
+  [
+   "18:10",
+   "Data critic round 1: FAIL (schedule and time zones exact; 10 defects in requirement sourcing and deadlines)"
+  ],
+  [
+   "18:25",
+   "Fixed: inbound-loading cap on due times, rotation confirmation checks, LHR sales cart moved to not-provided, DAM-cart slippers added, EY blanket regional rule, merged-cell citations"
+  ]
+ ]
+}
