@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 00:40",
+ "updated": "29 Sep 02:00",
  "checks": 744,
  "pieces": [
   {
@@ -11,26 +11,26 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 3,
-   "note": "Round 2 holes closed (carry-aware uplift window, strict CA, PIC\u2260verifier, staleness, protection); 19 regression cases pass; round-3 critic running"
+   "round": 4,
+   "note": "Round 3 holes closed (prep cut off at loading, carrier arrival, placeholders, CA qty); 26 regression cases pass; round-4 critic running"
   },
   {
    "name": "3. Dashboard",
-   "state": "run",
+   "state": "pass",
    "round": 5,
-   "note": "Round 4: dashboard fully readable; round-5 render critic running"
+   "note": "PASS: body \u22488.9pt on 4 labelled pages, nothing clipped"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
-   "state": "run",
+   "state": "pass",
    "round": 5,
-   "note": "Round 4: P11 banner/row deadline wording conflict fixed; round-5 critic running"
+   "note": "PASS: \u22489pt body, cover + sign-off intact, every filled entry prints in full; minor polish applied"
   },
   {
    "name": "5. Instructions & delivery",
-   "state": "wait",
-   "round": "",
-   "note": ""
+   "state": "run",
+   "round": 1,
+   "note": "README written; delivery after the logic critic passes"
   }
  ],
  "gaps": [
@@ -83,6 +83,11 @@
    "piece": "4. Printable checklists",
    "round": 4,
    "gap": "P11 cover banner gave a prep deadline (05:45) that contradicted the binding row due (03:50)."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 3,
+   "gap": "Preparation checks were bounded by STD, not the loading point: a batch sensory done after the food had flown out on the KUL carrier still counted."
   }
  ],
  "log": [
@@ -181,6 +186,18 @@
   [
    "00:40",
    "All fixed; regression tests pass; launched logic r3 and render r5 on frozen build"
+  ],
+  [
+   "01:20",
+   "Render critic round 5: PASS (minor polish applied)"
+  ],
+  [
+   "01:30",
+   "Logic critic round 3: FAIL; loading-point cutoffs, placeholder rejection, stricter N/A added"
+  ],
+  [
+   "02:00",
+   "Logic critic round 4 running"
   ]
  ]
 }
