@@ -154,6 +154,11 @@ def build_settings(wb, data):
     ws.column_dimensions["H"].width = 16
     ws.column_dimensions["I"].width = 14
     name(wb, "L_Status", "Settings!$H$4:$H$9")
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
     name(wb, "L_CA", "Settings!$I$4:$I$5")
     ws.sheet_view.showGridLines = False
 
@@ -167,9 +172,10 @@ FL_HEAD = ["Flight ID", "Itin", "Seq", "Date", "Day", "Flight No", "Dep", "Arr",
            "T-12H prep due UTC", "Uplift due UTC (= STD)", "T-7D due local (meal uplift stn)",
            "T-24H due local", "T-12H prep due local", "T-7D %", "T-24H %", "T-12H prep %", "Uplift %",
            "Overall %", "Open required checks", "Overdue", "Open discrepancies", "Docs outstanding",
-           "Clarifications open", "READINESS", "Invalid entries", "Checks completed", "Checks in scope"]
+           "Clarifications open", "READINESS", "Invalid entries", "Checks completed", "Checks in scope",
+           "Inbound carrying flight: KUL departure (UTC, input)", "KUL loading deadline for KUL-sourced items (UTC)"]
 FL_W = [7, 5, 5, 10, 6, 9, 6, 6, 15, 15, 8, 9, 30, 12, 6, 8, 14, 13, 12, 22, 11, 9, 16, 14, 16,
-        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9]
+        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9, 17, 17]
 
 
 def build_flights(wb, data, n_checks):
@@ -242,13 +248,25 @@ def build_flights(wb, data, n_checks):
         ws[f"AU{r}"] = f"=SUMIFS({rng('AM')},{rng('B')},$A{r})"
         ws[f"AV{r}"] = f"=SUMIFS({rng('AJ')},{rng('B')},$A{r})"
         ws[f"AW{r}"] = f"=SUMIFS({rng('AI')},{rng('B')},$A{r})"
+        bounds = next((ck["due_bound"] for ck in data["checks"] if ck["flight_id"] == fl["id"] and ck.get("due_rule") == "CARRY"), None)
+        if bounds:
+            mb = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
+            ws[f"AY{r}"] = f"=IF(ISNUMBER(AX{r}),AX{r},AA{r}-MIN({mb})/24)-UpliftWindowH/24"
+            ws[f"AX{r}"].comment = Comment(
+                "Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
+                "loading deadline assumes the latest possible departure (STD minus shortest agenda block).", "MAGCS")
+        else:
+            ws[f"AX{r}"] = "n/a"
+            ws[f"AY{r}"] = "n/a"
+        ws[f"AX{r}"].number_format = DT
+        ws[f"AY{r}"].number_format = DT
         for j in range(1, len(FL_HEAD) + 1):
             c = ws.cell(r, j)
             c.font = f(9)
             c.border = BORDER
             if c.alignment.horizontal is None:
                 c.alignment = Alignment(vertical="top", wrap_text=True)
-            if j in (14, 23, 24, 25):
+            if j in (14, 23, 24, 25) or (j == 50 and ws.cell(r, 50).value != "n/a"):
                 c.fill = F_INPUT
             elif j >= 26:
                 c.fill = F_CALC
@@ -267,18 +285,35 @@ def build_flights(wb, data, n_checks):
     ws.conditional_formatting.add("AP5:AS26", CellIsRule(operator="greaterThan", formula=["0"],
                                   font=Font(name=FONT, color="C00000", bold=True)))
     ws.freeze_panes = "G5"
-    ws.auto_filter.ref = f"A4:AW26"
+    ws.auto_filter.ref = f"A4:AY26"
+    dvx = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
+                         showErrorMessage=True, error="Enter a UTC date-time in Oct 2026.")
+    dvx.add("AX5:AX26")
+    ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToWidth = 3
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_title_rows = "4:4"
+    ws.print_title_cols = "A:F"
 
 
 # ------------------------------------------------------------------ Checks
+def due_formula(ck, cp, fr, code_due):
+    rule = ck.get("due_rule", "")
+    if rule == "CARRY" and cp == "UPLIFT":
+        return f"=Flights!$AY${fr}+UpliftWindowH/24"
+    if rule == "CARRY":
+        return f"=MIN(Flights!${code_due[cp]}${fr},Flights!$AY${fr})"
+    if rule == "LOADFLT":
+        return (f"=IF(TRIM(Flights!$W${fr})=\"\",Flights!$AF${fr},"
+                f"INDEX(Flights!$AA$5:$AA$26,MATCH(TRIM(Flights!$W${fr}),Flights!$A$5:$A$26,0)))")
+    return f"=Flights!${code_due[cp]}${fr}"
+
+
 CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Checkpoint", "Check type", "Category",
            "Check item", "Requirement / expected (reference)", "Source reference", "Item uplift stn",
            "Applicability", "Rule note / clarification question", "Check station", "Due (UTC)",
@@ -312,6 +347,8 @@ def build_checks(wb, data):
         applic = ck["applic"]
         if applic == "RULE:A339":
             applic = f"=IF(Flights!$L${fr}=\"A339\",\"Required\",\"N/A {ND} rule\")"
+        elif applic == "RULE:LOADFLT":
+            applic = f"=IF(TRIM(Flights!$W${fr})=\"\",\"N/A {ND} rule\",\"Required\")"
         exp_qty = None
         if ck["exp_qty"]:
             try:
@@ -323,9 +360,7 @@ def build_checks(wb, data):
             "E": f"=Flights!$G${fr}&\"-\"&Flights!$H${fr}", "F": f"=Flights!$K${fr}", "G": cp,
             "H": ck["check_type"], "I": ck["category"], "J": ck["item"], "K": ck["expected"], "L": ck["src"],
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
-            "Q": (f"=MIN(Flights!${code_due[cp]}${fr},Flights!$AA${fr}-MIN("
-                  + ",".join(f"Flights!$AB${5 + fidx[b]}" for b in ck["due_bound"]) + ")/24-UpliftWindowH/24)")
-                 if ck.get("due_bound") else f"=Flights!${code_due[cp]}${fr}",
+            "Q": due_formula(ck, cp, fr, code_due),
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
             "S": f"=Q{r}-{early[cp]}/24" if early[cp] else "",
             "X": exp_qty,
@@ -336,24 +371,12 @@ def build_checks(wb, data):
         # doc linkage: T7 GLD row = req_doc 1, menu checklist row = 2
         if ck["req_doc"]:
             vals["AS"] = 1 if "GLD" in ck["item"] else 2
+        if ck.get("req_carry"):
+            vals["AS"] = 3
         doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
-                   f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\",")
-        valid = (
-            f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
-            f"IF(Z{r}=\"\",\"INVALID {ND} evidence missing\","
-            f"IF(AE{r}=\"\",\"INVALID {ND} verifier missing\","
-            f"IF(AND(AQ{r}=1,W{r}=\"\"),\"INVALID {ND} batch ID missing\","
-            f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
-            f"IF(AND(U{r}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
-            f"IF(AND(U{r}=\"Pass after CA\",OR(AA{r}=\"\",AB{r}<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")&"
-            f"{doc_chk}"
-            f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
-            f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
-            f"\"INVALID {ND} before valid window\"),"
-            f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after departure\","
-            f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")))))))))))")
-        # the two concatenated IF(...)&IF(...)& pieces yield "" when OK; if either yields text we must stop there.
-        # Build that as: IF(msg<>"", msg, rest) with msg computed once more (kept explicit for Excel-2007 compatibility)
+                   f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
+                   f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\",")
+        # msg = qty-variance / CA checks joined with &; "" when OK. IF(msg<>"", msg, rest) keeps Excel-2007 nesting.
         msg = (f"IF(AND(U{r}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
                f"IF(AND(U{r}=\"Pass after CA\",OR(AA{r}=\"\",AB{r}<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
@@ -361,7 +384,7 @@ def build_checks(wb, data):
                 f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after departure\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")))))))")
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF(Z{r}=\"\",\"INVALID {ND} evidence missing\","
@@ -410,7 +433,7 @@ def build_checks(wb, data):
             ws[f"W{r}"].fill = F_CALC
         for col, w in (("J", CK_W[9]), ("K", CK_W[10]), ("L", CK_W[11]), ("O", CK_W[14])):
             height = max(height, est_lines(ws[f"{col}{r}"].value, w))
-        ws.row_dimensions[r].height = max(24, 12.5 * height + 4)
+        ws.row_dimensions[r].height = max(40, 12.5 * height + 4)
     # validations
     dv = DataValidation(type="list", formula1="=L_Status", allow_blank=True,
                         prompt="Pass needs completion time, evidence and verifier. N/A needs justification and verifier.",
@@ -445,12 +468,14 @@ def build_checks(wb, data):
                                   font=Font(name=FONT, color="C00000", bold=True)))
     ws.freeze_panes = "K5"
     ws.auto_filter.ref = f"A4:AS{last}"
+    ws.print_area = f"A1:AH{last}"
+    ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
     for col in ("AQ", "AR", "AS"):
         ws.column_dimensions[col].hidden = True
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToWidth = 4
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_title_rows = "4:4"
@@ -496,6 +521,8 @@ def build_documents(wb, data):
                 c.fill = F_CALC
         ws[f"H{r}"].number_format = "dd-mmm-yy"
         ws[f"M{r}"].number_format = "dd-mmm-yy"
+        for col in ("A", "C", "D", "E", "J", "O", "P"):
+            ws[f"{col}{r}"].alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
         ws.row_dimensions[r].height = 30
     for rng in ("J5:J26", "O5:O26"):
         ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"OUTSTANDING"'],
@@ -524,9 +551,10 @@ def build_documents(wb, data):
         ws.cell(r, 4).number_format = "dd-mmm-yy"
         ws.cell(r, 7).number_format = "dd-mmm-yy"
     ws.freeze_panes = "C5"
+    ws.print_title_cols = "A:D"
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToWidth = 2
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
@@ -587,7 +615,9 @@ def build_requirements(wb, data):
 INSTR = [
     ("h", "How to use this workbook"),
     ("p", "Purpose: monitor MAGCS inflight-catering readiness for all 22 legs of the Skytrax Agenda 2026 audit itineraries, "
-          "with three checkpoints per flight calculated from scheduled departure (STD) in the correct station time zone."),
+          "with three checkpoints per flight calculated from scheduled departure (STD) in the correct station time zone: T-7D, T-24H and T-12H. "
+          "T-12H is recorded in two parts: the preparation check at the caterer (T-12H PREP) and the physical on-board uplift confirmation "
+          "before departure (UPLIFT), so dashboards show four columns."),
     ("h2", "Sheets"),
     ("b", "Dashboard – checkpoint completion, overdue actions, outstanding discrepancies and readiness per flight."),
     ("b", "Flights – the 22 legs as scheduled. Enter Tail/Reg, Caterer and Flight PIC (yellow). Due times: T-7D, T-24H, T-12H prep and uplift (= STD)."),
@@ -610,10 +640,12 @@ INSTR = [
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),
     ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present)."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
-    ("b", "Overdue = not complete and the as-of time (Settings B6, UTC) is past the due time."),
+    ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
+    ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),
     ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so return catering is loaded at KUL on MH1140 / MH1450. Their T-24H and T-12H preparation deadlines are pulled forward to before that loading window. Confirm the aircraft rotation; the linked flight is editable on Flights (column W)."),
+    ("b", "Outstation departures that carry KUL-sourced items (e.g. MH0003 LHR-KUL: pajamas, slippers, signature drinks) have a clarification check to identify the inbound KUL flight. Enter its KUL departure (UTC) on Flights column AX: the preparation due and the KUL loading-confirmation line (UPLIFT, station KUL) follow it. Until entered, they assume the latest possible KUL departure."),
     ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at STD minus the shortest agenda KUL-to-outstation block time minus the uplift window."),
     ("h2", "Outstanding inputs at issue"),
     ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet and each P-sheet)."),
@@ -623,7 +655,10 @@ INSTR = [
     ("p", "Check F02-T24-01 · PIC: A. Rahman · Status: Pass · Result: Panel score 4.5/5, texture & temperature OK · Batch ID: PASB-261008-BC-017 · "
           "Evidence: SENS-261008-017.pdf · Completion time: 08-Oct-26 22:10 (KUL) · Verifier: N. Ismail"),
     ("h2", "Colour key"),
-    ("k", "Yellow cell = input · Grey = formula · Blue text = value transcribed from reference · Light blue = reference-derived requirement text"),
+    ("k1", "Yellow cell = input – enter data here"),
+    ("k2", "Grey cell = formula – do not overwrite"),
+    ("k3", "Light blue cell = requirement text derived from STD UPLIFT INFORMATION.xlsx"),
+    ("k4", "Blue text = value transcribed from a reference (schedule, time-zone table, reference quantity)"),
 ]
 
 
@@ -650,8 +685,14 @@ def build_instructions(wb, data):
             c.font = f(10)
             c.alignment = WRAP
             ws.row_dimensions[r].height = max(15, 13.5 * est_lines(c.value, 118) + 2)
-        if kind == "k":
+        if kind == "k1":
             c.fill = F_INPUT
+        elif kind == "k2":
+            c.fill = F_CALC
+        elif kind == "k3":
+            c.fill = F_REF
+        elif kind == "k4":
+            c.font = f(10, color="0000FF")
         r += 1
     ws.sheet_view.showGridLines = False
     ws.page_setup.orientation = "portrait"

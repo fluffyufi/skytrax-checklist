@@ -131,6 +131,18 @@ def local_dt(date, hhmm, plus=0):
     return d.replace(hour=int(hhmm[:2]), minute=int(hhmm[2:4]))
 
 
+def galley_info(fleet):
+    sh = "AIRCRAFT TYPE"
+    rows = {"A350": [6, 7], "A333": [9], "A339": [8], "B738MAX": [16]}[fleet]
+    parts = []
+    for r in rows:
+        v = {c: cell(sh, f"{c}{r}") for c in "CIJKLMNOPQR"}
+        parts.append(f"{v['C']}: carts {v['I']}, SU {v['J']}, ovens {v['K']}, warming ovens {v['L']}, fridges {v['M']}, "
+                     f"water heaters {v['N']}, beverage makers {v['O']}, espresso {v['P']}, folding trolleys {v['Q']}, "
+                     f"headsets {v['R']} ({sh}!C{r}:R{r})")
+    return " | ".join(parts)
+
+
 def build():
     flights = []
     for i, (itin, date, day, flt, dep, std, arr, sta, cls, fleet, seat, transit, remark) in enumerate(SCHEDULE, 1):
@@ -167,6 +179,7 @@ def build():
             loaded_on=ROUND_TRIP_LOADED_ON.get(fid, ""),
             std_utc=std_utc.strftime("%Y-%m-%d %H:%M"), block_h=round(block_h, 3),
             widebody=fleet in WIDEBODY,
+            galley_info=galley_info(fleet),
         ))
     return flights
 
@@ -202,13 +215,16 @@ def requirements_for(f):
     if tick(tk):
         src = f"{sh}!{C(f'D{r_tk}')} / {C(f'H{r_tk}')}"
         if out == "LHR" and f["dep"] == "KUL":
-            add("Amenities", "Toiletry kits", "Clarification required", src, "Available (_/)", "LHR (per A350 row) - confirm",
+            q = ("" if bc else " The reference also does not state the cabin class for toiletry kits: confirm whether EY "
+                 "receives them.")
+            add("Amenities", "Toiletry kits", "Clarification required", src, "Available (ticked in reference)", "LHR or KUL - confirm",
                 "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL "
-                f"(general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR {f['cls']} leg are uplifted.")
+                f"(general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR {f['cls']} leg are uplifted; if at LHR "
+                "they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure." + q)
         elif bc:
-            add("Amenities", "Toiletry kits", "Required", src, "Available (_/)", tk_stn)
+            add("Amenities", "Toiletry kits", "Required", src, "Available (ticked in reference)", tk_stn)
         else:
-            add("Amenities", "Toiletry kits", "Clarification required", src, "Available (_/) for sector", tk_stn,
+            add("Amenities", "Toiletry kits", "Clarification required", src, "Available for sector (ticked in reference)", tk_stn,
                 "Reference does not state the cabin class for toiletry kits. Confirm whether EY receives them; "
                 "if not, mark N/A with the confirmation as justification.")
     # pajamas (BC red eyes only) - column F
@@ -230,7 +246,7 @@ def requirements_for(f):
             rem = cell(sh, f"I{r_sl}")
             add("Amenities", "Slippers (BS/BC)" + (f" - {rem}" if rem else ""), "Required",
                 f"{sh}!{C(f'G{r_sl}')} / {C(f'H{r_sl}')}" + (f" / {C(f'I{r_sl}')}" if rem else ""),
-                "Available (_/)", cell(sh, f"H{r_sl}"))
+                "Available (ticked in reference)", cell(sh, f"H{r_sl}"))
         elif sl == "X":
             add("Amenities", "Disposable slippers in DAM cart (BC, on request)", "Required",
                 f"{sh}!{C(f'G{r_sl}')} / C83", "Available in DAM cart on request basis", "Not stated in reference",
@@ -250,15 +266,17 @@ def requirements_for(f):
             v = cell(sh, f"{c}{r}")
             if not tick(v, f["widebody"]):
                 continue
-            exp = "Available (_/)"
+            exp = "Available (ticked in reference)"
             applic = "Required"
             note = ""
             if name == "Trolley cloth":
                 exp = ("Wide body: Top/Middle & Bottom" if f["widebody"] else "Narrow body: Top only")
                 note = f"Per note {sh}!B79:C80."
             if name in ("Table cloth", "Bread linen (using table cloth)") and region in ("ASEAN", "DOMESTIC", "ORIENTAL"):
-                note = (f"Matrix shows _/ for this sector although note {sh}!B78:C78 excludes Domestic/ASEAN/Regional; "
-                        "other ASEAN/Domestic rows are X, so the matrix is taken as already applying the note.")
+                applic = "Clarification required"
+                note = (f"Reference contradicts itself: matrix shows _/ for this sector but note {sh}!B78:C78 says table cloth is "
+                        f"'Not Applicable for Domestic/Asean & Regional' ({region}). Confirm before loading; if not carried, "
+                        "mark N/A with the confirmation as justification.")
             add("F&B Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", exp, "Not stated in reference", note)
 
     # ---- SEAT LINEN
@@ -285,7 +303,9 @@ def requirements_for(f):
                 applic = "Clarification required"
                 note += " Matrix shows _/ but block time is not above 3 h - confirm."
             if f["region"] in ("ORIENTAL", "ASEAN", "DOMESTIC"):
-                note += " Matrix shows _/ for this sector (ASEAN/Domestic rows are blank), so the regional exclusion is taken as already applied."
+                applic = "Clarification required"
+                note += (f" Matrix shows _/ for this {f['region']} sector but B74 excludes 'Regional sectors' without defining them - "
+                         "confirm whether this sector counts as Regional.")
             if f["fleet"] in ("A333", "A339"):
                 qty = "280"
                 note += f" Qty 280 pcs (14 bundles) for A332/A333/A339 ({sh}!B75:C75)."
@@ -294,7 +314,7 @@ def requirements_for(f):
                 note += f" Qty per tail: A350 280 pcs ({sh}!B76:C76), A359 260 pcs ({sh}!B77:C77)."
             else:
                 note += " Quantity for this aircraft not stated in reference."
-        add("Seat Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", "Available 100% (_/)", "Not stated in reference", note, qty)
+        add("Seat Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", "Available 100% (ticked in reference)", "Not stated in reference", note, qty)
 
     # ---- SIGNATURE DRINKS (BSCL/BCL) - BC only
     sh = "Signature Drinks"
@@ -305,7 +325,7 @@ def requirements_for(f):
         r = r[0]
         if tick(cell(sh, f"F{r}")):
             add("Signature Drinks", "Signature drink & garnish (BC)", "Required", f"{sh}!{C(f'F{r}')} / {C(f'G{r}')} / D79",
-                "Available (_/)", "KUL", "Signature drinks & garnish uplifted from KUL (note D79).")
+                "Available (ticked in reference)", "KUL", "Signature drinks & garnish uplifted from KUL (note D79).")
 
     # ---- SALES CART (all classes, flights 4 h & above)
     sh = "SALES CART"
@@ -339,7 +359,7 @@ def requirements_for(f):
                 k = cell(sh, f"K{r}")
                 l = cell(sh, f"L{r}")
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic,
-                    f"{sh}!{C(f'K{r}')} / {C(f'L{r}')} / {C(f'C{r}')} / O8",
+                    f"{sh}!{C(f'K{r}')} / {C(f'L{r}')} / {C(f'C{r}')} / {C(f'O{r}')}",
                     f"A359: {k} (full cart); 9M-MAH: {l} (half cart) - per tail", "Not stated in reference",
                     f"Block {f['block_h']:.2f} h >= 4 h. Location depends on tail.{stn_note}", cls_scope="All")
     return reqs
@@ -420,13 +440,13 @@ def check_lines(f, reqs, flights):
     inbound = [x for x in flights if x["dep"] == "KUL" and x["arr"] == f["dep"]]
 
     def add(cp, ctype, cat, item, expected, src, applic, note, station, batch=0, doc=0, qty=0,
-            exp_qty="", uplift_stn="", due_bound=None):
+            exp_qty="", uplift_stn="", due_bound=None, due_rule="", carry=0):
         n = sum(1 for l in lines if l["checkpoint"] == cp) + 1
         code = {"T-7D": "T7", "T-24H": "T24", "T-12H PREP": "T12", "UPLIFT": "UPL"}[cp]
         lines.append(dict(check_id=f"{f['id']}-{code}-{n:02d}", flight_id=f["id"], checkpoint=cp, check_type=ctype,
                           category=cat, item=item, expected=expected, src=src, applic=applic, note=note,
                           station=station, req_batch=batch, req_doc=doc, req_qty=qty, exp_qty=exp_qty,
-                          uplift_stn=uplift_stn, due_bound=due_bound or []))
+                          uplift_stn=uplift_stn, due_bound=due_bound or [], due_rule=due_rule, req_carry=carry))
 
     ms = f["meal_uplift_stn"]
     for cat, item, exp, batch, doc in STD_T7:
@@ -454,41 +474,57 @@ def check_lines(f, reqs, flights):
             f"the tail; confirm the rotation. T-24H and T-12H prep deadlines are pulled forward to before {lf['flt']}'s "
             "loading window. If the rotation differs, change 'Return meals loaded on' on the Flights sheet (or clear it).", "KUL")
     kul_items = [r for r in reqs if r["uplift_stn"] == "KUL"]
-    if f["dep"] != "KUL" and not f["round_trip"] and kul_items:
-        names = ", ".join(r["item"] for r in kul_items)
+    carry = f["dep"] != "KUL" and not f["round_trip"] and bool(kul_items)
+    names = ", ".join(r["item"] for r in kul_items)
+    if carry:
         cand = ", ".join(f"{x['flt']} {x['date'][8:]}-Oct ({x['id']})" for x in inbound) or "none in agenda"
         add("T-7D", "Preparation", "Uplift plan",
-            f"Inbound KUL-{f['dep']} flight carrying KUL-sourced items identified: {names}",
-            f"Items uplifted at KUL travel on the inbound KUL-{f['dep']} sector", "STD UPLIFT INFORMATION.xlsx > uplift stn columns",
-            "Clarification required",
-            f"Record the actual inbound KUL-{f['dep']} flight in Result (block-time reference only: {cand}). The T-12H prep due for "
-            f"these items is capped at STD minus the shortest KUL-{f['dep']} block time minus the uplift window, i.e. the latest "
-            "moment they could have been loaded at KUL.",
-            "KUL")
+            f"Inbound KUL-{f['dep']} flight carrying KUL-sourced items identified and its KUL departure (UTC) entered on Flights col AX",
+            f"KUL-sourced items ({names}) travel on the inbound KUL-{f['dep']} sector",
+            f"{REFNAME} > item uplift stn columns (see Requirements)", "Clarification required",
+            f"Cannot be passed until Flights AX holds the carrying flight's KUL departure. Until then, the prep and KUL-loading "
+            f"dues use the latest possible time: STD minus the shortest agenda KUL-{f['dep']} block ({cand}) minus the uplift window.",
+            "KUL", carry=1)
     for cat, item, exp, batch, doc in STD_T24:
         add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required", "", ms, batch, doc)
     for t in STD_T12:
         cat, item, exp, batch, doc = t[:5]
         qty = t[5] if len(t) > 5 else 0
+        if cat == "Equipment" and "quantities" in item:
+            exp = f"{exp}. Aircraft galley data: {f['galley_info']}"
         add("T-12H PREP", "Preparation", cat, item, exp, "User brief (T-12 hours)", "Required",
             "Preparation check at caterer - does NOT confirm loading.", ms, batch, doc, qty)
     for r in reqs:
         stn = r["uplift_stn"] if r["uplift_stn"] in STATIONS else ms
         exp = r["expected"] + (f"; qty {r['qty']}" if r["qty"] else "")
-        bound, note = None, r["note"]
-        if r["uplift_stn"] not in STATIONS:
+        rule, note = "", r["note"]
+        if r["uplift_stn"].startswith("Not stated"):
             note = (note + " " if note else "") + (f"Reference gives no uplift stn for this item: preparation checked at the "
                                                    f"meal uplift stn ({ms}) - confirm with caterer.")
-        if stn == "KUL" and f["dep"] != "KUL" and not f["round_trip"]:
-            bound = [x["id"] for x in inbound]
-            note = (note + " " if note else "") + (f"Loaded at KUL on the inbound KUL-{f['dep']} sector: due capped at STD minus the "
-                                                   f"shortest agenda KUL-{f['dep']} block time minus the uplift window (latest possible KUL loading).")
+        if stn == "KUL" and carry:
+            rule = "CARRY"
+            note = (note + " " if note else "") + (f"Loaded at KUL on the inbound KUL-{f['dep']} flight: due = that flight's KUL "
+                                                   "departure (Flights AX) minus the uplift window.")
         add("T-12H PREP", "Preparation", r["category"], r["item"] + " - prepared", exp, r["src"], r["applic"],
-            note, stn, 0, 0, 1 if r["qty"] else 0, r["qty"], r["uplift_stn"], due_bound=bound)
+            note, stn, 0, 0, 1 if r["qty"] else 0, r["qty"], r["uplift_stn"],
+            due_bound=[x["id"] for x in inbound] if rule else None, due_rule=rule)
     for t in STD_UPL:
         cat, item, exp, batch, doc, qty = t
         add("UPLIFT", "Physical uplift", cat, item, exp, "User brief (T-12 hours - physical uplift)", "Required",
             "Confirm on board before departure; completion time must fall inside the uplift window.", f["dep"], 0, 0, qty)
+    if f["round_trip"]:
+        lf = next(x for x in flights if x["id"] == f["loaded_on"])
+        add("UPLIFT", "Physical uplift", "Meal",
+            f"Return catering for {f['flt']} physically loaded at KUL on the carrying flight (default {lf['flt']}) - qty vs menu checklist",
+            "Enter expected & actual", "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)", "RULE:LOADFLT",
+            "Loading happens at KUL, so this is confirmed at KUL inside the uplift window before the carrying flight's STD "
+            "(Flights W). N/A automatically if Flights W is cleared.", "KUL", 0, 0, 1, due_rule="LOADFLT")
+    if carry:
+        add("UPLIFT", "Physical uplift", "Uplift plan",
+            f"KUL-sourced items physically loaded at KUL on the inbound KUL-{f['dep']} flight: {names}",
+            "Items and quantities as per Requirements", f"{REFNAME} > item uplift stn columns", "Required",
+            "Confirmed at KUL inside the uplift window before the carrying flight's KUL departure (Flights AX).", "KUL",
+            due_bound=[x["id"] for x in inbound], due_rule="CARRY")
     for r in reqs:
         exp = r["expected"] + (f"; qty {r['qty']}" if r["qty"] else "")
         add("UPLIFT", "Physical uplift", r["category"], r["item"] + " - on board", exp, r["src"], r["applic"],

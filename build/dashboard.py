@@ -9,6 +9,7 @@ import math
 from openpyxl.formatting.rule import CellIsRule, DataBarRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.pagebreak import Break
 from openpyxl.worksheet.properties import PageSetupProperties
 
 SHEET = "Dashboard"
@@ -35,11 +36,11 @@ CHECKPOINTS = [
     ("T-12H PREP", "T-12H prep", "Preparation checks due 12 hours before STD"),
     ("UPLIFT", "Uplift", "Physical uplift / on-board confirmation, due at STD"),
 ]
-TOP_N = 40
+TOP_N = 25  # sized so each list prints on one landscape page
 
-# Column grid (A = margin / row #; B..R = content; T = hidden helper)
+# Column grid (A = unprinted margin; B..R = content; T = hidden helper)
 WIDTHS = {
-    "A": 4, "B": 6, "C": 10, "D": 11, "E": 11, "F": 7, "G": 10, "H": 16,
+    "A": 2, "B": 6, "C": 10, "D": 11, "E": 11, "F": 7, "G": 10, "H": 16,
     "I": 9, "J": 9, "K": 9, "L": 9, "M": 9, "N": 9, "O": 11, "P": 11,
     "Q": 11, "R": 30, "S": 2, "T": 8,
 }
@@ -74,7 +75,7 @@ def _col_idx(c):
 
 def _lines(text, width, size=9):
     """Estimated wrapped line count for text in a cell `width` chars wide."""
-    usable = max(width - 1.5, 1) * 1.25 * 9.0 / size
+    usable = max(width - 1.5, 1) * 1.3 * 9.0 / size
     return sum(max(1, math.ceil(len(p) / usable)) for p in str(text).split("\n"))
 
 
@@ -157,9 +158,9 @@ def build(wb, data):
           merge_to="E2")
     S.put("F2", "As of (MYT, UTC+8)", bold=True, color=GREY_TEXT, fill=GREY, merge_to="G2")
     S.put("H2", "=AsOfUTC+8/24", bold=True, color=NAVY, fill=GREY, fmt="dd-mmm-yyyy hh:mm")
-    S.put("I2", '=IF(Settings!$B$4<>"","As-of time is FIXED by the override in Settings!B4",'
-                '"Live clock (Settings!B4 blank) – recalculate (F9) to refresh")'
-                '&"  •  All figures are formulas over Flights / Checks / Documents."',
+    S.put("I2", '=IF(Settings!$B$4<>"","Settings B4 (override) is set → as-of time is fixed",'
+                '"Settings B4 (override) blank → live clock (recalculate to refresh)")'
+                '&"; effective as-of shown in Settings B6."',
           italic=True, color=GREY_TEXT, fill=GREY, merge_to=f"{LAST_COL}2")
     ws.row_dimensions[2].height = 18
     ws.row_dimensions[3].height = 6
@@ -173,7 +174,7 @@ def build(wb, data):
         ("F", "G", "Overall completion", f'=IF(SUM({ck("AI")})=0,"n/a",SUM({ck("AJ")})/SUM({ck("AI")}))',
          "0.0%", f'=SUM({ck("AJ")})&" of "&SUM({ck("AI")})&" in-scope checks"', False),
         ("H", "I", "Overdue actions", f'=SUM({ck("AK")})', "0", "past due, not complete", True),
-        ("J", "K", "Open discrepancies", f'=SUM({ck("AL")})', "0", "fail / variance, CA not closed", True),
+        ("J", "K", "Open discrepancies", f'=SUM({ck("AL")})', "0", "fail, qty variance or CA open", True),
         ("L", "M", "Documents outstanding", f'=SUM({fl("AR")})', "0", "GLD + menu checklist", True),
         ("N", "O", "Clarifications open", f'=SUM({ck("AN")})', "0", "awaiting reference answer", True),
         ("P", "R", "Invalid entries", f'=SUM({ck("AM")})', "0", "entries failing validation rules", True),
@@ -307,25 +308,22 @@ def build(wb, data):
                   note=f'="Showing "&MIN({TOP_N},{total_expr})&" of "&{total_expr}'
                        f'&" (ordered as in Checks)"')
         r += 1
-        S.header(r, [("A", "A", "#")] + [(a, b, h) for a, b, h, _, _ in spans])
+        S.header(r, [("B", "B", "#")] + [(a, b, h) for a, b, h, _, _ in spans])
         ws[f"T{r}"].value = "Checks row"
         ws[f"T{r}"].font = _font(8, color=GREY_TEXT)
         # height: the widest-wrapping column decides (text lengths from data where known)
+        # every list row allows 2 wrapped lines (longest check item is ~76 chars)
         max_lines = 2
         for a, b, _h, _c, kind in spans:
-            w = _width(_span(a, b))
             if kind == "item":
                 longest = max(len(c["item"]) for c in data["checks"])
-                max_lines = max(max_lines, _lines("x" * longest, w))
-            elif kind == "long":
-                max_lines = max(max_lines, 3)
-        max_lines = min(max_lines, 4)
+                max_lines = max(max_lines, _lines("x" * longest, _width(_span(a, b))))
         for k in range(1, TOP_N + 1):
             r += 1
             band = GREY if k % 2 == 0 else None
             ws[f"T{r}"].value = f"=IFERROR(MATCH({k},{ck(seq_col)},0),\"\")"
             ws[f"T{r}"].font = _font(8, color=GREY_TEXT)
-            S.put(f"A{r}", f'=IF($T{r}="","",{k})', size=8, color=GREY_TEXT, h="center",
+            S.put(f"B{r}", f'=IF($T{r}="","",{k})', size=8, color=GREY_TEXT, h="center",
                   v="top", fill=band, border=True)
             for a, b, _h, ccol, kind in spans:
                 rng = ck(ccol)
@@ -336,9 +334,9 @@ def build(wb, data):
                     val = f'=IF($T{r}="","",INDEX({rng},$T{r})&"")'
                 fmt = {"date": "dd-mmm-yy hh:mm", "num": "#,##0;-#,##0;0"}.get(kind)
                 S.put(f"{a}{r}", val, h=("center" if kind in ("num", "date", "short") else "left"),
-                      v="top", wrap=True, fmt=fmt, fill=band, border=True,
+                      size=(8 if kind == "long" else 9), v="top", wrap=True, fmt=fmt, fill=band, border=True,
                       merge_to=(f"{b}{r}" if a != b else None))
-            ws.row_dimensions[r].height = _height(max_lines)
+            ws.row_dimensions[r].height = round(max_lines * 9 * 1.22 + 4, 1)
         r += 1
         S.put(f"B{r}", f'=IF({total_expr}=0,"No {noun} at the as-of time.",'
                        f'IF({total_expr}>{TOP_N},"+"&({total_expr}-{TOP_N})&" more {noun} '
@@ -350,9 +348,10 @@ def build(wb, data):
         return r
 
     r += 1
+    ws.row_breaks.append(Break(id=r - 1))
     r = top_list(
         r, f"Overdue actions (top {TOP_N})", f"SUM({ck('AK')})", "AO",
-        [("B", "C", "CheckID", "A", "short"), ("D", "D", "Flight No", "C", "short"),
+        [("C", "C", "CheckID", "A", "short"), ("D", "D", "Flight No", "C", "short"),
          ("E", "E", "Checkpoint", "G", "short"), ("F", "K", "Check item", "J", "item"),
          ("L", "M", "Due local (check stn)", "R", "date"), ("N", "N", "Check stn", "P", "short"),
          ("O", "P", "PIC", "T", "text"), ("Q", "R", "Record state", "AH", "text")],
@@ -360,14 +359,14 @@ def build(wb, data):
     r += 1
     ws.row_dimensions[r].height = 8
     r += 1
+    ws.row_breaks.append(Break(id=r - 1))
     r = top_list(
         r, f"Outstanding discrepancies (top {TOP_N})", f"SUM({ck('AL')})", "AP",
-        [("B", "C", "CheckID", "A", "short"), ("D", "D", "Flight No", "C", "short"),
-         ("E", "E", "Checkpoint", "G", "short"), ("F", "H", "Check item", "J", "item"),
-         ("I", "I", "Status", "U", "short"), ("J", "J", "Expected qty", "X", "num"),
-         ("K", "K", "Actual qty", "Y", "num"), ("L", "L", "Variance", "AF", "num"),
-         ("M", "P", "Corrective action", "AA", "long"), ("Q", "Q", "CA status", "AB", "short"),
-         ("R", "R", "Record state", "AH", "text")],
+        [("C", "C", "CheckID", "A", "short"), ("D", "D", "Flight No", "C", "short"),
+         ("E", "E", "Checkpoint", "G", "short"), ("F", "K", "Check item", "J", "item"),
+         ("L", "L", "Status", "U", "short"), ("M", "M", "Expected qty", "X", "num"),
+         ("N", "N", "Actual qty", "Y", "num"), ("O", "O", "Variance", "AF", "num"),
+         ("P", "P", "CA status", "AB", "short"), ("Q", "R", "Corrective action", "AA", "long")],
         "outstanding discrepancies")
     r += 1
     ws.row_dimensions[r].height = 8
@@ -382,20 +381,24 @@ def build(wb, data):
                 "(applicability “N/A – rule”, e.g. fleet-specific items) or JUSTIFIED: "
                 "Status N/A with a written N/A justification AND a named verifier. An unjustified "
                 "or unverified N/A is flagged INVALID and still counts as open."),
-        ("Complete", "Status Pass or Pass after CA with a valid completion time and the fields the "
-                     "item requires. Entries that break the validation rules (e.g. completed outside "
-                     "the valid window, missing mandatory data) are shown INVALID and do not count."),
-        ("Discrepancy", "Status Fail, or an actual quantity that differs from the expected quantity, "
-                        "counts as an open discrepancy until a corrective action is recorded and its CA "
-                        "status is Closed."),
+        ("Complete", "Status Pass or Pass after CA, with a completion time, evidence ref and verifier; "
+                     "plus the batch ID on T-24H lines and expected + actual quantity on quantity "
+                     "lines. A quantity variance is only accepted as Pass after CA with the CA status "
+                     "Closed. GLD / menu-checklist lines also need the document ON FILE (Documents "
+                     "sheet). The completion time must not be in the future or before the valid "
+                     "window, and uplift lines can only be completed within the uplift window before "
+                     "STD (Settings B7). Anything else is OPEN, OVERDUE or INVALID."),
+        ("Discrepancy", "An in-scope check is an open discrepancy when its Status is Fail, OR its CA "
+                        "status is Open, OR its quantity variance is not zero (unless Status is Pass "
+                        "after CA). It clears once the corrective action is recorded and closed."),
         ("READY", "A flight is READY only when every in-scope check at all four checkpoints is "
                   "complete – including the physical uplift confirmation – with zero open "
                   "discrepancies, the GLD and menu checklist on file (Documents sheet) and no invalid "
                   "entries. PREP DONE – AWAITING UPLIFT means all preparation checks are complete "
                   "but the physical uplift is not yet confirmed."),
         ("Time basis", "Due times are computed in UTC from STD and shown in local time at the check "
-                       "station. As-of time comes from Settings (override in B4, else the PC clock "
-                       "adjusted by the offset in B5)."),
+                       "station. As-of time is Settings B6: the override in B4 if set, otherwise the "
+                       "PC clock adjusted by the offset in B5."),
     ]
     lab_w = _width(["B", "C"])
     txt_w = _width(_span("D", LAST_COL))
@@ -409,8 +412,7 @@ def build(wb, data):
 
     # ------------------------------------------------------------ view / print
     ws.freeze_panes = "A4"
-    ws.print_area = f"A1:{LAST_COL}{last_row}"
-    ws.print_title_rows = "1:2"
+    ws.print_area = f"B1:{LAST_COL}{last_row}"
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth = 1

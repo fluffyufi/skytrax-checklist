@@ -41,7 +41,8 @@ AC T-7D due UTC · AD T-24H due UTC · AE T-12H prep due UTC · AF Uplift due UT
 AG T-7D due local · AH T-24H due local · AI T-12H prep due local (all local = meal uplift stn) ·
 AJ T-7D % · AK T-24H % · AL T-12H prep % · AM Uplift % · AN Overall % (text "n/a" if denominator 0) ·
 AO Open required checks · AP Overdue · AQ Open discrepancies · AR Docs outstanding (0-2) ·
-AS Clarifications open · AT Readiness (text) · AU Invalid entries · AV Checks completed · AW Checks in scope
+AS Clarifications open · AT Readiness (text) · AU Invalid entries · AV Checks completed · AW Checks in scope ·
+AX Inbound carrying flight KUL departure UTC (input; "n/a" where not applicable) · AY KUL loading deadline for KUL-sourced items (UTC)
 Readiness values: `READY`, `NOT READY – OVERDUE`, `NOT READY – DISCREPANCY`,
 `NOT READY – INVALID ENTRY`, `PREP DONE – AWAITING UPLIFT`, `IN PROGRESS`, `NOT STARTED`.
 
