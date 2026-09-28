@@ -97,10 +97,11 @@ def build_settings(wb, data):
     rows = [
         (4, "As-of override (UTC). Leave blank for the live clock; enter a UTC date-time to review the workbook as at that moment.", None, True),
         (5, "This PC's clock offset from UTC (hours). 8 = Malaysia (MYT). Used to convert NOW() to UTC.", 8, True),
-        (6, "Effective as-of time (UTC) used for all overdue tests", "=IF(B4<>\"\",B4,NOW()-B5/24)", False),
+        (6, "Effective as-of time (UTC) used for all overdue tests", "=IF(ISNUMBER(B4),B4,NOW()-N(B5)/24)", False),
         (7, "Physical-uplift window: on-board confirmation is valid only within this many hours before STD (assumption – adjust to station loading practice)", 6, True),
         (8, "T-24H sensory test: earliest valid completion, hours before its due time (assumption – production batch must exist)", 24, True),
         (9, "T-12H preparation check: earliest valid completion, hours before its due time (assumption)", 12, True),
+        (10, "T-7D checks: earliest valid completion, days before the T-7D due time (assumption – older evidence is stale)", 14, True),
     ]
     ws.column_dimensions["A"].width = 50
     ws.column_dimensions["B"].width = 20
@@ -123,6 +124,19 @@ def build_settings(wb, data):
     name(wb, "UpliftWindowH", "Settings!$B$7")
     name(wb, "T24EarlyH", "Settings!$B$8")
     name(wb, "T12EarlyH", "Settings!$B$9")
+    name(wb, "T7EarlyD", "Settings!$B$10")
+    for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
+                              ("B7", "1", "24", "Hours, 1 to 24"), ("B8", "1", "72", "Hours, 1 to 72"),
+                              ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
+        dv = DataValidation(type="decimal", operator="between", formula1=lo, formula2=hi, allow_blank=False,
+                            showErrorMessage=True, errorTitle="Invalid setting", error=msg)
+        dv.add(addr)
+        ws.add_data_validation(dv)
+    dvb4 = DataValidation(type="decimal", operator="between", formula1="46023", formula2="46752", allow_blank=True,
+                          showErrorMessage=True, errorTitle="Date-time required",
+                          error="Enter a UTC date-time in 2026-2027, or leave blank for the live clock.")
+    dvb4.add("B4")
+    ws.add_data_validation(dvb4)
 
     ws["A11"] = "Station time zones (IANA tz database rules; DST windows cover the Oct-2026 programme)"
     ws["A11"].font = f(10, True, NAVY)
@@ -188,7 +202,7 @@ def build_flights(wb, data, n_checks):
     title(ws, "Flight register",
           "Source: Skytrax Agenda 2026 slide (schedule) and STD UPLIFT INFORMATION.xlsx (uplift). Yellow = input. "
           "Times: STD/STA in local time of the departure/arrival station; due times computed from STD in UTC.",
-          "G2:P2", 115)
+          "G2:M2", 89)
     header(ws, 4, FL_HEAD, FL_W, height=54)
     last = 4 + n_checks
     rng = lambda col: f"Checks!${col}$5:${col}${last}"
@@ -303,6 +317,10 @@ def build_flights(wb, data, n_checks):
     dvx = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
                          showErrorMessage=True, error="Enter the carrying flight's KUL departure as a UTC date-time (Jul 2026 - Jan 2027).")
     dvx.add("AX5:AX26")
+    dvl = DataValidation(type="list", formula1='"A350,A333,A339,B738MAX"', allow_blank=False, showErrorMessage=True,
+                         errorTitle="Fleet", error="Choose the fleet from the list (schedule values).")
+    dvl.add("L5:L26")
+    ws.add_data_validation(dvl)
     ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
@@ -347,7 +365,7 @@ def build_checks(wb, data):
     header(ws, 4, CK_HEAD, CK_W, height=54)
     fidx = {x["id"]: i for i, x in enumerate(data["flights"])}
     code_due = {"T-7D": "AC", "T-24H": "AD", "T-12H PREP": "AE", "UPLIFT": "AF"}
-    early = {"T-7D": None, "T-24H": "T24EarlyH", "T-12H PREP": "T12EarlyH", "UPLIFT": "UpliftWindowH"}
+    early = {"T-7D": "T7EarlyD*24", "T-24H": "T24EarlyH", "T-12H PREP": "T12EarlyH", "UPLIFT": "UpliftWindowH"}
     n = len(data["checks"])
     last = 4 + n
     for i, ck in enumerate(data["checks"]):
@@ -374,7 +392,9 @@ def build_checks(wb, data):
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
             "Q": "=ROUND((" + due_formula(ck, cp, fr, code_due)[1:] + ")*1440,0)/1440",
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
-            "S": f"=Q{r}-{early[cp]}/24" if early[cp] else "",
+            "S": (f"=IF(ISNUMBER(Flights!$AY${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AY${fr}+UpliftWindowH/24),"
+                  f"Q{r}-UpliftWindowH/24)" if cp == "UPLIFT" and ck.get("due_rule") != "CARRY"
+                  else f"=Q{r}-{early[cp]}/24"),
             "X": exp_qty,
             "AF": f"=IF(AND(ISNUMBER(X{r}),ISNUMBER(Y{r})),Y{r}-X{r},\"\")",
             "AG": f"=IF(ISNUMBER(AD{r}),AD{r}-({off('P' + str(r), '(AD' + str(r) + '-' + stdoff('P' + str(r)) + '/24)')})/24,\"\")",
@@ -387,44 +407,49 @@ def build_checks(wb, data):
             vals["AS"] = 3
         doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
-                   f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\",")
+                   f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\","
+                   f"IF(AND(AS{r}=3,OR(Flights!$AX${fr}>=Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
+                   f"\"INVALID {ND} Flights AX must be before this leg's STD (within 3 days)\",")
         # msg = qty-variance / CA checks joined with &; "" when OK. IF(msg<>"", msg, rest) keeps Excel-2007 nesting.
         U = f"TRIM(U{r})"
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
-               f"IF(AND({U}=\"Pass\",AB{r}=\"Open\"),\"INVALID {ND} corrective action still open: use Fail, then Pass after CA\",\"\")&"
-               f"IF(AND({U}=\"Pass after CA\",OR(TRIM(AA{r})=\"\",AB{r}<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
+               f"IF(AND({U}=\"Pass\",TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action not closed: use Fail, then Pass after CA\",\"\")&"
+               f"IF(AND(TRIM(AA{r})<>\"\",TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
+               f"IF(AND({U}=\"Pass after CA\",OR(TRIM(AA{r})=\"\",TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
                 f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")))))))))")
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF(TRIM(T{r})=\"\",\"INVALID {ND} PIC missing\","
+            f"IF(TRIM(V{r})=\"\",\"INVALID {ND} result / assessment missing\","
             f"IF(TRIM(Z{r})=\"\",\"INVALID {ND} evidence missing\","
             f"IF(TRIM(AE{r})=\"\",\"INVALID {ND} verifier missing\","
+            f"IF(TRIM(AE{r})=TRIM(T{r}),\"INVALID {ND} verifier must be someone other than the PIC\","
             f"IF(AND(AQ{r}=1,TRIM(W{r})=\"\"),\"INVALID {ND} batch ID missing\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
-            f"IF({msg}<>\"\",{msg},{rest})))))))")
+            f"IF({msg}<>\"\",{msg},{rest})))))))))")
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this mandatory check\","
-            f"IF(AND(TRIM(AC{r})<>\"\",TRIM(AE{r})<>\"\",TRIM(T{r})<>\"\"),\"N/A {ND} JUSTIFIED\","
-            f"\"INVALID {ND} N/A needs justification, PIC and verifier\")),"
+            f"IF(AND(TRIM(AC{r})<>\"\",TRIM(AE{r})<>\"\",TRIM(T{r})<>\"\",TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
+            f"\"INVALID {ND} N/A needs justification, PIC and a different verifier\")),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
             f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
         na_ok = int(ck["item"].endswith(" - prepared") or ck["item"].endswith(" - on board") or ck["category"] == "Menu"
-                    or ck["applic"] == "Clarification required")
+                    or ck["applic"] == "Clarification required") and not ck.get("req_carry")
         vals["AT"] = na_ok
         vals["AH"] = state
         vals["AI"] = f"=IF(OR(AH{r}=\"N/A {ND} RULE\",AH{r}=\"N/A {ND} JUSTIFIED\"),0,1)"
         vals["AJ"] = f"=IF(LEFT(AH{r},8)=\"COMPLETE\",1,0)"
         vals["AK"] = f"=IF(AND(AI{r}=1,AJ{r}=0,AsOfUTC>Q{r}),1,0)"
-        vals["AL"] = (f"=IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AB{r}=\"Open\",AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0)")
+        vals["AL"] = (f"=IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0)")
         vals["AM"] = f"=IF(LEFT(AH{r},7)=\"INVALID\",1,0)"
         vals["AN"] = f"=IF(AND(N{r}=\"Clarification required\",AI{r}=1,AJ{r}=0),1,0)"
         vals["AO"] = f"=IF(AK{r}=1,SUM(AK$5:AK{r}),\"\")"
@@ -466,7 +491,8 @@ def build_checks(wb, data):
                         promptTitle="Status", showInputMessage=True, showErrorMessage=True)
     dv.add(f"U5:U{last}")
     ws.add_data_validation(dv)
-    dv2 = DataValidation(type="list", formula1="=L_CA", allow_blank=True)
+    dv2 = DataValidation(type="list", formula1="=L_CA", allow_blank=True, showErrorMessage=True,
+                         errorTitle="CA status", error="Choose Open or Closed from the list.")
     dv2.add(f"AB5:AB{last}")
     ws.add_data_validation(dv2)
     dv3 = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
@@ -616,7 +642,7 @@ def build_requirements(wb, data):
           "C2:I2", 108)
     labels = ["Flight ID", "Flight No", "Date", "Sector", "Class", "Fleet", "Category", "Item", "Expected",
               "Qty", "Uplift stn", "Applicability", "Note / open question", "Source cell"]
-    widths = [7, 9, 10, 9, 6, 9, 14, 30, 30, 12, 14, 14, 50, 38]
+    widths = [8, 11, 10, 9, 6, 9, 14, 30, 30, 12, 14, 14, 50, 38]
     header(ws, 4, labels, widths)
     byid = {x["id"]: x for x in data["flights"]}
     r = 5
@@ -655,7 +681,7 @@ def build_requirements(wb, data):
     ws.auto_filter.ref = f"A4:N{4 + len(data['requirements'])}"
     ws.print_title_rows = "4:4"
     ws.print_title_cols = "A:B"
-    fit_pages(ws, "A", "N", title_cols_w=16)
+    fit_pages(ws, "A", "N", title_cols_w=19)
 
 
 # ------------------------------------------------------------------ Instructions
@@ -691,6 +717,8 @@ INSTR = [
     ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS (GLD / menu checklist not on file), – CLARIFICATION (reference question open), then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
+    ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, sorting, row sizing and inserting pictures still work. Review > Unprotect Sheet if a structural change is needed."),
+    ("b", "PIC and verifier must be different people. Every Pass needs a result/assessment. T-7D evidence older than the Settings B10 window is rejected as stale."),
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),

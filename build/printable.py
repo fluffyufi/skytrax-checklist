@@ -324,7 +324,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         kul = "IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)"
         ay = FL("AY")
         est = f'IF(ISNUMBER({FL("AX")}),""," (estimated – enter actual on Flights AX)")'
-        times = (f'"Prep must be complete by (loading window opens): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
+        times = (f'"KUL loading window opens (caps prep dues; each row shows its binding due): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
                  f'&" KUL","(not set)")&"   |   Carrying flight KUL departure (loading confirmed by): "&'
                  f'IF(ISNUMBER({ay}),TEXT({ay}+UpliftWindowH/24+{kul}/24,"{TFMT}")&" KUL","(not set)")&{est}')
         if f["round_trip"]:
@@ -342,7 +342,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
             head = ("KUL-SOURCED ITEMS: some items for this flight are uplifted at KUL on an inbound carrying flight "
                     "(identify it in the clarification check). Their preparation is capped at the KUL loading window.")
         _put(ws, r, 1, note, NCOL, font=_font(LS, True, "7F4F00"), fill=AMBER_FILL)
-        sz = head + "\n" + ("Prep must be complete by (loading window opens): 12-Oct-26 05:45 KUL   |   Carrying flight "
+        sz = head + "\n" + ("KUL loading window opens (caps prep dues; each row shows its binding due): 12-Oct-26 05:45 KUL   |   Carrying flight "
                             "KUL departure (loading confirmed by): 12-Oct-26 11:45 KUL (estimated – enter actual on "
                             "Flights AX)")
         ws.row_dimensions[r].height = _height(_lines(sz, _width(1, NCOL), LS, True), LS, 4)

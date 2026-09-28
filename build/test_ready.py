@@ -64,15 +64,14 @@ def m(col_vals):
     return f
 
 
-import sys as _s
-if len(_s.argv) > 1: run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("N6", None)); _s.exit()
-run("baseline_full")
-run("after_departure_T24", m([("F02-T24-01", "AD", datetime(2026, 10, 9, 21, 55))]), asof=datetime(2026, 10, 9, 14, 0))
-run("pic_missing", m([("F02-T7-01", "T", None)]))
-run("whitespace_evidence", m([("F02-T7-02", "Z", " ")]))
-run("na_on_meal_uplift", m([("F02-UPL-01", "U", "N/A"), ("F02-UPL-01", "AC", "not needed")]))
-run("status_trailing_space", m([("F02-T7-01", "U", "Pass ")]))
-run("uplift_before_window", m([("F02-UPL-02", "AD", datetime(2026, 10, 9, 14, 0))]))
-run("qty_variance", m([("F02-T12-02", "Y", 11)]))
-run("uplift_blank_not_due", m([("F02-UPL-01", "U", None)]))
-run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("N6", None))
+if __name__ == "__main__":
+  run("baseline_full")
+  run("after_departure_T24", m([("F02-T24-01", "AD", datetime(2026, 10, 9, 21, 55))]), asof=datetime(2026, 10, 9, 14, 0))
+  run("pic_missing", m([("F02-T7-01", "T", None)]))
+  run("whitespace_evidence", m([("F02-T7-02", "Z", " ")]))
+  run("na_on_meal_uplift", m([("F02-UPL-01", "U", "N/A"), ("F02-UPL-01", "AC", "not needed")]))
+  run("status_trailing_space", m([("F02-T7-01", "U", "Pass ")]))
+  run("uplift_before_window", m([("F02-UPL-02", "AD", datetime(2026, 10, 9, 14, 0))]))
+  run("qty_variance", m([("F02-T12-02", "Y", 11)]))
+  run("uplift_blank_not_due", m([("F02-UPL-01", "U", None)]))
+  run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("N6", None))
