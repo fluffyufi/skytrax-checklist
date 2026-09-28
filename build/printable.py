@@ -10,6 +10,7 @@ for hand-written or typed entries of ~140 characters in the combined cells.
 """
 from datetime import datetime
 
+from openpyxl.comments import Comment
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -23,13 +24,13 @@ FS = 9  # body font size
 # Total 143 width units: A4 landscape, 0.25" margins -> fit-to-width scale ~97 % (measured in LibreOffice).
 COLS = [
     ("Check ID / item", 18),
-    ("Requirement / expected", 21),
+    ("Requirement / expected", 19),
     ("Applic. / due (local)", 12),
     ("Status (CA)", 10),
-    ("Result  |  batch  |  exp / act qty", 31),
-    ("Evidence  |  corrective action", 31),
-    ("Done (local) / verifier", 11),
-    ("Record state", 9),
+    ("Result  |  batch  |  exp / act qty", 28),
+    ("Evidence  |  corrective action", 29),
+    ("Done (local) / verifier / PIC", 14),
+    ("Record state", 13)  # fits "CLARIFICATION" in bold 8.5 pt without a mid-word break,
 ]
 NCOL = len(COLS)
 LASTCOL = get_column_letter(NCOL)
@@ -211,7 +212,7 @@ def _keep_bands_with_rows(ws, head_row, band_rows, last_row):
 
 
 # ------------------------------------------------------------------ builder
-def _build_one(wb, n, f, checks_idx):
+def _build_one(wb, n, f, checks_idx, carry_ids=()):
     fr = FIRST_FLIGHT_ROW + n - 1
     FL = lambda col: f"Flights!${col}${fr}"  # noqa: E731
     DC = lambda col: f"Documents!${col}${fr}"  # noqa: E731
@@ -303,7 +304,8 @@ def _build_one(wb, n, f, checks_idx):
     for i, (label, formula, txt) in enumerate(left):
         row = top + i
         nl = max(_lines(txt, _width(2, 4)), _lines(label, COLS[0][1], LS, True), right_h.get(row, 1))
-        ws.row_dimensions[row].height = _height(nl, FS, 2, 13)
+        write_in = label in ("Tail / Reg", "Caterer", "Flight PIC")  # hand-written on paper when blank
+        ws.row_dimensions[row].height = _height(nl, FS, 2, 21 if write_in else 13)
     r = rr
 
     # ---------------- notes: T-12H warning / round-trip
@@ -316,19 +318,33 @@ def _build_one(wb, n, f, checks_idx):
         _put(ws, r, c, t, c, font=_font(8, True), fill=fill, align=AL_CEN)
     ws.row_dimensions[r].height = _height(max(_lines(warn, _width(1, 4), LS, True),
                                               _lines("OVERDUE / FAIL / INVALID", COLS[7][1], 8, True)), LS, 3)
-    if f["round_trip"]:
+    carry = f["round_trip"] or f["id"] in carry_ids
+    if carry:
         r += 1
-        kul = ("IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)")
-        cand = (f'{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F${FIRST_FLIGHT_ROW + NFL - 1},'
-                f'MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A${FIRST_FLIGHT_ROW + NFL - 1},0)),"")')
-        note = (f'="ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate "&{cand}'
-                f'&"; actual KUL departure entered on Flights AX). T-24H / T-12H PREP are capped at the KUL loading '
-                f'deadline "&IF(ISNUMBER({FL("AY")}),TEXT({FL("AY")}+{kul}/24,"{TFMT}")&" KUL","(not set)")'
-                f'&"; on-board UPLIFT checks are at "&{FL("G")}&"."')
+        kul = "IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)"
+        ay = FL("AY")
+        est = f'IF(ISNUMBER({FL("AX")}),""," (estimated – enter actual on Flights AX)")'
+        times = (f'"Prep must be complete by (loading window opens): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
+                 f'&" KUL","(not set)")&"   |   Carrying flight KUL departure (loading confirmed by): "&'
+                 f'IF(ISNUMBER({ay}),TEXT({ay}+UpliftWindowH/24+{kul}/24,"{TFMT}")&" KUL","(not set)")&{est}')
+        if f["round_trip"]:
+            cand = (f'{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F${FIRST_FLIGHT_ROW + NFL - 1},'
+                    f'MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A${FIRST_FLIGHT_ROW + NFL - 1},0)),"")')
+            note = (f'="ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate "&{cand}'
+                    f'&"). T-24H / T-12H PREP are capped at the KUL loading window; on-board UPLIFT checks are at "'
+                    f'&{FL("G")}&"."&CHAR(10)&{times}')
+            head = ("ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate F10 "
+                    "MH1140). T-24H / T-12H PREP are capped at the KUL loading window; on-board UPLIFT checks are at PEN.")
+        else:
+            note = (f'="KUL-SOURCED ITEMS: some items for this flight are uplifted at KUL on an inbound carrying flight '
+                    f'(identify it in the clarification check). Their preparation is capped at the KUL loading window."'
+                    f'&CHAR(10)&{times}')
+            head = ("KUL-SOURCED ITEMS: some items for this flight are uplifted at KUL on an inbound carrying flight "
+                    "(identify it in the clarification check). Their preparation is capped at the KUL loading window.")
         _put(ws, r, 1, note, NCOL, font=_font(LS, True, "7F4F00"), fill=AMBER_FILL)
-        sz = ("ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate F10 MH1140; "
-              "actual KUL departure entered on Flights AX). T-24H / T-12H PREP are capped at the KUL loading "
-              "deadline 12-Oct-26 05:45 KUL; on-board UPLIFT checks are at PEN.")
+        sz = head + "\n" + ("Prep must be complete by (loading window opens): 12-Oct-26 05:45 KUL   |   Carrying flight "
+                            "KUL departure (loading confirmed by): 12-Oct-26 11:45 KUL (estimated – enter actual on "
+                            "Flights AX)")
         ws.row_dimensions[r].height = _height(_lines(sz, _width(1, NCOL), LS, True), LS, 4)
 
     # ---------------- attachments register (paper pack)
@@ -358,11 +374,10 @@ def _build_one(wb, n, f, checks_idx):
         ws.conditional_formatting.add(f"E{r}", FormulaRule(formula=[f'$E${r}="ON FILE"'], fill=GREEN_FILL))
     r += 1
     _put(ws, r, 1, "Document notes", 1, **lab)
-    _put(ws, r, 2, _blank(DC("Q")), 5, font=_font(8))
-    xl_note = "Excel only: Insert > Picture into the area after the checklist."
-    _put(ws, r, 6, xl_note, 8, font=_font(8, False, "595959", italic=True))
-    ws.row_dimensions[r].height = _height(max(_lines(xl_note, _width(6, 8), 8),
-                                              3), 8, 3)  # Documents notes (free text) up to ~3 lines
+    _put(ws, r, 2, _blank(DC("Q")), NCOL, font=_font(8))
+    ws.row_dimensions[r].height = _height(2, 8, 3)  # Documents notes (free text) up to ~2 lines at full width
+    ws.cell(r, 1).comment = Comment("Excel only: insert the GLD / menu checklist image (Insert > Picture) in the "
+                                    "insertion area after the checklist table; it is not printed.", "MAGCS")
 
     # ---------------- sign-off (horizontal)
     r += 1
@@ -397,7 +412,8 @@ def _build_one(wb, n, f, checks_idx):
     entry_lines = max(
         _lines(_RESULT_SAMPLE + "\nBatch: BATCH-LHR-20261001-JCL-0042\nExp: 280  /  Act: 280", COLS[4][1]),
         _lines("Evidence: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
-        _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)", COLS[6][1]),
+        _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)\nPIC: Capt. Ahmad Rahman bin Abdullah",
+               COLS[6][1]),
     ) + 1  # spare line
     band_rows = []
     by_cp = {cp: [] for cp, *_ in CHECKPOINTS}
@@ -441,7 +457,8 @@ def _build_one(wb, n, f, checks_idx):
                 (f'=IF({C("Z")}="","","Evidence: "&{C("Z")})'
                  f'&IF({C("AA")}="","",IF({C("Z")}="","",CHAR(10))&"CA: "&{C("AA")})'),
                 (f'=IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}")&" "&{C("P")},"")'
-                 f'&IF({C("AE")}="","",CHAR(10)&{C("AE")})'),
+                 f'&IF({C("AE")}="","",CHAR(10)&"Verifier: "&{C("AE")})'
+                 f'&IF({C("T")}="","",CHAR(10)&"PIC: "&{C("T")})'),
                 _blank(C("AH")),
             ]
             for i, v in enumerate(vals, 1):
@@ -457,7 +474,7 @@ def _build_one(wb, n, f, checks_idx):
                 _lines(item_txt, COLS[0][1]),
                 _lines(req_txt, COLS[1][1]),
                 _lines(app + "\n08-Oct-26 21:35 LHR", COLS[2][1]),
-                _lines("INVALID – completion time is in the future", COLS[7][1], LS, True),
+                _lines("OPEN – CLARIFICATION", COLS[7][1], LS, True),
                 entry_lines + exp_extra,
             )
             ws.row_dimensions[r].height = _height(nl, FS, 4)
@@ -521,7 +538,8 @@ def _build_one(wb, n, f, checks_idx):
 
 def build(wb, data):
     idx = {}
+    carry_ids = {c["flight_id"] for c in data["checks"] if c.get("due_rule") == "CARRY"}
     for gi, c in enumerate(data["checks"]):
         idx.setdefault(c["flight_id"], []).append((gi, c))
     for n, f in enumerate(data["flights"], 1):
-        _build_one(wb, n, f, idx.get(f["id"], []))
+        _build_one(wb, n, f, idx.get(f["id"], []), carry_ids)

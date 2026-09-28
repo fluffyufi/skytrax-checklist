@@ -338,7 +338,7 @@ def requirements_for(f):
         applic = "Required"
         if f["dep"] != "KUL":
             applic = "Clarification required"
-            stn_note = (f" Reference names caterer {caterer} (KUL) for the KUL/{out}/KUL sector but no uplift station: "
+            stn_note = (f" Reference names caterer {caterer} for the KUL/{out}/KUL sector but no uplift station: "
                         f"confirm whether the {f['dep']}-KUL sales cart is loaded at KUL (round trip) or at {f['dep']}.")
         if f["block_h"] >= 4:
             if f["fleet"] == "B738MAX":
@@ -472,20 +472,23 @@ def check_lines(f, reqs, flights):
             "Clarification required",
             f"{f['dep']} does not cater. Agenda candidate: {lf['flt']} ({lf['id']}, KUL {lf['std_text']} local) - confirm the aircraft "
             f"rotation and enter the actual KUL departure in Flights AX (cannot be passed until entered). Until then, T-24H, "
-            f"T-12H prep and the KUL loading line use the latest possible KUL departure (STD minus the KUL-{f['dep']} block).",
+            f"T-12H prep and the KUL loading line assume the candidate's KUL departure.",
             "KUL", carry=1)
     kul_items = [r for r in reqs if r["uplift_stn"] == "KUL"]
     carry = f["dep"] != "KUL" and not f["round_trip"] and bool(kul_items)
     rt_bound = [x["id"] for x in inbound] if f["round_trip"] else None
     names = ", ".join(r["item"] for r in kul_items)
     if carry:
-        cand = ", ".join(f"{x['flt']} {x['date'][8:]}-Oct ({x['id']})" for x in inbound) or "none in agenda"
+        prior = [x for x in inbound if x["std_utc"] < f["std_utc"]]
+        cand = (f"agenda candidate {prior[-1]['flt']} {prior[-1]['date'][8:]}-Oct ({prior[-1]['id']})" if prior else
+                "no KUL-" + f["dep"] + " flight before this leg in the agenda")
         add("T-7D", "Preparation", "Uplift plan",
             f"Inbound KUL-{f['dep']} flight carrying KUL-sourced items identified and its KUL departure (UTC) entered on Flights col AX",
             f"KUL-sourced items ({names}) travel on the inbound KUL-{f['dep']} sector",
             f"{REFNAME} > item uplift stn columns (see Requirements)", "Clarification required",
-            f"Cannot be passed until Flights AX holds the carrying flight's KUL departure. Until then, the prep and KUL-loading "
-            f"dues use the latest possible time: STD minus the shortest agenda KUL-{f['dep']} block ({cand}) minus the uplift window.",
+            f"Cannot be passed until Flights AX holds the carrying flight's KUL departure ({cand}). Until then the prep and KUL-loading "
+            f"dues assume the agenda candidate's KUL departure, or if none, the latest possible one (STD minus the shortest "
+            f"agenda KUL-{f['dep']} block).",
             "KUL", carry=1)
     for cat, item, exp, batch, doc in STD_T24:
         add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required",

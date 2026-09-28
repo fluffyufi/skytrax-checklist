@@ -46,13 +46,19 @@ def header(ws, row, labels, widths=None, height=42):
             ws.column_dimensions[get_column_letter(i)].width = w
 
 
-def title(ws, text, sub=None):
+def title(ws, text, sub=None, sub_span=None, sub_width=None):
+    """Short title in A1 (must fit the repeated print-title columns); subtitle wrapped inside sub_span on row 2."""
     ws["A1"] = text
-    ws["A1"].font = f(16, True, NAVY)
-    ws.row_dimensions[1].height = 26
+    ws["A1"].font = f(14, True, NAVY)
+    ws.row_dimensions[1].height = 24
     if sub:
-        ws["A2"] = sub
-        ws["A2"].font = f(9, False, "595959", True)
+        anchor = sub_span.split(":")[0] if sub_span else "A2"
+        ws[anchor] = sub
+        ws[anchor].font = f(9, False, "595959", True)
+        if sub_span:
+            ws.merge_cells(sub_span)
+            ws[anchor].alignment = Alignment(wrap_text=True, vertical="top")
+            ws.row_dimensions[2].height = 12.5 * est_lines(sub, sub_width) + 4
 
 
 def est_lines(text, width):
@@ -141,7 +147,8 @@ def build_settings(wb, data):
                  "(UTC+10:30) starts Sun 4-Oct-2026 02:00 local (03-Oct 16:30 UTC). No DST at other stations.")
     ws["A23"].font = f(8, italic=True, color="595959")
     ws["A23"].alignment = WRAP
-    ws.row_dimensions[23].height = 24
+    ws.merge_cells("A23:F23")
+    ws.row_dimensions[23].height = 30
 
     ws["H3"] = "Status list"
     ws["I3"] = "CA status list"
@@ -156,6 +163,7 @@ def build_settings(wb, data):
     name(wb, "L_Status", "Settings!$H$4:$H$9")
     ws.print_area = "A1:F23"
     fit_pages(ws, "A", "F")
+    ws.page_setup.fitToHeight = 1
     name(wb, "L_CA", "Settings!$I$4:$I$5")
     ws.sheet_view.showGridLines = False
 
@@ -177,9 +185,10 @@ FL_W = [7, 5, 5, 10, 6, 9, 6, 6, 15, 15, 8, 9, 30, 12, 6, 8, 14, 13, 12, 22, 11,
 
 def build_flights(wb, data, n_checks):
     ws = wb.create_sheet("Flights")
-    title(ws, "Flight register – Skytrax Agenda 2026 (22 legs)",
+    title(ws, "Flight register",
           "Source: Skytrax Agenda 2026 slide (schedule) and STD UPLIFT INFORMATION.xlsx (uplift). Yellow = input. "
-          "Times: STD/STA in local time of the departure/arrival station; due times computed from STD in UTC.")
+          "Times: STD/STA in local time of the departure/arrival station; due times computed from STD in UTC.",
+          "G2:P2", 115)
     header(ws, 4, FL_HEAD, FL_W, height=54)
     last = 4 + n_checks
     rng = lambda col: f"Checks!${col}$5:${col}${last}"
@@ -242,16 +251,21 @@ def build_flights(wb, data, n_checks):
                      f"SUMIFS({rng('AI')},{rng('B')},$A{r},{rng('H')},\"Preparation\")")
         ws[f"AT{r}"] = (f"=IF(AND(AW{r}>0,AO{r}=0,AQ{r}=0,AR{r}=0,AU{r}=0),\"READY\","
                         f"IF(AP{r}>0,\"NOT READY {ND} OVERDUE\",IF(AQ{r}>0,\"NOT READY {ND} DISCREPANCY\","
-                        f"IF(AU{r}>0,\"NOT READY {ND} INVALID ENTRY\",IF(AR{r}>0,\"NOT READY {ND} DOCUMENTS OUTSTANDING\","
-                        f"IF(AS{r}>0,\"NOT READY {ND} CLARIFICATION OPEN\",IF(AND(AV{r}>0,{prep_done}),"
+                        f"IF(AU{r}>0,\"NOT READY {ND} INVALID ENTRY\",IF(AR{r}>0,\"NOT READY {ND} DOCUMENTS\","
+                        f"IF(AS{r}>0,\"NOT READY {ND} CLARIFICATION\",IF(AND(AV{r}>0,{prep_done}),"
                         f"\"PREP DONE {ND} AWAITING UPLIFT\",IF(AV{r}=0,\"NOT STARTED\",\"IN PROGRESS\"))))))))")
         ws[f"AU{r}"] = f"=SUMIFS({rng('AM')},{rng('B')},$A{r})"
         ws[f"AV{r}"] = f"=SUMIFS({rng('AJ')},{rng('B')},$A{r})"
         ws[f"AW{r}"] = f"=SUMIFS({rng('AI')},{rng('B')},$A{r})"
         bounds = next((ck["due_bound"] for ck in data["checks"] if ck["flight_id"] == fl["id"] and ck.get("due_rule") == "CARRY"), None)
         if bounds:
-            mb = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
-            ws[f"AY{r}"] = f"=IF(ISNUMBER(AX{r}),AX{r},AA{r}-MIN({mb})/24)-UpliftWindowH/24"
+            prior = [b for b in bounds if byid[b]["std_utc"] < fl["std_utc"]]
+            if prior:
+                default = f"$AA${5 + int(prior[-1][1:]) - 1}"
+            else:
+                mb = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
+                default = f"AA{r}-MIN({mb})/24"
+            ws[f"AY{r}"] = f"=ROUND((IF(ISNUMBER(AX{r}),AX{r},{default})-UpliftWindowH/24)*1440,0)/1440"
             ws[f"AX{r}"].comment = Comment(
                 "Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
                 "loading deadline assumes the latest possible departure (STD minus shortest agenda block).", "MAGCS")
@@ -320,15 +334,16 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
-        14, 13, 28, 16, 9, 9, 20, 28, 9, 26, 17, 14,
+        14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
         9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8]
 
 
 def build_checks(wb, data):
     ws = wb.create_sheet("Checks")
-    title(ws, "Check register – every readiness record for every flight (single source of truth)",
-          "Enter results only in the yellow columns T–AE. Blank never counts as complete. Pass requires completion time, "
-          "evidence and verifier (plus batch ID / quantities where required). N/A requires justification and verifier.")
+    title(ws, "Check register",
+          "Every readiness record for every flight (single source of truth). Enter results only in the yellow columns T–AE. Blank never counts as complete. Pass requires completion time, "
+          "evidence and verifier (plus batch ID / quantities where required). N/A requires justification and verifier.",
+          "D2:J2", 97)
     header(ws, 4, CK_HEAD, CK_W, height=54)
     fidx = {x["id"]: i for i, x in enumerate(data["flights"])}
     code_due = {"T-7D": "AC", "T-24H": "AD", "T-12H PREP": "AE", "UPLIFT": "AF"}
@@ -357,7 +372,7 @@ def build_checks(wb, data):
             "E": f"=Flights!$G${fr}&\"-\"&Flights!$H${fr}", "F": f"=Flights!$K${fr}", "G": cp,
             "H": ck["check_type"], "I": ck["category"], "J": ck["item"], "K": ck["expected"], "L": ck["src"],
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
-            "Q": due_formula(ck, cp, fr, code_due),
+            "Q": "=ROUND((" + due_formula(ck, cp, fr, code_due)[1:] + ")*1440,0)/1440",
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
             "S": f"=Q{r}-{early[cp]}/24" if early[cp] else "",
             "X": exp_qty,
@@ -492,9 +507,10 @@ def build_checks(wb, data):
 # ------------------------------------------------------------------ Documents
 def build_documents(wb, data):
     ws = wb.create_sheet("Documents")
-    title(ws, "PIC reference documents – galley loading diagrams (GLD) & menu checklists",
-          "No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. Enter doc no, revision, "
-          "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.")
+    title(ws, "Documents",
+          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. Enter doc no, revision, "
+          "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.",
+          "C2:I2", 99)
     labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date",
               "GLD attachment (link / location)", "GLD status", "Menu checklist doc no", "Menu checklist revision",
               "Menu checklist rev date", "Menu checklist attachment (link / location)", "Menu checklist status",
@@ -544,10 +560,6 @@ def build_documents(wb, data):
     ws.freeze_panes = "C5"
     ws.print_title_cols = "A:B"
     ws.print_title_rows = "4:4"
-    for rr in ("A1:H1", "A2:H2"):
-        ws.merge_cells(rr)
-    ws["A2"].alignment = WRAP
-    ws.row_dimensions[2].height = 36
     fit_pages(ws, "A", "Q", title_cols_w=16)
 
 
@@ -555,13 +567,10 @@ def build_isop(wb):
     ws = wb.create_sheet("ISOP Register")
     title(ws, "ISOP revision register",
           "Record every applicable In-flight Service Operating Procedure revision communicated to caterers. "
-          "The T-7D ISOP checks on each flight should quote the revision numbers listed here.")
-    ws.merge_cells("A2:I2")
-    ws["A2"].alignment = WRAP
-    ws.row_dimensions[2].height = 26
+          "The T-7D ISOP checks on each flight should quote the revision numbers listed here.", "A2:I2", 140)
     header(ws, 4, ["#", "ISOP doc / section", "Revision", "Effective date", "Title / change summary", "Applies to stations",
                    "Communicated on", "Communicated by", "Caterer acknowledgement ref"],
-           [5, 16, 9, 11, 32, 14, 12, 16, 20], height=32)
+           [5, 16, 9, 11, 30, 14, 14, 16, 20], height=32)
     for k in range(40):
         r = 5 + k
         ws.cell(r, 1, k + 1).font = f(9)
@@ -601,9 +610,10 @@ def fit_pages(ws, first, last, landscape=True, title_cols_w=0):
 # ------------------------------------------------------------------ Requirements
 def build_requirements(wb, data):
     ws = wb.create_sheet("Requirements")
-    title(ws, "Uplift requirements by flight – derived from STD UPLIFT INFORMATION.xlsx",
-          "Applied by sector, aircraft, assessed cabin class and uplift station. 'Not stated in reference' = the reference "
-          "gives no uplift station for that item. Clarification rows block READY until resolved (Pass or justified N/A).")
+    title(ws, "Requirements",
+          "Uplift requirements by flight, derived from STD UPLIFT INFORMATION.xlsx. Applied by sector, aircraft, assessed cabin class and uplift station. 'Not stated in reference' = the reference "
+          "gives no uplift station for that item. Clarification rows block READY until resolved (Pass or justified N/A).",
+          "C2:I2", 108)
     labels = ["Flight ID", "Flight No", "Date", "Sector", "Class", "Fleet", "Category", "Item", "Expected",
               "Qty", "Uplift stn", "Applicability", "Note / open question", "Source cell"]
     widths = [7, 9, 10, 9, 6, 9, 14, 30, 30, 12, 14, 14, 50, 38]
@@ -678,7 +688,7 @@ INSTR = [
     ("b", "Preparation checks (T-12H PREP, at the caterer) never confirm loading. Physical uplift rows (UPLIFT) are only accepted when the completion time is inside the uplift window before STD (Settings B7) – an earlier entry shows 'INVALID – before uplift window'."),
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),
     ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present)."),
-    ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS OUTSTANDING, – CLARIFICATION OPEN, then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
+    ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS (GLD / menu checklist not on file), – CLARIFICATION (reference question open), then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
@@ -724,7 +734,7 @@ def build_instructions(wb, data):
         else:
             c.font = f(10)
             c.alignment = WRAP
-            ws.row_dimensions[r].height = max(15, 13.5 * est_lines(c.value, 84) + 2)
+            ws.row_dimensions[r].height = max(15, 13.5 * est_lines(c.value, 74) + 3)
         if kind == "k1":
             c.fill = F_INPUT
         elif kind == "k2":
