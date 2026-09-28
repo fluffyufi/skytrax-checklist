@@ -13,6 +13,7 @@ from datetime import datetime
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.pagebreak import Break
 
 NAVY = "1F3864"
 FONT = "Arial"
@@ -23,11 +24,11 @@ FS = 9  # body font size
 COLS = [
     ("Check ID / item", 18),
     ("Requirement / expected", 21),
-    ("Applicability / due (local @ stn)", 12),
-    ("Status (CA status)", 10),
+    ("Applic. / due (local)", 12),
+    ("Status (CA)", 10),
     ("Result  |  batch  |  exp / act qty", 31),
     ("Evidence  |  corrective action", 31),
-    ("Completed (local) / verifier", 11),
+    ("Done (local) / verifier", 11),
     ("Record state", 9),
 ]
 NCOL = len(COLS)
@@ -182,6 +183,36 @@ def _ref_static(t):
     return t
 
 
+# Printable body height in sheet points, measured in LibreOffice PDF output: A4 landscape minus margins and
+# header/footer bands at the ~98 % row scale of fit-to-width: measured break points give 531-540 pt.
+PAGE_BODY_PT = 533.0
+
+
+def _keep_bands_with_rows(ws, head_row, band_rows, last_row):
+    """Simulate pagination; add a manual break before a checkpoint band (or, on page 1, before the table
+    header) that would otherwise be stranded at the bottom of a page without its first check row."""
+    h = lambda r: ws.row_dimensions[r].height or 15  # noqa: E731
+    title_h = h(head_row)
+    bands = set(band_rows)
+    used = 0.0
+    for r in range(1, last_row + 1):
+        base = title_h if r > head_row else 0.0
+        if r == head_row:  # page 1 is a cover sheet: the checklist always starts on page 2
+            ws.row_breaks.append(Break(id=r - 1))
+            used = h(r)
+            continue
+        if r in bands and r + 1 <= last_row and (r - 1) != head_row:
+            need = h(r) + h(r + 1)
+        else:
+            need = h(r)
+        if used + need > PAGE_BODY_PT and used > base + 1:
+            if need > h(r) and used + h(r) <= PAGE_BODY_PT:
+                ws.row_breaks.append(Break(id=r - 1))  # keep-with-next break
+            used = base + h(r)
+        else:
+            used += h(r)
+
+
 # ------------------------------------------------------------------ builder
 def _build_one(wb, n, f, checks_idx):
     fr = FIRST_FLIGHT_ROW + n - 1
@@ -246,8 +277,8 @@ def _build_one(wb, n, f, checks_idx):
     }
     cp_label = {"T-7D": "T-7D – 7 days before departure",
                 "T-24H": "T-24H – production batch sensory",
-                "T-12H PREP": "T-12H PREP – prep check at caterer (does NOT confirm loading)",
-                "UPLIFT": "UPLIFT – physical on-board confirmation"}
+                "T-12H PREP": "T-12H PREP – caterer prep only",
+                "UPLIFT": "UPLIFT – on-board confirmation"}
     right_h = {}
     for cp, desc, _due, pct in CHECKPOINTS + [("OVERALL", "", None, "AN")]:
         rr += 1
@@ -256,8 +287,8 @@ def _build_one(wb, n, f, checks_idx):
         _put(ws, rr, 7, f"={FL(pct)}", 8, font=_font(FS, True), fmt="0%", align=AL_CEN)
         right_h[rr] = _lines(cp_label.get(cp, ""), COLS[4][1], LS, True)
     # counts: three per row, each value in its own cell for local conditional formatting
-    for label, cols, red in [("Overdue / discrepancies / invalid", ("AP", "AQ", "AU"), True),
-                             ("Open required / clarifications / docs out", ("AO", "AS", "AR"), None)]:
+    for label, cols, red in [("Overdue / discrep. / invalid", ("AP", "AQ", "AU"), True),
+                             ("Open reqd / clarif. / docs out", ("AO", "AS", "AR"), None)]:
         rr += 1
         right_h[rr] = _lines(label, COLS[4][1], LS, True)
         _put(ws, rr, 5, label, 5, **lab)
@@ -268,7 +299,7 @@ def _build_one(wb, n, f, checks_idx):
                 ws.conditional_formatting.add(cc, FormulaRule(formula=[f"AND(ISNUMBER({cc}),{cc}>0)"],
                                                               fill=RED_FILL, font=Font(color="9C0006", bold=True)))
     rr += 1
-    _put(ws, rr, 5, "Completed / in scope  |  as of (UTC)", 5, **lab)
+    _put(ws, rr, 5, "Done / in scope | as of UTC", 5, **lab)
     _put(ws, rr, 6, f'={FL("AV")}&" / "&{FL("AW")}', 6, font=_font(10, True), align=AL_CEN)
     _put(ws, rr, 7, f"={_t('Settings!$B$6')}", 8, font=_font(8), align=AL_CEN)
     assert rr == top + len(left) - 1
@@ -331,9 +362,10 @@ def _build_one(wb, n, f, checks_idx):
     r += 1
     _put(ws, r, 1, "Document notes", 1, **lab)
     _put(ws, r, 2, _blank(DC("Q")), 5, font=_font(8))
-    _put(ws, r, 6, "In Excel you may also insert the document image in the insertion area after the checklist "
-                   "(Insert > Picture).", 8, font=_font(8, False, "595959", italic=True))
-    ws.row_dimensions[r].height = _height(2, 8, 2)
+    xl_note = "Excel only: Insert > Picture into the area after the checklist."
+    _put(ws, r, 6, xl_note, 8, font=_font(8, False, "595959", italic=True))
+    ws.row_dimensions[r].height = _height(max(_lines(xl_note, _width(6, 8), 8),
+                                              3), 8, 3)  # Documents notes (free text) up to ~3 lines
 
     # ---------------- sign-off (horizontal)
     r += 1
@@ -352,6 +384,12 @@ def _build_one(wb, n, f, checks_idx):
         _put(ws, r, c1, "Signature / date-time:", c2, font=_font(8, False, "7F7F7F", italic=True), align=AL_TOP)
     ws.row_dimensions[r].height = 30
 
+    # ---------------- cover caption (page 1 = cover sheet; manual break before the table)
+    r += 1
+    _put(ws, r, 1, "Cover sheet – checklist starts on page 2 (staple attachments A1 / A2 behind this pack).",
+         NCOL, font=_font(8, False, "595959", italic=True), border=False, align=AL_MID)
+    ws.row_dimensions[r].height = 14
+
     # ---------------- checklist table
     r += 1
     head_row = r
@@ -364,6 +402,7 @@ def _build_one(wb, n, f, checks_idx):
         _lines("Evidence: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
         _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)", COLS[6][1]),
     ) + 1  # spare line
+    band_rows = []
     by_cp = {cp: [] for cp, *_ in CHECKPOINTS}
     for gi, c in checks_idx:
         by_cp.setdefault(c["checkpoint"], []).append((gi, c))
@@ -374,12 +413,13 @@ def _build_one(wb, n, f, checks_idx):
             due = f'"STD "&{_t(FL("I"))}&" "&{FL("G")}&" (departure stn)"'
         else:
             due = f'{_t(FL(due_col))}&" "&{FL("V")}&" (meal uplift stn)"'
+        band_rows.append(r)
         pct_txt = f'IF(ISNUMBER({FL(pct)}),TEXT({FL(pct)},"0%"),{FL(pct)})'
-        _band(ws, r, f'="{cp} — {desc}   |   Checkpoint due "&{due}&"; rows with a different due show their own'
-                     f'   |   Complete: "&{pct_txt}&"   |   {len(by_cp[cp])} line(s)"', FS, fill=F_BAND, color=NAVY)
+        _band(ws, r, f'="{cp} — {desc}  |  Due "&{due}&" (rows with another due show their own)'
+                     f'  |  Complete "&{pct_txt}&"  |  {len(by_cp[cp])} lines"', FS, fill=F_BAND, color=NAVY)
         ws.row_dimensions[r].height = _height(_lines(
-            f"{cp} — {desc}   |   Checkpoint due STD 08-Oct-26 21:35 LHR (meal uplift stn); rows with a different due "
-            f"show their own   |   Complete: 100%   |   49 line(s)", _width(1, NCOL), FS, True), FS, 4)
+            f"{cp} — {desc}  |  Due STD 08-Oct-26 21:35 LHR (departure stn) (rows with another due show their own)"
+            f"  |  Complete 100%  |  49 lines", _width(1, NCOL), FS, True), FS, 4)
         if not by_cp[cp]:
             r += 1
             _put(ws, r, 1, "No check lines at this checkpoint for this flight.", NCOL, font=_font(LS, italic=True))
@@ -425,6 +465,7 @@ def _build_one(wb, n, f, checks_idx):
             )
             ws.row_dimensions[r].height = _height(nl, FS, 4)
     last_table = r
+    _keep_bands_with_rows(ws, head_row, band_rows, last_table)
 
     if first_data:
         rs = f"{C_REC}{first_data}:{C_REC}{last_table}"
@@ -445,10 +486,11 @@ def _build_one(wb, n, f, checks_idx):
 
     # ---------------- Excel insertion area (end of sheet, never pushes the table)
     r += 2
-    _put(ws, r, 1, "EXCEL INSERTION AREA – A1 Galley Loading Diagram (Insert > Picture). On paper: staple behind "
-                   "this sheet as page A1.", 4, font=_font(LS, True, NAVY), fill=F_BAND)
-    _put(ws, r, 5, "EXCEL INSERTION AREA – A2 Menu Checklist (Insert > Picture). On paper: staple behind this "
-                   "sheet as page A2.", 8, font=_font(LS, True, NAVY), fill=F_BAND)
+    _put(ws, r, 1, "EXCEL INSERTION AREA (on-screen only, not printed) – A1 Galley Loading Diagram: Insert > "
+                   "Picture here. On paper: staple behind this sheet as page A1.", 4, font=_font(LS, True, NAVY),
+         fill=F_BAND)
+    _put(ws, r, 5, "EXCEL INSERTION AREA (on-screen only, not printed) – A2 Menu Checklist: Insert > Picture here. "
+                   "On paper: staple behind this sheet as page A2.", 8, font=_font(LS, True, NAVY), fill=F_BAND)
     ws.row_dimensions[r].height = _height(2, LS, 3)
     body = r + 1
     for c1, c2 in ((1, 4), (5, 8)):
@@ -457,10 +499,9 @@ def _build_one(wb, n, f, checks_idx):
         _box(ws, r, c1, body + 9, c2, side=Side(style="medium", color=NAVY))
     for i in range(10):
         ws.row_dimensions[body + i].height = 22
-    last_row = body + 9
 
     # ---------------- print setup
-    ws.print_area = f"A1:{LASTCOL}{last_row}"
+    ws.print_area = f"A1:{LASTCOL}{last_table}"  # insertion area stays on screen only
     ws.print_title_rows = f"{head_row}:{head_row}"
     ps = ws.page_setup
     ps.orientation = "landscape"
