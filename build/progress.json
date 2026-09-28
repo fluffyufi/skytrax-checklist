@@ -1,30 +1,30 @@
 {
- "updated": "28 Sep 20:05",
+ "updated": "28 Sep 21:05",
  "checks": 744,
  "pieces": [
   {
    "name": "1. Schedule & uplift requirements data",
    "state": "run",
-   "round": 4,
-   "note": "Round 3 gap fixed: carrying-flight input (Flights AX) drives due times; KUL loading now confirmed at KUL"
+   "round": 5,
+   "note": "Round 4: 157 requirements and 744 check lines all verified against the references; the remaining gap (PEN/LGK rotation) is fixed"
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
    "round": 1,
-   "note": "Full build: 27,583 formulas, 0 errors. Logic critic testing deadlines, record states and READY rules"
+   "note": "Logic critic still testing; print scaling on core sheets fixed (all \u2265 ~8pt)"
   },
   {
    "name": "3. Dashboard",
    "state": "fail",
-   "round": 1,
-   "note": "Render critic: blank 40-row lists spill over 3.5 pages; builder reworking"
+   "round": 2,
+   "note": "Round 2: prints at 5.3pt; builder shrinking to page width"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "fail",
-   "round": 1,
-   "note": "Render critic: prints at ~5pt and clips real entries; builder redesigning for paper"
+   "round": 2,
+   "note": "Round 2: nothing clipped now, but 6.7pt print, small signature rows, attachment boxes too small; builder fixing"
   },
   {
    "name": "5. Instructions & delivery",
@@ -53,6 +53,16 @@
    "piece": "1. Schedule & uplift data",
    "round": 3,
    "gap": "No input for the actual carrying flight of KUL-sourced items on outstation departures, so capped dues ran 2.5-5 h late and the KUL loading itself was never checked."
+  },
+  {
+   "piece": "1. Schedule & uplift data",
+   "round": 4,
+   "gap": "PEN/LGK return-leg link accepted only agenda flights, so F21 defaulted to an overnight-carried load with dues 26 h early, and clearing it dropped the KUL loading check."
+  },
+  {
+   "piece": "4. Printable checklists",
+   "round": 2,
+   "gap": "Still ~6.7pt effective print (header wider than table), signature rows < 5 mm, attachment boxes too small to hold an A4 GLD."
   }
  ],
  "log": [
@@ -107,6 +117,18 @@
   [
    "20:05",
    "Rebuilt: 0 formula errors; targeted test of the carrying-flight rule passed"
+  ],
+  [
+   "20:40",
+   "Data critic round 4: FAIL on rotation default; unified PEN/LGK legs onto the carrying-flight input (Flights AX)"
+  ],
+  [
+   "20:45",
+   "Render critic round 2: FAIL (print size); returned to builders with exact width targets"
+  ],
+  [
+   "21:05",
+   "Core sheets re-paginated for \u22658pt print; ISOP register moved to its own sheet; A350 blanket qty now follows tail"
   ]
  ]
 }
