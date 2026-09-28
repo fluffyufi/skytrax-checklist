@@ -34,7 +34,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     wb.save(OUT)
     if "--no-recalc" not in sys.argv:
-        res = subprocess.run([sys.executable, RECALC, OUT, "180"], capture_output=True, text=True)
+        res = subprocess.run([sys.executable, RECALC, OUT, "900"], capture_output=True, text=True)
         print(res.stdout[-3000:], res.stderr[-2000:])
     print(OUT)
 
