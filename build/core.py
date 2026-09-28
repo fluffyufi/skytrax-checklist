@@ -96,7 +96,7 @@ def build_settings(wb, data):
         (8, "T-24H sensory test: earliest valid completion, hours before its due time (assumption – production batch must exist)", 24, True),
         (9, "T-12H preparation check: earliest valid completion, hours before its due time (assumption)", 12, True),
     ]
-    ws.column_dimensions["A"].width = 70
+    ws.column_dimensions["A"].width = 50
     ws.column_dimensions["B"].width = 20
     for r, lab, val, inp in rows:
         ws.cell(r, 1, lab).font = f(9)
@@ -105,7 +105,7 @@ def build_settings(wb, data):
         c.font = f(10, True, "0000FF" if inp else "000000")
         c.fill = F_INPUT if inp else F_CALC
         c.border = BORDER
-        ws.row_dimensions[r].height = 26
+        ws.row_dimensions[r].height = max(26, 12 * est_lines(lab, 50) + 4)
     ws["B4"].number_format = DT
     ws["B6"].number_format = DT
     ws["C6"] = "=B6+8/24"
@@ -154,11 +154,8 @@ def build_settings(wb, data):
     ws.column_dimensions["H"].width = 16
     ws.column_dimensions["I"].width = 14
     name(wb, "L_Status", "Settings!$H$4:$H$9")
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_area = "A1:F23"
+    fit_pages(ws, "A", "F")
     name(wb, "L_CA", "Settings!$I$4:$I$5")
     ws.sheet_view.showGridLines = False
 
@@ -167,7 +164,7 @@ def build_settings(wb, data):
 FL_HEAD = ["Flight ID", "Itin", "Seq", "Date", "Day", "Flight No", "Dep", "Arr", "STD local", "STA local",
            "Class assessed", "Fleet (schedule)", "Aircraft ref type (STD UPLIFT INFO)", "Tail / Reg (input)",
            "Seat", "Transit", "Remark", "Sector key", "Region", "Service (ref)", "Ref uplift stns",
-           "Meal uplift stn", "Return meals loaded on (Flight ID, input)", "Caterer (input)", "Flight PIC (input)",
+           "Meal uplift stn", "Round-trip catered from KUL: agenda candidate carrying flight", "Caterer (input)", "Flight PIC (input)",
            "Dep UTC offset (h)", "STD UTC", "Block time (h)", "T-7D due UTC", "T-24H due UTC",
            "T-12H prep due UTC", "Uplift due UTC (= STD)", "T-7D due local (meal uplift stn)",
            "T-24H due local", "T-12H prep due local", "T-7D %", "T-24H %", "T-12H prep %", "Uplift %",
@@ -209,15 +206,17 @@ def build_flights(wb, data, n_checks):
         ws[f"AB{r}"] = f"=(J{r}-({off('H' + str(r), arr_u0)})/24-AA{r})*24"
         ws[f"AB{r}"].number_format = "0.00"
         ws[f"AC{r}"] = f"=AA{r}-7"
-        lk = f"INDEX($AA$5:$AA$26,MATCH(TRIM(W{r}),$A$5:$A$26,0))-UpliftWindowH/24"
-        ws[f"AD{r}"] = f"=IF(TRIM(W{r})=\"\",AA{r}-1,MIN(AA{r}-1,{lk}))"
-        ws[f"AE{r}"] = f"=IF(TRIM(W{r})=\"\",AA{r}-0.5,MIN(AA{r}-0.5,{lk}))"
+        if fl["round_trip"]:
+            ws[f"AD{r}"] = f"=MIN(AA{r}-1,AY{r})"
+            ws[f"AE{r}"] = f"=MIN(AA{r}-0.5,AY{r})"
+        else:
+            ws[f"AD{r}"] = f"=AA{r}-1"
+            ws[f"AE{r}"] = f"=AA{r}-0.5"
         if fl["loaded_on"]:
             ws[f"W{r}"].comment = Comment(
                 "Round-trip catered: reference uplift stn for this sector is KUL only, so return catering is loaded at KUL "
                 f"on {byid[fl['loaded_on']]['flt']}. Preparation checks must finish before that loading window. "
-                "Confirm aircraft rotation. Editable: enter the Flight ID (e.g. F10) of the KUL departure that carries this leg's "
-                "catering, or clear the cell if the leg is catered locally.", "MAGCS")
+                "Enter the actual carrying flight's KUL departure (UTC) in column AX; the deadlines follow it.", "MAGCS")
         ws[f"AF{r}"] = f"=AA{r}"
         for src, dst in (("AC", "AG"), ("AD", "AH"), ("AE", "AI")):
             ws[f"{dst}{r}"] = f"={src}{r}+({off(f'V{r}', f'{src}{r}')})/24"
@@ -266,7 +265,7 @@ def build_flights(wb, data, n_checks):
             c.border = BORDER
             if c.alignment.horizontal is None:
                 c.alignment = Alignment(vertical="top", wrap_text=True)
-            if j in (14, 23, 24, 25) or (j == 50 and ws.cell(r, 50).value != "n/a"):
+            if j in (14, 24, 25) or (j == 50 and ws.cell(r, 50).value != "n/a"):
                 c.fill = F_INPUT
             elif j >= 26:
                 c.fill = F_CALC
@@ -287,16 +286,12 @@ def build_flights(wb, data, n_checks):
     ws.freeze_panes = "G5"
     ws.auto_filter.ref = f"A4:AY26"
     dvx = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
-                         showErrorMessage=True, error="Enter a UTC date-time in Oct 2026.")
+                         showErrorMessage=True, error="Enter the carrying flight's KUL departure as a UTC date-time (Jul 2026 - Jan 2027).")
     dvx.add("AX5:AX26")
     ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 3
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    fit_pages(ws, "A", "AY", title_cols_w=43)
     ws.print_title_rows = "4:4"
     ws.print_title_cols = "A:F"
 
@@ -309,8 +304,7 @@ def due_formula(ck, cp, fr, code_due):
     if rule == "CARRY":
         return f"=MIN(Flights!${code_due[cp]}${fr},Flights!$AY${fr})"
     if rule == "LOADFLT":
-        return (f"=IF(TRIM(Flights!$W${fr})=\"\",Flights!$AF${fr},"
-                f"INDEX(Flights!$AA$5:$AA$26,MATCH(TRIM(Flights!$W${fr}),Flights!$A$5:$A$26,0)))")
+        raise ValueError("LOADFLT rule retired")
     return f"=Flights!${code_due[cp]}${fr}"
 
 
@@ -350,7 +344,9 @@ def build_checks(wb, data):
         elif applic == "RULE:LOADFLT":
             applic = f"=IF(TRIM(Flights!$W${fr})=\"\",\"N/A {ND} rule\",\"Required\")"
         exp_qty = None
-        if ck["exp_qty"]:
+        if "per tail" in ck["exp_qty"]:
+            exp_qty = f"=IF(TRIM(Flights!$N${fr})=\"\",\"\",IF(ISNUMBER(SEARCH(\"MAH\",Flights!$N${fr})),280,260))"
+        elif ck["exp_qty"]:
             try:
                 exp_qty = int(ck["exp_qty"])
             except ValueError:
@@ -421,7 +417,11 @@ def build_checks(wb, data):
                 c.fill = F_CALC
             elif j >= 11 and j <= 15:
                 c.fill = F_REF
-        if exp_qty is not None:
+        if isinstance(exp_qty, str):
+            ws[f"X{r}"].font = f(9, color="0000FF")
+            ws[f"X{r}"].comment = Comment("Follows the tail on Flights N: 9M-MAH = 280 pcs, other A350 (A359) = 260 pcs "
+                                          "(SEAT LINEN!B76:C77). Blank until the tail is entered.", "MAGCS")
+        elif exp_qty is not None:
             ws[f"X{r}"].font = f(9, color="0000FF")
             ws[f"X{r}"].comment = Comment(f"Pre-filled from reference: {ck['src']}", "MAGCS")
         for col in ("D",):
@@ -473,11 +473,7 @@ def build_checks(wb, data):
     ws.sheet_view.zoomScale = 85
     for col in ("AQ", "AR", "AS"):
         ws.column_dimensions[col].hidden = True
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 4
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
     return n
 
@@ -534,29 +530,61 @@ def build_documents(wb, data):
     dvd.add("H5:H26")
     dvd.add("M5:M26")
     ws.add_data_validation(dvd)
-    # ISOP register
-    ws["A29"] = "ISOP revision register – record every applicable In-flight Service Operating Procedure revision communicated to caterers"
-    ws["A29"].font = f(11, True, NAVY)
-    header(ws, 30, ["#", "ISOP doc / section", "Revision", "Effective date", "Title / change summary", "Applies to stations",
-                    "Communicated on", "Communicated by", "Caterer acknowledgement ref"], height=32)
-    for k in range(20):
-        r = 31 + k
+    ws.freeze_panes = "C5"
+    ws.print_title_cols = "A:B"
+    ws.print_title_rows = "4:4"
+    for rr in ("A1:H1", "A2:H2"):
+        ws.merge_cells(rr)
+    ws["A2"].alignment = WRAP
+    ws.row_dimensions[2].height = 36
+    fit_pages(ws, "A", "Q", title_cols_w=16)
+
+
+def build_isop(wb):
+    ws = wb.create_sheet("ISOP Register")
+    title(ws, "ISOP revision register",
+          "Record every applicable In-flight Service Operating Procedure revision communicated to caterers. "
+          "The T-7D ISOP checks on each flight should quote the revision numbers listed here.")
+    ws.merge_cells("A2:I2")
+    ws["A2"].alignment = WRAP
+    ws.row_dimensions[2].height = 26
+    header(ws, 4, ["#", "ISOP doc / section", "Revision", "Effective date", "Title / change summary", "Applies to stations",
+                   "Communicated on", "Communicated by", "Caterer acknowledgement ref"],
+           [5, 16, 9, 11, 32, 14, 12, 16, 20], height=32)
+    for k in range(40):
+        r = 5 + k
         ws.cell(r, 1, k + 1).font = f(9)
         for j in range(1, 10):
             c = ws.cell(r, j)
             c.border = BORDER
             c.font = f(9)
+            c.alignment = WRAP
             if j > 1:
                 c.fill = F_INPUT
         ws.cell(r, 4).number_format = "dd-mmm-yy"
         ws.cell(r, 7).number_format = "dd-mmm-yy"
-    ws.freeze_panes = "C5"
-    ws.print_title_cols = "A:D"
-    ws.page_setup.orientation = "landscape"
+        ws.row_dimensions[r].height = 24
+    ws.freeze_panes = "B5"
+    ws.print_title_rows = "4:4"
+    fit_pages(ws, "A", "I", landscape=True)
+
+
+def fit_pages(ws, first, last, landscape=True, title_cols_w=0):
+    """Pages-wide so that print scale stays >= ~85% (A4: ~148 units landscape, ~103 portrait)."""
+    from openpyxl.utils import column_index_from_string as ci
+    total = sum((ws.column_dimensions[get_column_letter(i)].width or 8.43)
+                for i in range(ci(first), ci(last) + 1)
+                if not ws.column_dimensions[get_column_letter(i)].hidden)
+    per = (148 if landscape else 103) * 0.92 - title_cols_w
+    pages = max(1, -(-int(total - title_cols_w) // int(per)))
+    ws.page_setup.orientation = "landscape" if landscape else "portrait"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 2
+    ws.page_setup.fitToWidth = pages
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins.left = ws.page_margins.right = 0.3
+    ws.oddFooter.center.text = "&A  |  Page &P of &N"
+    ws.oddFooter.center.size = 8
 
 
 # ------------------------------------------------------------------ Requirements
@@ -604,11 +632,9 @@ def build_requirements(wb, data):
         r += 1
     ws.freeze_panes = "C5"
     ws.auto_filter.ref = f"A4:N{4 + len(data['requirements'])}"
-    ws.page_setup.orientation = "landscape"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "4:4"
+    ws.print_title_cols = "A:B"
+    fit_pages(ws, "A", "N", title_cols_w=16)
 
 
 # ------------------------------------------------------------------ Instructions
@@ -622,7 +648,7 @@ INSTR = [
     ("b", "Dashboard – checkpoint completion, overdue actions, outstanding discrepancies and readiness per flight."),
     ("b", "Flights – the 22 legs as scheduled. Enter Tail/Reg, Caterer and Flight PIC (yellow). Due times: T-7D, T-24H, T-12H prep and uplift (= STD)."),
     ("b", "Checks – one row per check per flight. THE ONLY PLACE TO RECORD RESULTS (yellow columns T–AE)."),
-    ("b", "Documents – galley loading diagram and menu checklist per flight (doc no, revision, date, attachment) plus the ISOP revision register."),
+    ("b", "Documents – galley loading diagram and menu checklist per flight (doc no, revision, date, attachment). ISOP Register – ISOP revisions communicated to caterers."),
     ("b", "Requirements – uplift requirements derived from STD UPLIFT INFORMATION.xlsx per flight, with source cell for each."),
     ("b", "Settings – as-of time, PC clock offset, validity windows, station time-zone table."),
     ("b", "P01–P22 – printable checklist per flight (formula views of Checks) with attachment spaces for the GLD and menu checklist."),
@@ -644,9 +670,9 @@ INSTR = [
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),
-    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so return catering is loaded at KUL on MH1140 / MH1450. Their T-24H and T-12H preparation deadlines are pulled forward to before that loading window. Confirm the aircraft rotation; the linked flight is editable on Flights (column W)."),
+    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so all their catering is loaded at KUL on a carrying flight (agenda candidates MH1140 / MH1450 shown in Flights W). Enter the actual carrying flight's KUL departure (UTC) in Flights AX: T-24H, T-12H prep and the KUL loading-confirmation line are capped at that departure minus the uplift window. Until entered they assume the latest possible KUL departure (STD minus the KUL-PEN / KUL-LGK block)."),
     ("b", "Outstation departures that carry KUL-sourced items (e.g. MH0003 LHR-KUL: pajamas, slippers, signature drinks) have a clarification check to identify the inbound KUL flight. Enter its KUL departure (UTC) on Flights column AX: the preparation due and the KUL loading-confirmation line (UPLIFT, station KUL) follow it. Until entered, they assume the latest possible KUL departure."),
-    ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at STD minus the shortest agenda KUL-to-outstation block time minus the uplift window."),
+    ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at the KUL loading deadline on Flights AY (carrying flight's KUL departure in AX minus the uplift window)."),
     ("h2", "Outstanding inputs at issue"),
     ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet and each P-sheet)."),
     ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights."),
@@ -665,7 +691,7 @@ INSTR = [
 def build_instructions(wb, data):
     ws = wb.create_sheet("Instructions")
     ws.column_dimensions["A"].width = 3
-    ws.column_dimensions["B"].width = 120
+    ws.column_dimensions["B"].width = 88
     ws["B1"] = "MAGCS Inflight Catering – Skytrax 2026 Readiness Checklist & Monitor"
     ws["B1"].font = f(16, True, NAVY)
     ws.row_dimensions[1].height = 26
@@ -684,7 +710,7 @@ def build_instructions(wb, data):
         else:
             c.font = f(10)
             c.alignment = WRAP
-            ws.row_dimensions[r].height = max(15, 13.5 * est_lines(c.value, 118) + 2)
+            ws.row_dimensions[r].height = max(15, 13.5 * est_lines(c.value, 84) + 2)
         if kind == "k1":
             c.fill = F_INPUT
         elif kind == "k2":
@@ -695,11 +721,7 @@ def build_instructions(wb, data):
             c.font = f(10, color="0000FF")
         r += 1
     ws.sheet_view.showGridLines = False
-    ws.page_setup.orientation = "portrait"
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    fit_pages(ws, "A", "B", landscape=False)
 
 
 def build(wb, data):
@@ -710,3 +732,4 @@ def build(wb, data):
     build_checks(wb, data)
     build_documents(wb, data)
     build_requirements(wb, data)
+    build_isop(wb)

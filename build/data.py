@@ -219,7 +219,7 @@ def requirements_for(f):
                  "receives them.")
             add("Amenities", "Toiletry kits", "Clarification required", src, "Available (ticked in reference)", "LHR or KUL - confirm",
                 "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL "
-                f"(general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR {f['cls']} leg are uplifted; if at LHR "
+                f"(general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR {f['cls']} leg are uplifted; if at LHR "
                 "they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure." + q)
         elif bc:
             add("Amenities", "Toiletry kits", "Required", src, "Available (ticked in reference)", tk_stn)
@@ -345,7 +345,7 @@ def requirements_for(f):
                 loc = cell(sh, f"F{r}")
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic,
                     f"{sh}!{C(f'F{r}')} / {C(f'C{r}')} / {C(f'M{r}')} / C40",
-                    f"Location {loc} (B7M8, half cart)", "Not stated in reference",
+                    f"Location {loc} (B7M8)", "Not stated in reference",
                     f"Block {f['block_h']:.2f} h >= 4 h (note {sh}!C40).{stn_note}", cls_scope="All")
             elif f["fleet"] == "A333":
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic, f"{sh}!{C(f'I{r}')} / {C(f'C{r}')} / C40",
@@ -467,14 +467,16 @@ def check_lines(f, reqs, flights):
     if f["round_trip"]:
         lf = next(x for x in flights if x["id"] == f["loaded_on"])
         add("T-7D", "Preparation", "Uplift plan",
-            f"Aircraft rotation confirmed: return catering for this leg loaded at KUL on {lf['flt']} ({lf['id']})",
-            f"Same aircraft operates {lf['flt']} KUL-{f['dep']} and {f['flt']} {f['dep']}-KUL", f"{REFNAME} > {f['service_src']}",
+            f"Carrying flight for this leg's return catering identified and its KUL departure (UTC) entered on Flights col AX",
+            f"All catering for {f['flt']} {f['dep']}-KUL is uplifted at KUL (ref uplift stn KUL only)", f"{REFNAME} > {f['service_src']}",
             "Clarification required",
-            f"Reference uplift stn for {f['sector']} is KUL only, so {f['dep']} does not cater. The schedule does not state "
-            f"the tail; confirm the rotation. T-24H and T-12H prep deadlines are pulled forward to before {lf['flt']}'s "
-            "loading window. If the rotation differs, change 'Return meals loaded on' on the Flights sheet (or clear it).", "KUL")
+            f"{f['dep']} does not cater. Agenda candidate: {lf['flt']} ({lf['id']}, KUL {lf['std_text']} local) - confirm the aircraft "
+            f"rotation and enter the actual KUL departure in Flights AX (cannot be passed until entered). Until then, T-24H, "
+            f"T-12H prep and the KUL loading line use the latest possible KUL departure (STD minus the KUL-{f['dep']} block).",
+            "KUL", carry=1)
     kul_items = [r for r in reqs if r["uplift_stn"] == "KUL"]
     carry = f["dep"] != "KUL" and not f["round_trip"] and bool(kul_items)
+    rt_bound = [x["id"] for x in inbound] if f["round_trip"] else None
     names = ", ".join(r["item"] for r in kul_items)
     if carry:
         cand = ", ".join(f"{x['flt']} {x['date'][8:]}-Oct ({x['id']})" for x in inbound) or "none in agenda"
@@ -486,14 +488,18 @@ def check_lines(f, reqs, flights):
             f"dues use the latest possible time: STD minus the shortest agenda KUL-{f['dep']} block ({cand}) minus the uplift window.",
             "KUL", carry=1)
     for cat, item, exp, batch, doc in STD_T24:
-        add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required", "", ms, batch, doc)
+        add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required",
+            "Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY)." if rt_bound else "", ms, batch, doc,
+            due_bound=rt_bound, due_rule="CARRY" if rt_bound else "")
     for t in STD_T12:
         cat, item, exp, batch, doc = t[:5]
         qty = t[5] if len(t) > 5 else 0
         if cat == "Equipment" and "quantities" in item:
             exp = f"{exp}. Aircraft galley data: {f['galley_info']}"
         add("T-12H PREP", "Preparation", cat, item, exp, "User brief (T-12 hours)", "Required",
-            "Preparation check at caterer - does NOT confirm loading.", ms, batch, doc, qty)
+            "Preparation check at caterer - does NOT confirm loading." +
+            (" Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY)." if rt_bound else ""),
+            ms, batch, doc, qty, due_bound=rt_bound, due_rule="CARRY" if rt_bound else "")
     for r in reqs:
         stn = r["uplift_stn"] if r["uplift_stn"] in STATIONS else ms
         exp = r["expected"] + (f"; qty {r['qty']}" if r["qty"] else "")
@@ -501,24 +507,29 @@ def check_lines(f, reqs, flights):
         if r["uplift_stn"].startswith("Not stated"):
             note = (note + " " if note else "") + (f"Reference gives no uplift stn for this item: preparation checked at the "
                                                    f"meal uplift stn ({ms}) - confirm with caterer.")
-        if stn == "KUL" and carry:
+        if rt_bound:
+            rule = "CARRY"
+            note = (note + " " if note else "") + "Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY)."
+        elif stn == "KUL" and carry:
             rule = "CARRY"
             note = (note + " " if note else "") + (f"Loaded at KUL on the inbound KUL-{f['dep']} flight: due = that flight's KUL "
                                                    "departure (Flights AX) minus the uplift window.")
         add("T-12H PREP", "Preparation", r["category"], r["item"] + " - prepared", exp, r["src"], r["applic"],
             note, stn, 0, 0, 1 if r["qty"] else 0, r["qty"], r["uplift_stn"],
-            due_bound=[x["id"] for x in inbound] if rule else None, due_rule=rule)
+            due_bound=(rt_bound or [x["id"] for x in inbound]) if rule else None, due_rule=rule)
     for t in STD_UPL:
         cat, item, exp, batch, doc, qty = t
         add("UPLIFT", "Physical uplift", cat, item, exp, "User brief (T-12 hours - physical uplift)", "Required",
             "Confirm on board before departure; completion time must fall inside the uplift window.", f["dep"], 0, 0, qty)
     if f["round_trip"]:
-        lf = next(x for x in flights if x["id"] == f["loaded_on"])
-        add("UPLIFT", "Physical uplift", "Meal",
-            f"Return catering for {f['flt']} physically loaded at KUL on the carrying flight (default {lf['flt']}) - qty vs menu checklist",
-            "Enter expected & actual", "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)", "RULE:LOADFLT",
-            "Loading happens at KUL, so this is confirmed at KUL inside the uplift window before the carrying flight's STD "
-            "(Flights W). N/A automatically if Flights W is cleared.", "KUL", 0, 0, 1, due_rule="LOADFLT")
+        allnames = ", ".join(["meals / refreshment", "equipment"] + [r["item"] for r in reqs])
+        add("UPLIFT", "Physical uplift", "Uplift plan",
+            f"Return catering for {f['flt']} physically loaded at KUL on the carrying flight: {allnames}",
+            "Quantities as per menu checklist, GLD and Requirements", "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)",
+            "Required",
+            "Loading happens at KUL, so it is confirmed at KUL inside the uplift window before the carrying flight's KUL "
+            "departure (Flights AX). The on-board lines below are then re-checked at the departure station.", "KUL",
+            due_bound=rt_bound, due_rule="CARRY")
     if carry:
         add("UPLIFT", "Physical uplift", "Uplift plan",
             f"KUL-sourced items physically loaded at KUL on the inbound KUL-{f['dep']} flight: {names}",

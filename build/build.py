@@ -13,7 +13,7 @@ OUT_DIR = os.path.join(HERE, "..", "output")
 OUT = os.path.join(OUT_DIR, "MAGCS_Skytrax_2026_Catering_Readiness.xlsx")
 RECALC = "/root/.claude/skills/synced/dbf11ce3-ba00-4160-a445-f73a3231a942_7e2a8d9e-80e6-4124-9d8d-d105bdc3f685/xlsx/scripts/recalc.py"
 
-ORDER = ["Instructions", "Dashboard", "Flights", "Checks", "Documents", "Requirements", "Settings"]
+ORDER = ["Instructions", "Dashboard", "Flights", "Checks", "Documents", "ISOP Register", "Requirements", "Settings"]
 
 
 def main():

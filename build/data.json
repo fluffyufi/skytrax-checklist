@@ -1337,7 +1337,7 @@
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "expected": "Available (ticked in reference)",
    "uplift_stn": "LHR or KUL - confirm",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "qty": "",
    "cls_scope": "BC",
    "flight_id": "F06"
@@ -2129,7 +2129,7 @@
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "expected": "Available (ticked in reference)",
    "uplift_stn": "LHR or KUL - confirm",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
    "qty": "",
    "cls_scope": "EY",
    "flight_id": "F14"
@@ -2223,7 +2223,7 @@
    "item": "Sales cart (caterer MCAT)",
    "applic": "Required",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "uplift_stn": "Not stated in reference",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40).",
    "qty": "",
@@ -2355,7 +2355,7 @@
    "item": "Sales cart (caterer MCAT)",
    "applic": "Clarification required",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "uplift_stn": "Not stated in reference",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40). Reference names caterer MCAT (KUL) for the KUL/HKG/KUL sector but no uplift station: confirm whether the HKG-KUL sales cart is loaded at KUL (round trip) or at HKG.",
    "qty": "",
@@ -2669,7 +2669,7 @@
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "expected": "Available (ticked in reference)",
    "uplift_stn": "LHR or KUL - confirm",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "qty": "",
    "cls_scope": "BC",
    "flight_id": "F22"
@@ -6988,7 +6988,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -7324,7 +7324,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -10843,11 +10843,11 @@
    "checkpoint": "T-7D",
    "check_type": "Preparation",
    "category": "Uplift plan",
-   "item": "Aircraft rotation confirmed: return catering for this leg loaded at KUL on MH1140 (F10)",
-   "expected": "Same aircraft operates MH1140 KUL-PEN and MH1149 PEN-KUL",
+   "item": "Carrying flight for this leg's return catering identified and its KUL departure (UTC) entered on Flights col AX",
+   "expected": "All catering for MH1149 PEN-KUL is uplifted at KUL (ref uplift stn KUL only)",
    "src": "STD UPLIFT INFORMATION.xlsx > CATERING UPLIFT STN!C68:G68",
    "applic": "Clarification required",
-   "note": "Reference uplift stn for KUL/PEN/KUL is KUL only, so PEN does not cater. The schedule does not state the tail; confirm the rotation. T-24H and T-12H prep deadlines are pulled forward to before MH1140's loading window. If the rotation differs, change 'Return meals loaded on' on the Flights sheet (or clear it).",
+   "note": "PEN does not cater. Agenda candidate: MH1140 (F10, KUL 1145 local) - confirm the aircraft rotation and enter the actual KUL departure in Flights AX (cannot be passed until entered). Until then, T-24H, T-12H prep and the KUL loading line use the latest possible KUL departure (STD minus the KUL-PEN block).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -10856,7 +10856,7 @@
    "uplift_stn": "",
    "due_bound": [],
    "due_rule": "",
-   "req_carry": 0
+   "req_carry": 1
   },
   {
    "check_id": "F11-T24-01",
@@ -10868,15 +10868,17 @@
    "expected": "Batch ID, result, CA and acceptance mandatory",
    "src": "User brief (T-24 hours)",
    "applic": "Required",
-   "note": "",
+   "note": "Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 1,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10889,15 +10891,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10910,15 +10914,17 @@
    "expected": "Enter expected & actual",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 1,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10931,15 +10937,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10952,15 +10960,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10973,15 +10983,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -10994,15 +11006,17 @@
    "expected": "Enter expected & actual. Aircraft galley data: B737-8 (B7M8): carts 10.5, SU 25, ovens 6, warming ovens -, fridges -, water heaters 3, beverage makers -, espresso -, folding trolleys -, headsets - (AIRCRAFT TYPE!C16:R16)",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 1,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -11015,15 +11029,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -11036,15 +11052,17 @@
    "expected": "Available 100% (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > SEAT LINEN!I62",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -11094,20 +11112,22 @@
    "flight_id": "F11",
    "checkpoint": "UPLIFT",
    "check_type": "Physical uplift",
-   "category": "Meal",
-   "item": "Return catering for MH1149 physically loaded at KUL on the carrying flight (default MH1140) - qty vs menu checklist",
-   "expected": "Enter expected & actual",
+   "category": "Uplift plan",
+   "item": "Return catering for MH1149 physically loaded at KUL on the carrying flight: meals / refreshment, equipment, Seat pillow (EY)",
+   "expected": "Quantities as per menu checklist, GLD and Requirements",
    "src": "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)",
-   "applic": "RULE:LOADFLT",
-   "note": "Loading happens at KUL, so this is confirmed at KUL inside the uplift window before the carrying flight's STD (Flights W). N/A automatically if Flights W is cleared.",
+   "applic": "Required",
+   "note": "Loading happens at KUL, so it is confirmed at KUL inside the uplift window before the carrying flight's KUL departure (Flights AX). The on-board lines below are then re-checked at the departure station.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
-   "req_qty": 1,
+   "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "LOADFLT",
+   "due_bound": [
+    "F10"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -13098,7 +13118,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -13203,7 +13223,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR EY leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure. The reference also does not state the cabin class for toiletry kits: confirm whether EY receives them.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -14187,7 +14207,7 @@
    "check_type": "Preparation",
    "category": "Sales Cart",
    "item": "Sales cart (caterer MCAT) - prepared",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
    "applic": "Required",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40). Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
@@ -14292,7 +14312,7 @@
    "check_type": "Physical uplift",
    "category": "Sales Cart",
    "item": "Sales cart (caterer MCAT) - on board",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
    "applic": "Required",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40).",
@@ -14903,7 +14923,7 @@
    "check_type": "Preparation",
    "category": "Sales Cart",
    "item": "Sales cart (caterer MCAT) - prepared",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
    "applic": "Clarification required",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40). Reference names caterer MCAT (KUL) for the KUL/HKG/KUL sector but no uplift station: confirm whether the HKG-KUL sales cart is loaded at KUL (round trip) or at HKG. Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (HKG) - confirm with caterer.",
@@ -15199,7 +15219,7 @@
    "check_type": "Physical uplift",
    "category": "Sales Cart",
    "item": "Sales cart (caterer MCAT) - on board",
-   "expected": "Location 210A (B7M8, half cart)",
+   "expected": "Location 210A (B7M8)",
    "src": "STD UPLIFT INFORMATION.xlsx > SALES CART!F21:F35 / C28 / M7:M37 / C40",
    "applic": "Clarification required",
    "note": "Block 4.08 h >= 4 h (note SALES CART!C40). Reference names caterer MCAT (KUL) for the KUL/HKG/KUL sector but no uplift station: confirm whether the HKG-KUL sales cart is loaded at KUL (round trip) or at HKG.",
@@ -17319,11 +17339,11 @@
    "checkpoint": "T-7D",
    "check_type": "Preparation",
    "category": "Uplift plan",
-   "item": "Aircraft rotation confirmed: return catering for this leg loaded at KUL on MH1450 (F20)",
-   "expected": "Same aircraft operates MH1450 KUL-LGK and MH1437 LGK-KUL",
+   "item": "Carrying flight for this leg's return catering identified and its KUL departure (UTC) entered on Flights col AX",
+   "expected": "All catering for MH1437 LGK-KUL is uplifted at KUL (ref uplift stn KUL only)",
    "src": "STD UPLIFT INFORMATION.xlsx > CATERING UPLIFT STN!C70:G70",
    "applic": "Clarification required",
-   "note": "Reference uplift stn for KUL/LGK/KUL is KUL only, so LGK does not cater. The schedule does not state the tail; confirm the rotation. T-24H and T-12H prep deadlines are pulled forward to before MH1450's loading window. If the rotation differs, change 'Return meals loaded on' on the Flights sheet (or clear it).",
+   "note": "LGK does not cater. Agenda candidate: MH1450 (F20, KUL 1830 local) - confirm the aircraft rotation and enter the actual KUL departure in Flights AX (cannot be passed until entered). Until then, T-24H, T-12H prep and the KUL loading line use the latest possible KUL departure (STD minus the KUL-LGK block).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -17332,7 +17352,7 @@
    "uplift_stn": "",
    "due_bound": [],
    "due_rule": "",
-   "req_carry": 0
+   "req_carry": 1
   },
   {
    "check_id": "F21-T24-01",
@@ -17344,15 +17364,17 @@
    "expected": "Batch ID, result, CA and acceptance mandatory",
    "src": "User brief (T-24 hours)",
    "applic": "Required",
-   "note": "",
+   "note": "Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 1,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17365,15 +17387,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17386,15 +17410,17 @@
    "expected": "Enter expected & actual",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 1,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17407,15 +17433,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17428,15 +17456,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17449,15 +17479,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17470,15 +17502,17 @@
    "expected": "Enter expected & actual. Aircraft galley data: B737-8 (B7M8): carts 10.5, SU 25, ovens 6, warming ovens -, fridges -, water heaters 3, beverage makers -, espresso -, folding trolleys -, headsets - (AIRCRAFT TYPE!C16:R16)",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 1,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17491,15 +17525,17 @@
    "expected": "",
    "src": "User brief (T-12 hours)",
    "applic": "Required",
-   "note": "Preparation check at caterer - does NOT confirm loading.",
+   "note": "Preparation check at caterer - does NOT confirm loading. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17512,15 +17548,17 @@
    "expected": "Available in DAM cart on request basis",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!G74 / C83",
    "applic": "Required",
-   "note": "Sector has no BC slippers; note C83: disposable slipper available in DAM cart (on request basis). Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Sector has no BC slippers; note C83: disposable slipper available in DAM cart (on request basis). Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17533,15 +17571,17 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > F&B LINEN!D68",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17554,15 +17594,17 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > F&B LINEN!E68",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17575,15 +17617,17 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > F&B LINEN!F68",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17596,15 +17640,17 @@
    "expected": "Narrow body: Top only",
    "src": "STD UPLIFT INFORMATION.xlsx > F&B LINEN!I68",
    "applic": "Required",
-   "note": "Per note F&B LINEN!B79:C80. Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Per note F&B LINEN!B79:C80. Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17617,15 +17663,17 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > F&B LINEN!J68",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17638,15 +17686,17 @@
    "expected": "Available 100% (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > SEAT LINEN!E64",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17659,15 +17709,17 @@
    "expected": "Available 100% (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > SEAT LINEN!H64",
    "applic": "Required",
-   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer.",
+   "note": "Reference gives no uplift stn for this item: preparation checked at the meal uplift stn (KUL) - confirm with caterer. Round-trip catered from KUL: due capped at the KUL loading deadline (Flights AY).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
    "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "Not stated in reference",
-   "due_bound": [],
-   "due_rule": "",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -17717,20 +17769,22 @@
    "flight_id": "F21",
    "checkpoint": "UPLIFT",
    "check_type": "Physical uplift",
-   "category": "Meal",
-   "item": "Return catering for MH1437 physically loaded at KUL on the carrying flight (default MH1450) - qty vs menu checklist",
-   "expected": "Enter expected & actual",
+   "category": "Uplift plan",
+   "item": "Return catering for MH1437 physically loaded at KUL on the carrying flight: meals / refreshment, equipment, Disposable slippers in DAM cart (BC, on request), Towel, Tray cloth, Napkin, Trolley cloth, Linen bag, Seat pillow (BS & BC), Blanket (BS & BC)",
+   "expected": "Quantities as per menu checklist, GLD and Requirements",
    "src": "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)",
-   "applic": "RULE:LOADFLT",
-   "note": "Loading happens at KUL, so this is confirmed at KUL inside the uplift window before the carrying flight's STD (Flights W). N/A automatically if Flights W is cleared.",
+   "applic": "Required",
+   "note": "Loading happens at KUL, so it is confirmed at KUL inside the uplift window before the carrying flight's KUL departure (Flights AX). The on-board lines below are then re-checked at the departure station.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
-   "req_qty": 1,
+   "req_qty": 0,
    "exp_qty": "",
    "uplift_stn": "",
-   "due_bound": [],
-   "due_rule": "LOADFLT",
+   "due_bound": [
+    "F20"
+   ],
+   "due_rule": "CARRY",
    "req_carry": 0
   },
   {
@@ -18268,7 +18322,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
@@ -18604,7 +18658,7 @@
    "expected": "Available (ticked in reference)",
    "src": "STD UPLIFT INFORMATION.xlsx > AMENITIES!D12 / H12",
    "applic": "Clarification required",
-   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
+   "note": "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL (general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR BC leg are uplifted; if at LHR they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure.",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
