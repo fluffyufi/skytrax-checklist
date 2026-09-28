@@ -53,14 +53,31 @@ def cell(cid, col, v):
     return lambda wb, rows: wb["Checks"].__setitem__(f"{col}{rows[cid]}", v)
 
 
-run("baseline_F11", None)
-run("onboard_before_carry", cell("F11-UPL-01", "AD", datetime(2026, 10, 12, 10, 0)))
-run("ca_open_space", lambda wb, rows: [wb["Checks"].__setitem__(f"AA{rows['F11-T7-01']}", "Re-plate"),
+if __name__ == "__main__" and len(sys.argv) == 1:
+  run("baseline_F11", None)
+  run("onboard_before_carry", cell("F11-UPL-01", "AD", datetime(2026, 10, 12, 10, 0)))
+  run("ca_open_space", lambda wb, rows: [wb["Checks"].__setitem__(f"AA{rows['F11-T7-01']}", "Re-plate"),
                                          wb["Checks"].__setitem__(f"AB{rows['F11-T7-01']}", "Open ")])
-run("carry_clar_NA", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-10']}", "N/A"),
+  run("carry_clar_NA", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-10']}", "N/A"),
                                          wb["Checks"].__setitem__(f"AC{rows['F11-T7-10']}", "n/a")])
-run("ax_after_std", lambda wb, rows: wb["Flights"].__setitem__("AX15", datetime(2026, 10, 12, 9, 0)))
-run("result_blank", cell("F11-T24-01", "V", None))
-run("t7_stale", cell("F11-T7-01", "AD", datetime(2026, 7, 2, 10, 0)))
-run("pic_is_verifier", cell("F11-T7-01", "AE", "A. Rahman"))
-run("ca_text_no_status", cell("F11-T7-02", "AA", "Reprinted cards"))
+  run("ax_after_std", lambda wb, rows: wb["Flights"].__setitem__("AX15", datetime(2026, 10, 12, 9, 0)))
+  run("result_blank", cell("F11-T24-01", "V", None))
+  run("t7_stale", cell("F11-T7-01", "AD", datetime(2026, 7, 2, 10, 0)))
+  run("pic_is_verifier", cell("F11-T7-01", "AE", "A. Rahman"))
+  run("ca_text_no_status", cell("F11-T7-02", "AA", "Reprinted cards"))
+
+
+def more():
+    run("placeholder_evidence", cell("F11-T7-01", "Z", "TBC"))
+    run("placeholder_verifier", cell("F11-T7-01", "AE", "?"))
+    run("prep_after_carrier", cell("F11-T12-01", "AD", datetime(2026, 10, 12, 12, 0)))
+    run("onboard_before_arrival", cell("F11-UPL-01", "AD", datetime(2026, 10, 12, 12, 30)))
+    run("pass_after_ca_short", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in
+                                                 (("X", 20), ("Y", 15), ("U", "Pass after CA"), ("AA", "Topped up 5 meals from spare"), ("AB", "Closed"))])
+    run("na_short_just", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
+                                           wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "x")])
+    run("uplift_window_24", lambda wb, rows: wb["Settings"].__setitem__("B7", 24))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1:
+    more()

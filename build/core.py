@@ -98,7 +98,7 @@ def build_settings(wb, data):
         (4, "As-of override (UTC). Leave blank for the live clock; enter a UTC date-time to review the workbook as at that moment.", None, True),
         (5, "This PC's clock offset from UTC (hours). 8 = Malaysia (MYT). Used to convert NOW() to UTC.", 8, True),
         (6, "Effective as-of time (UTC) used for all overdue tests", "=IF(ISNUMBER(B4),B4,NOW()-N(B5)/24)", False),
-        (7, "Physical-uplift window: on-board confirmation is valid only within this many hours before STD (assumption – adjust to station loading practice)", 6, True),
+        (7, "Physical-uplift window: on-board confirmation is valid only within this many hours before STD, and not before a carrying flight could have arrived (assumption – adjust to station loading practice; max 10)", 6, True),
         (8, "T-24H sensory test: earliest valid completion, hours before its due time (assumption – production batch must exist)", 24, True),
         (9, "T-12H preparation check: earliest valid completion, hours before its due time (assumption)", 12, True),
         (10, "T-7D checks: earliest valid completion, days before the T-7D due time (assumption – older evidence is stale)", 14, True),
@@ -121,12 +121,26 @@ def build_settings(wb, data):
     ws["D6"].font = f(8, italic=True, color="595959")
     ws["B4"].comment = Comment("Blank = live. Example: 2026-10-09 12:00 to see what is overdue at that UTC time.", "MAGCS")
     name(wb, "AsOfUTC", "Settings!$B$6")
-    name(wb, "UpliftWindowH", "Settings!$B$7")
-    name(wb, "T24EarlyH", "Settings!$B$8")
-    name(wb, "T12EarlyH", "Settings!$B$9")
-    name(wb, "T7EarlyD", "Settings!$B$10")
+    for rr, lo, hi, dflt in ((7, 1, 10, 6), (8, 1, 72, 24), (9, 1, 48, 12), (10, 1, 60, 14)):
+        ws[f"C{rr}"] = f"=IF(ISNUMBER(B{rr}),MIN(MAX(B{rr},{lo}),{hi}),{dflt})"
+        ws[f"C{rr}"].font = f(10, True)
+        ws[f"C{rr}"].fill = F_CALC
+        ws[f"C{rr}"].border = BORDER
+        ws[f"D{rr}"] = f"← value in use (limited to {lo}–{hi})"
+        ws[f"D{rr}"].font = f(8, italic=True, color="595959")
+    name(wb, "UpliftWindowH", "Settings!$C$7")
+    name(wb, "T24EarlyH", "Settings!$C$8")
+    name(wb, "T12EarlyH", "Settings!$C$9")
+    name(wb, "T7EarlyD", "Settings!$C$10")
+    ws["K3"] = "Placeholder text rejected as evidence"
+    ws["K3"].font = f(9, True, NAVY)
+    ph = ["-", "--", "?", "x", "na", "n/a", "n.a.", "tbc", "tba", "tbd", "pending", "none", "nil", "same", "later", "."]
+    for i, v in enumerate(ph):
+        ws.cell(4 + i, 11, v).font = f(9)
+    ws.column_dimensions["K"].width = 22
+    name(wb, "L_Placeholder", f"Settings!$K$4:$K${3 + len(ph)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
-                              ("B7", "1", "24", "Hours, 1 to 24"), ("B8", "1", "72", "Hours, 1 to 72"),
+                              ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
                               ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
         dv = DataValidation(type="decimal", operator="between", formula1=lo, formula2=hi, allow_blank=False,
                             showErrorMessage=True, errorTitle="Invalid setting", error=msg)
@@ -192,9 +206,10 @@ FL_HEAD = ["Flight ID", "Itin", "Seq", "Date", "Day", "Flight No", "Dep", "Arr",
            "T-24H due local", "T-12H prep due local", "T-7D %", "T-24H %", "T-12H prep %", "Uplift %",
            "Overall %", "Open required checks", "Overdue", "Open discrepancies", "Docs outstanding",
            "Clarifications open", "READINESS", "Invalid entries", "Checks completed", "Checks in scope",
-           "Inbound carrying flight: KUL departure (UTC, input)", "KUL loading deadline for KUL-sourced items (UTC)"]
+           "Inbound carrying flight: KUL departure (UTC, input)", "KUL loading deadline for KUL-sourced items (UTC)",
+           "Carrying flight earliest arrival at departure stn (UTC)", "First on-board confirmation (UTC)"]
 FL_W = [7, 5, 5, 10, 6, 9, 6, 6, 15, 15, 8, 9, 30, 12, 6, 8, 14, 13, 12, 22, 11, 9, 16, 14, 16,
-        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9, 17, 17]
+        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9, 17, 17, 17, 15]
 
 
 def build_flights(wb, data, n_checks):
@@ -280,12 +295,19 @@ def build_flights(wb, data, n_checks):
                 mb = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
                 default = f"AA{r}-MIN({mb})/24"
             ws[f"AY{r}"] = f"=ROUND((IF(ISNUMBER(AX{r}),AX{r},{default})-UpliftWindowH/24)*1440,0)/1440"
+            mb2 = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
+            ws[f"AZ{r}"] = f"=ROUND((AY{r}+UpliftWindowH/24+MIN({mb2})/24)*1440,0)/1440"
             ws[f"AX{r}"].comment = Comment(
                 "Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
                 "loading deadline assumes the latest possible departure (STD minus shortest agenda block).", "MAGCS")
         else:
             ws[f"AX{r}"] = "n/a"
             ws[f"AY{r}"] = "n/a"
+            ws[f"AZ{r}"] = "n/a"
+        ws[f"BA{r}"] = (f"=IFERROR(1/(1/_xlfn.MINIFS({rng('AG')},{rng('B')},$A{r},{rng('H')},\"Physical uplift\","
+                        f"{rng('P')},$G{r})),\"\")")
+        ws[f"AZ{r}"].number_format = DT
+        ws[f"BA{r}"].number_format = DT
         ws[f"AX{r}"].number_format = DT
         ws[f"AY{r}"].number_format = DT
         for j in range(1, len(FL_HEAD) + 1):
@@ -313,7 +335,7 @@ def build_flights(wb, data, n_checks):
     ws.conditional_formatting.add("AP5:AS26", CellIsRule(operator="greaterThan", formula=["0"],
                                   font=Font(name=FONT, color="C00000", bold=True)))
     ws.freeze_panes = "G5"
-    ws.auto_filter.ref = f"A4:AY26"
+    ws.auto_filter.ref = f"A4:BA26"
     dvx = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
                          showErrorMessage=True, error="Enter the carrying flight's KUL departure as a UTC date-time (Jul 2026 - Jan 2027).")
     dvx.add("AX5:AX26")
@@ -324,7 +346,7 @@ def build_flights(wb, data, n_checks):
     ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
-    fit_pages(ws, "A", "AY", title_cols_w=43)
+    fit_pages(ws, "A", "BA", title_cols_w=43)
     ws.print_title_rows = "4:4"
     ws.print_title_cols = "A:F"
 
@@ -392,7 +414,7 @@ def build_checks(wb, data):
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
             "Q": "=ROUND((" + due_formula(ck, cp, fr, code_due)[1:] + ")*1440,0)/1440",
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
-            "S": (f"=IF(ISNUMBER(Flights!$AY${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AY${fr}+UpliftWindowH/24),"
+            "S": (f"=IF(ISNUMBER(Flights!$AZ${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AZ${fr}),"
                   f"Q{r}-UpliftWindowH/24)" if cp == "UPLIFT" and ck.get("due_rule") != "CARRY"
                   else f"=Q{r}-{early[cp]}/24"),
             "X": exp_qty,
@@ -408,42 +430,54 @@ def build_checks(wb, data):
         doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\","
-                   f"IF(AND(AS{r}=3,OR(Flights!$AX${fr}>=Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
-                   f"\"INVALID {ND} Flights AX must be before this leg's STD (within 3 days)\",")
+                   f"IF(AND(AS{r}=3,OR(Flights!$AZ${fr}>Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
+                   f"\"INVALID {ND} carrying flight (Flights AX) cannot arrive before this leg's STD, or is over 3 days early\",")
         # msg = qty-variance / CA checks joined with &; "" when OK. IF(msg<>"", msg, rest) keeps Excel-2007 nesting.
         U = f"TRIM(U{r})"
+
+        def bad(x, minlen):
+            return f"OR(LEN(TRIM({x}{r}))<{minlen},ISNUMBER(MATCH(TRIM({x}{r}),L_Placeholder,0)))"
+        if ck.get("due_rule") == "CARRY":
+            cutoff, cut_msg = f"Flights!$AY${fr}+UpliftWindowH/24", "completed after the carrying flight left KUL"
+        else:
+            cutoff = f"IF(ISNUMBER(Flights!$BA${fr}),MIN(Flights!$BA${fr},Flights!$AA${fr}),Flights!$AA${fr})"
+            cut_msg = "completed after loading / departure (cannot establish readiness)"
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
+               f"IF(AND({U}=\"Pass after CA\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} after the corrective action the actual qty must equal expected (update Actual)\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass\",TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action not closed: use Fail, then Pass after CA\",\"\")&"
                f"IF(AND(TRIM(AA{r})<>\"\",TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
-               f"IF(AND({U}=\"Pass after CA\",OR(TRIM(AA{r})=\"\",TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
+               f"IF(AND({U}=\"Pass after CA\",OR({bad('AA', 5)},TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
                 f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
+                f"IF(AND(H{r}=\"Preparation\",AG{r}>{cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
-            f"IF(TRIM(T{r})=\"\",\"INVALID {ND} PIC missing\","
-            f"IF(TRIM(V{r})=\"\",\"INVALID {ND} result / assessment missing\","
-            f"IF(TRIM(Z{r})=\"\",\"INVALID {ND} evidence missing\","
-            f"IF(TRIM(AE{r})=\"\",\"INVALID {ND} verifier missing\","
+            f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
+            f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
+            f"IF({bad('Z', 3)},\"INVALID {ND} evidence missing or placeholder\","
+            f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(TRIM(AE{r})=TRIM(T{r}),\"INVALID {ND} verifier must be someone other than the PIC\","
-            f"IF(AND(AQ{r}=1,TRIM(W{r})=\"\"),\"INVALID {ND} batch ID missing\","
+            f"IF(AND(AQ{r}=1,{bad('W', 3)}),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
-            f"IF({msg}<>\"\",{msg},{rest})))))))))")
+            f"IF(AND(AR{r}=1,OR(X{r}<0,Y{r}<0)),\"INVALID {ND} quantities cannot be negative\","
+            f"IF({msg}<>\"\",{msg},{rest}))))))))))")
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
-            f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this mandatory check\","
-            f"IF(AND(TRIM(AC{r})<>\"\",TRIM(AE{r})<>\"\",TRIM(T{r})<>\"\",TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
-            f"\"INVALID {ND} N/A needs justification, PIC and a different verifier\")),"
+            f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
+            f"IF(AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action still open\","
+            f"IF(AND(NOT({bad('AC', 15)}),NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
+            f"\"INVALID {ND} N/A needs a real justification (15+ chars), PIC and a different verifier\"))),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
             f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
-        na_ok = int(ck["item"].endswith(" - prepared") or ck["item"].endswith(" - on board") or ck["category"] == "Menu"
-                    or ck["applic"] == "Clarification required") and not ck.get("req_carry")
+        refresh_menu = ck["category"] == "Menu" and "Refreshment service" in ck["note"]
+        na_ok = int((ck["applic"] == "Clarification required" and not ck.get("req_carry")) or refresh_menu)
         vals["AT"] = na_ok
         vals["AH"] = state
         vals["AI"] = f"=IF(OR(AH{r}=\"N/A {ND} RULE\",AH{r}=\"N/A {ND} JUSTIFIED\"),0,1)"
@@ -718,11 +752,14 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, sorting, row sizing and inserting pictures still work. Review > Unprotect Sheet if a structural change is needed."),
+    ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
+    ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
+    ("b", "Quantity lines: after a corrective action, update Actual to the corrected quantity; 'Pass after CA' requires Actual = Expected."),
     ("b", "PIC and verifier must be different people. Every Pass needs a result/assessment. T-7D evidence older than the Settings B10 window is rejected as stale."),
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),
-    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so all their catering is loaded at KUL on a carrying flight (agenda candidates MH1140 / MH1450 shown in Flights W). Enter the actual carrying flight's KUL departure (UTC) in Flights AX: T-24H, T-12H prep and the KUL loading-confirmation line are capped at that departure minus the uplift window. Until entered they assume the latest possible KUL departure (STD minus the KUL-PEN / KUL-LGK block)."),
+    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so all their catering is loaded at KUL on a carrying flight (agenda candidates MH1140 / MH1450 shown in Flights W). Enter the actual carrying flight's KUL departure (UTC) in Flights AX: T-24H, T-12H prep and the KUL loading-confirmation line are capped at that departure minus the uplift window. Until entered they assume the agenda candidate's KUL departure."),
     ("b", "Outstation departures that carry KUL-sourced items (e.g. MH0003 LHR-KUL: pajamas, slippers, signature drinks) have a clarification check to identify the inbound KUL flight. Enter its KUL departure (UTC) on Flights column AX: the preparation due and the KUL loading-confirmation line (UPLIFT, station KUL) follow it. Until entered, they assume the latest possible KUL departure."),
     ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at the KUL loading deadline on Flights AY (carrying flight's KUL departure in AX minus the uplift window)."),
     ("h2", "Outstanding inputs at issue"),
