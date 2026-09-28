@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 03:40",
+ "updated": "29 Sep 04:10",
  "checks": 744,
  "pieces": [
   {
@@ -12,7 +12,7 @@
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
    "round": 5,
-   "note": "Round 4: realistic records reached READY on 5 flights, no false negatives; placeholder documents & near-miss evidence now rejected; 36 regression cases pass; round-5 critic running"
+   "note": "Round-4 findings fixed; 36 regression cases pass. Round-5 critic was stopped by a platform safety-check outage before reporting; it needs a re-run"
   },
   {
    "name": "3. Dashboard",
@@ -30,7 +30,7 @@
    "name": "5. Instructions & delivery",
    "state": "run",
    "round": 1,
-   "note": "README written; delivery after the logic critic passes"
+   "note": "Workbook + README delivered; awaiting final logic sign-off"
   }
  ],
  "gaps": [
@@ -211,6 +211,10 @@
   [
    "03:40",
    "Logic critic round 5 running"
+  ],
+  [
+   "04:10",
+   "Round-5 logic critic stopped by the platform before finishing; current build delivered with that caveat"
   ]
  ]
 }
