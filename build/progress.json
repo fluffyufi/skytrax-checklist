@@ -1,30 +1,30 @@
 {
- "updated": "28 Sep 18:55",
+ "updated": "28 Sep 19:20",
  "checks": 738,
  "pieces": [
   {
    "name": "1. Schedule & uplift requirements data",
    "state": "run",
    "round": 3,
-   "note": "Round 2: schedule, time zones, citations and coverage all confirmed; one due-time gap fixed, round-3 critic next"
+   "note": "Round-3 critic checking data and how it lands in the workbook"
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
    "round": 1,
-   "note": "First full LibreOffice recalc too slow (>10 min); profiling formulas"
+   "note": "Full build: 27,583 formulas, 0 errors. Logic critic testing deadlines, record states and READY rules"
   },
   {
    "name": "3. Dashboard",
    "state": "run",
    "round": 1,
-   "note": "Builder working"
+   "note": "Built; covered by the logic critic (KPIs vs Checks) and the blind render critic"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "run",
    "round": 1,
-   "note": "Builder working"
+   "note": "Built (22 sheets); blind render critic inspecting PDF pages"
   },
   {
    "name": "5. Instructions & delivery",
@@ -73,6 +73,18 @@
   [
    "18:55",
    "Recalc performance investigation started"
+  ],
+  [
+   "19:05",
+   "Root cause of slow recalcs: LibreOffice Calc was missing; installed. Full recalc now 17 s"
+  ],
+  [
+   "19:10",
+   "Dashboard and printable builders finished; self-test of record-state rules passed"
+  ],
+  [
+   "19:20",
+   "Launched 3 fresh critics in parallel: data (round 3), formula logic, blind render"
   ]
  ]
 }
