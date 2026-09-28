@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 02:00",
+ "updated": "29 Sep 03:40",
  "checks": 744,
  "pieces": [
   {
@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 4,
-   "note": "Round 3 holes closed (prep cut off at loading, carrier arrival, placeholders, CA qty); 26 regression cases pass; round-4 critic running"
+   "round": 5,
+   "note": "Round 4: realistic records reached READY on 5 flights, no false negatives; placeholder documents & near-miss evidence now rejected; 36 regression cases pass; round-5 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -88,6 +88,11 @@
    "piece": "2. Core formulas",
    "round": 3,
    "gap": "Preparation checks were bounded by STD, not the loading point: a batch sensory done after the food had flown out on the KUL carrier still counted."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 4,
+   "gap": "Placeholder text ('TBC', '-', 'pending') in the Documents sheet counted as the GLD/menu checklist being ON FILE, unlocking READY without a real document."
   }
  ],
  "log": [
@@ -198,6 +203,14 @@
   [
    "02:00",
    "Logic critic round 4 running"
+  ],
+  [
+   "03:00",
+   "Logic critic round 4: FAIL (placeholder documents); fixed with normalised-text checks and qty/prep links"
+  ],
+  [
+   "03:40",
+   "Logic critic round 5 running"
   ]
  ]
 }
