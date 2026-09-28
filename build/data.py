@@ -543,6 +543,22 @@ def check_lines(f, reqs, flights):
         exp = r["expected"] + (f"; qty {r['qty']}" if r["qty"] else "")
         add("UPLIFT", "Physical uplift", r["category"], r["item"] + " - on board", exp, r["src"], r["applic"],
             r["note"], f["dep"], 0, 0, 1 if r["qty"] else 0, r["qty"], r["uplift_stn"])
+    # link on-board rows to their preparation row (same item) for quantity / N/A consistency
+    prep = {}
+    for l in lines:
+        if l["checkpoint"] == "T-12H PREP":
+            key = l["item"][:-len(" - prepared")] if l["item"].endswith(" - prepared") else l["item"]
+            prep[key] = l["check_id"]
+    std_map = {"Meals physically uplifted on board - quantity vs menu checklist": "Meal quantities vs menu checklist",
+               "Equipment physically loaded at GLD positions - quantity & positions": "Equipment quantities vs GLD"}
+    for l in lines:
+        l["prep_link"] = ""
+        if l["checkpoint"] != "UPLIFT":
+            continue
+        if l["item"].endswith(" - on board"):
+            l["prep_link"] = prep.get(l["item"][:-len(" - on board")], "")
+        elif l["item"] in std_map:
+            l["prep_link"] = prep.get(std_map[l["item"]], "")
     return lines
 
 

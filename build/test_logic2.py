@@ -25,8 +25,8 @@ def fill_f11(wb):
         if ck[f"H{r}"].value == "Physical uplift" and cid != "F11-UPL-03":
             ck[f"AD{r}"] = datetime(2026, 10, 12, 14, 0)  # PEN, after MH1140 arrival
     d = wb["Documents"]
-    d["F15"], d["G15"], d["H15"], d["I15"] = "GLD-1", "R1", datetime(2026, 9, 1), "loc"
-    d["K15"], d["L15"], d["M15"], d["N15"] = "MCL-1", "R1", datetime(2026, 9, 1), "loc"
+    d["F15"], d["G15"], d["H15"], d["I15"] = "GLD-B7M8-PEN", "R1", datetime(2026, 9, 1), "\\\\share\\GLD\\MH1149.pdf"
+    d["K15"], d["L15"], d["M15"], d["N15"] = "MCL-PENKUL", "R1", datetime(2026, 9, 1), "\\\\share\\MCL\\MH1149.pdf"
     wb["Flights"]["AX15"] = datetime(2026, 10, 12, 3, 45)
 
 
@@ -79,5 +79,21 @@ def more():
     run("uplift_window_24", lambda wb, rows: wb["Settings"].__setitem__("B7", 24))
 
 
-if __name__ == "__main__" and len(sys.argv) > 1:
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "more":
     more()
+
+
+def round4():
+    d = lambda k, v: (lambda wb, rows: wb["Documents"].__setitem__(k, v))
+    run("doc_placeholders", lambda wb, rows: [wb["Documents"].__setitem__(k, v) for k, v in (("F15", "TBC"), ("G15", "-"), ("I15", "pending"))])
+    run("doc_date_after_flight", d("H15", datetime(2026, 12, 1)))
+    run("evidence_to_be_confirmed", cell("F11-T7-01", "Z", "to be confirmed"))
+    run("evidence_dashes", cell("F11-T7-01", "Z", "---"))
+    run("verifier_same_person", cell("F11-T7-01", "AE", "A Rahman"))
+    run("expected_lowered", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in (("X", 8), ("Y", 8))])
+    run("pass_but_rejected", cell("F11-T24-01", "V", "Rejected - off taste, batch discarded"))
+    run("error_value_pasted", cell("F11-T7-01", "Z", "#N/A"))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
+    round4()

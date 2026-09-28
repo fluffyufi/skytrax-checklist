@@ -132,9 +132,10 @@ def build_settings(wb, data):
     name(wb, "T24EarlyH", "Settings!$C$8")
     name(wb, "T12EarlyH", "Settings!$C$9")
     name(wb, "T7EarlyD", "Settings!$C$10")
-    ws["K3"] = "Placeholder text rejected as evidence"
+    ws["K3"] = "Placeholder words rejected (compared after removing spaces & punctuation, any case)"
     ws["K3"].font = f(9, True, NAVY)
-    ph = ["-", "--", "?", "x", "na", "n/a", "n.a.", "tbc", "tba", "tbd", "pending", "none", "nil", "same", "later", "."]
+    ph = ["na", "tbc", "tba", "tbd", "tbconfirmed", "tobeconfirmed", "tobeadvised", "pending", "awaiting", "none",
+          "nil", "null", "same", "later", "unknown", "x", "xx", "xxx", "0", "test", "dummy", "notapplicable"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
     ws.column_dimensions["K"].width = 22
@@ -275,7 +276,7 @@ def build_flights(wb, data, n_checks):
         ws[f"AP{r}"] = f"=SUMIFS({rng('AK')},{rng('B')},$A{r})"
         ws[f"AQ{r}"] = f"=SUMIFS({rng('AL')},{rng('B')},$A{r})"
         ws[f"AR{r}"] = f"=Documents!P{r}"
-        ws[f"AS{r}"] = f"=SUMIFS({rng('AN')},{rng('B')},$A{r})"
+        ws[f"AS{r}"] = f"=SUMIFS({rng('AN')},{rng('B')},$A{r},{rng('H')},\"Preparation\")"
         prep_done = (f"SUMIFS({rng('AJ')},{rng('B')},$A{r},{rng('H')},\"Preparation\")="
                      f"SUMIFS({rng('AI')},{rng('B')},$A{r},{rng('H')},\"Preparation\")")
         ws[f"AT{r}"] = (f"=IF(AND(AW{r}>0,AO{r}=0,AQ{r}=0,AR{r}=0,AU{r}=0),\"READY\","
@@ -352,6 +353,14 @@ def build_flights(wb, data, n_checks):
 
 
 # ------------------------------------------------------------------ Checks
+def norm(ref):
+    """Lower-case text with spaces, non-breaking spaces and punctuation removed (placeholder / identity tests)."""
+    x = f"LOWER({ref}&\"\")"
+    for ch in ('CHAR(160)', '" "', '"."', '"-"', '"/"', '"?"', '"_"', '","', '"["', '"]"', '"("', '")"', '"*"'):
+        x = f"SUBSTITUTE({x},{ch},\"\")"
+    return x
+
+
 def due_formula(ck, cp, fr, code_due):
     rule = ck.get("due_rule", "")
     if rule == "CARRY" and cp == "UPLIFT":
@@ -372,10 +381,11 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Completion time (local @ check stn)", "Verifier",
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
-           "Req batch", "Req qty", "Req doc", "N/A permitted"]
+           "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
+           "n Batch", "n N/A just.", "n CA", "CA / qty messages"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20]
 
 
 def build_checks(wb, data):
@@ -390,6 +400,7 @@ def build_checks(wb, data):
     early = {"T-7D": "T7EarlyD*24", "T-24H": "T24EarlyH", "T-12H PREP": "T12EarlyH", "UPLIFT": "UpliftWindowH"}
     n = len(data["checks"])
     last = 4 + n
+    rowmap = {ck["check_id"]: 5 + i for i, ck in enumerate(data["checks"])}
     for i, ck in enumerate(data["checks"]):
         r = 5 + i
         fr = 5 + fidx[ck["flight_id"]]
@@ -435,8 +446,13 @@ def build_checks(wb, data):
         # msg = qty-variance / CA checks joined with &; "" when OK. IF(msg<>"", msg, rest) keeps Excel-2007 nesting.
         U = f"TRIM(U{r})"
 
+        helper = {"T": "AU", "V": "AV", "Z": "AW", "AE": "AX", "W": "AY", "AC": "AZ", "AA": "BA"}
+        for src, hcol in helper.items():
+            vals[hcol] = "=" + norm(f"{src}{r}")
+
         def bad(x, minlen):
-            return f"OR(LEN(TRIM({x}{r}))<{minlen},ISNUMBER(MATCH(TRIM({x}{r}),L_Placeholder,0)))"
+            n = f"{helper[x]}{r}"
+            return f"OR(LEN({n})<{minlen},ISNUMBER(MATCH({n},L_Placeholder,0)))"
         if ck.get("due_rule") == "CARRY":
             cutoff, cut_msg = f"Flights!$AY${fr}+UpliftWindowH/24", "completed after the carrying flight left KUL"
         else:
@@ -455,17 +471,26 @@ def build_checks(wb, data):
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>{cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
                 f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
+        link_chk, link_close = "", ""
+        if ck.get("prep_link"):
+            pr = rowmap[ck["prep_link"]]
+            link_chk = (f"IF(AH{pr}=\"N/A {ND} JUSTIFIED\",\"INVALID {ND} preparation row {ck['prep_link']} is N/A\","
+                        f"IF(AND(AR{r}=1,ISNUMBER(X{pr}),X{r}<>X{pr}),\"INVALID {ND} expected qty differs from preparation check {ck['prep_link']}\",")
+            link_close = "))"
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
             f"IF({bad('Z', 3)},\"INVALID {ND} evidence missing or placeholder\","
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
-            f"IF(TRIM(AE{r})=TRIM(T{r}),\"INVALID {ND} verifier must be someone other than the PIC\","
+            f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
+            f"IF(OR(ISNUMBER(SEARCH(\"reject\",V{r})),ISNUMBER(SEARCH(\"fail\",V{r}))),\"INVALID {ND} result says rejected/failed: use Fail\","
             f"IF(AND(AQ{r}=1,{bad('W', 3)}),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
-            f"IF(AND(AR{r}=1,OR(X{r}<0,Y{r}<0)),\"INVALID {ND} quantities cannot be negative\","
-            f"IF({msg}<>\"\",{msg},{rest}))))))))))")
+            f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
+            f"{link_chk}"
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))")
+        vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
@@ -479,11 +504,11 @@ def build_checks(wb, data):
         refresh_menu = ck["category"] == "Menu" and "Refreshment service" in ck["note"]
         na_ok = int((ck["applic"] == "Clarification required" and not ck.get("req_carry")) or refresh_menu)
         vals["AT"] = na_ok
-        vals["AH"] = state
+        vals["AH"] = f"=IFERROR({state[1:]},\"INVALID {ND} error value in an input cell\")"
         vals["AI"] = f"=IF(OR(AH{r}=\"N/A {ND} RULE\",AH{r}=\"N/A {ND} JUSTIFIED\"),0,1)"
         vals["AJ"] = f"=IF(LEFT(AH{r},8)=\"COMPLETE\",1,0)"
         vals["AK"] = f"=IF(AND(AI{r}=1,AJ{r}=0,AsOfUTC>Q{r}),1,0)"
-        vals["AL"] = (f"=IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0)")
+        vals["AL"] = (f"=IFERROR(IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0),1)")
         vals["AM"] = f"=IF(LEFT(AH{r},7)=\"INVALID\",1,0)"
         vals["AN"] = f"=IF(AND(N{r}=\"Clarification required\",AI{r}=1,AJ{r}=0),1,0)"
         vals["AO"] = f"=IF(AK{r}=1,SUM(AK$5:AK{r}),\"\")"
@@ -557,7 +582,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -568,7 +593,7 @@ def build_checks(wb, data):
 def build_documents(wb, data):
     ws = wb.create_sheet("Documents")
     title(ws, "Documents",
-          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. Enter doc no, revision, "
+          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. A row is ON FILE only with a real doc no, revision, a revision date between 2024 and the flight date, and an attachment location. Enter doc no, revision, "
           "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.",
           "C2:I2", 99)
     labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date",
@@ -586,8 +611,12 @@ def build_documents(wb, data):
         ws[f"C{r}"].number_format = "dd-mmm-yy"
         ws[f"D{r}"] = f"=Flights!G{fr}&\"-\"&Flights!H{fr}"
         ws[f"E{r}"] = f"=Flights!L{fr}"
-        ws[f"J{r}"] = (f"=IF(AND(TRIM(F{r})<>\"\",TRIM(G{r})<>\"\",ISNUMBER(H{r}),TRIM(I{r})<>\"\"),\"ON FILE\",\"OUTSTANDING\")")
-        ws[f"O{r}"] = (f"=IF(AND(TRIM(K{r})<>\"\",TRIM(L{r})<>\"\",ISNUMBER(M{r}),TRIM(N{r})<>\"\"),\"ON FILE\",\"OUTSTANDING\")")
+        def docok(no, rev, dt, att):
+            ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},ISNA(MATCH({norm(x + str(r))},L_Placeholder,0)))"
+            return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2024,1,1),"
+                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)}),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+        ws[f"J{r}"] = docok("F", "G", "H", "I")
+        ws[f"O{r}"] = docok("K", "L", "M", "N")
         ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
         note = "Not supplied with brief – obtain from caterer / MAGCS."
         if fl["round_trip"]:
@@ -751,7 +780,7 @@ INSTR = [
     ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS (GLD / menu checklist not on file), – CLARIFICATION (reference question open), then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
-    ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, sorting, row sizing and inserting pictures still work. Review > Unprotect Sheet if a structural change is needed."),
+    ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
     ("b", "Quantity lines: after a corrective action, update Actual to the corrected quantity; 'Pass after CA' requires Actual = Expected."),

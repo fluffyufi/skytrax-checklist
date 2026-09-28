@@ -30,7 +30,7 @@ def protect(wb):
         p = ws.protection
         p.sheet = True
         p.autoFilter = False
-        p.sort = False
+        p.sort = True
         p.formatRows = False
         p.formatColumns = False
         p.formatCells = False
