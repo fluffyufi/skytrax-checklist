@@ -74,7 +74,7 @@ def _col_idx(c):
 
 def _lines(text, width, size=9):
     """Estimated wrapped line count for text in a cell `width` chars wide."""
-    usable = max(width - 1.5, 1) * 10.0 / size * 1.05
+    usable = max(width - 1.5, 1) * 1.25 * 9.0 / size
     return sum(max(1, math.ceil(len(p) / usable)) for p in str(text).split("\n"))
 
 
@@ -93,7 +93,8 @@ class _Sheet:
         c = ws[ref]
         c.value = value
         c.font = _font(size, bold, color, italic)
-        c.alignment = Alignment(horizontal=h, vertical=v, wrap_text=wrap)
+        c.alignment = Alignment(horizontal=h, vertical=v, wrap_text=wrap,
+                                indent=(1 if h in ("left", "right") else 0))
         if fmt:
             c.number_format = fmt
         cells = [c]
@@ -325,7 +326,7 @@ def build(wb, data):
             ws[f"T{r}"].value = f"=IFERROR(MATCH({k},{ck(seq_col)},0),\"\")"
             ws[f"T{r}"].font = _font(8, color=GREY_TEXT)
             S.put(f"A{r}", f'=IF($T{r}="","",{k})', size=8, color=GREY_TEXT, h="center",
-                  fill=band, border=True)
+                  v="top", fill=band, border=True)
             for a, b, _h, ccol, kind in spans:
                 rng = ck(ccol)
                 if kind in ("num", "date"):
@@ -339,9 +340,12 @@ def build(wb, data):
                       merge_to=(f"{b}{r}" if a != b else None))
             ws.row_dimensions[r].height = _height(max_lines)
         r += 1
-        S.put(f"B{r}", f'=IF({total_expr}>{TOP_N},"+"&({total_expr}-{TOP_N})&" more {noun} '
-                       f'not shown – see Checks sheet","")',
-              bold=True, italic=True, color=RED, merge_to=f"{LAST_COL}{r}")
+        S.put(f"B{r}", f'=IF({total_expr}=0,"No {noun} at the as-of time.",'
+                       f'IF({total_expr}>{TOP_N},"+"&({total_expr}-{TOP_N})&" more {noun} '
+                       f'not shown – see Checks sheet",""))',
+              bold=True, italic=True, color=GREEN_TEXT, merge_to=f"{LAST_COL}{r}")
+        ws.conditional_formatting.add(f"B{r}", FormulaRule(
+            formula=[f'LEFT($B${r},1)="+"'], font=Font(name=FONT, color=RED, bold=True)))
         ws.row_dimensions[r].height = 15
         return r
 
@@ -364,7 +368,7 @@ def build(wb, data):
          ("K", "K", "Actual qty", "Y", "num"), ("L", "L", "Variance", "AF", "num"),
          ("M", "P", "Corrective action", "AA", "long"), ("Q", "Q", "CA status", "AB", "short"),
          ("R", "R", "Record state", "AH", "text")],
-        "discrepancies")
+        "outstanding discrepancies")
     r += 1
     ws.row_dimensions[r].height = 8
 

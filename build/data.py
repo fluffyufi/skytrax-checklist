@@ -257,9 +257,8 @@ def requirements_for(f):
                 exp = ("Wide body: Top/Middle & Bottom" if f["widebody"] else "Narrow body: Top only")
                 note = f"Per note {sh}!B79:C80."
             if name in ("Table cloth", "Bread linen (using table cloth)") and region in ("ASEAN", "DOMESTIC", "ORIENTAL"):
-                applic = "Clarification required"
-                note = (f"Matrix shows _/ but note {sh}!B78:C78 says table cloth 'Not Applicable for "
-                        f"Domestic/Asean & Regional' ({region}). Confirm before loading.")
+                note = (f"Matrix shows _/ for this sector although note {sh}!B78:C78 excludes Domestic/ASEAN/Regional; "
+                        "other ASEAN/Domestic rows are X, so the matrix is taken as already applying the note.")
             add("F&B Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", exp, "Not stated in reference", note)
 
     # ---- SEAT LINEN
@@ -286,8 +285,7 @@ def requirements_for(f):
                 applic = "Clarification required"
                 note += " Matrix shows _/ but block time is not above 3 h - confirm."
             if f["region"] in ("ORIENTAL", "ASEAN", "DOMESTIC"):
-                applic = "Clarification required"
-                note += f" Matrix shows _/ but {f['region']} may count as 'Regional' under B74 - confirm."
+                note += " Matrix shows _/ for this sector (ASEAN/Domestic rows are blank), so the regional exclusion is taken as already applied."
             if f["fleet"] in ("A333", "A339"):
                 qty = "280"
                 note += f" Qty 280 pcs (14 bundles) for A332/A333/A339 ({sh}!B75:C75)."
@@ -454,7 +452,7 @@ def check_lines(f, reqs, flights):
             "Clarification required",
             f"Reference uplift stn for {f['sector']} is KUL only, so {f['dep']} does not cater. The schedule does not state "
             f"the tail; confirm the rotation. T-24H and T-12H prep deadlines are pulled forward to before {lf['flt']}'s "
-            "loading window.", "KUL")
+            "loading window. If the rotation differs, change 'Return meals loaded on' on the Flights sheet (or clear it).", "KUL")
     kul_items = [r for r in reqs if r["uplift_stn"] == "KUL"]
     if f["dep"] != "KUL" and not f["round_trip"] and kul_items:
         names = ", ".join(r["item"] for r in kul_items)
@@ -463,8 +461,9 @@ def check_lines(f, reqs, flights):
             f"Inbound KUL-{f['dep']} flight carrying KUL-sourced items identified: {names}",
             f"Items uplifted at KUL travel on the inbound KUL-{f['dep']} sector", "STD UPLIFT INFORMATION.xlsx > uplift stn columns",
             "Clarification required",
-            f"Agenda KUL-{f['dep']} flights: {cand}. Record the actual inbound flight in Result. The T-12H prep due for "
-            f"these items is capped at STD minus the shortest KUL-{f['dep']} block time, the latest the aircraft could have left KUL.",
+            f"Record the actual inbound KUL-{f['dep']} flight in Result (block-time reference only: {cand}). The T-12H prep due for "
+            f"these items is capped at STD minus the shortest KUL-{f['dep']} block time minus the uplift window, i.e. the latest "
+            "moment they could have been loaded at KUL.",
             "KUL")
     for cat, item, exp, batch, doc in STD_T24:
         add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required", "", ms, batch, doc)
@@ -477,10 +476,13 @@ def check_lines(f, reqs, flights):
         stn = r["uplift_stn"] if r["uplift_stn"] in STATIONS else ms
         exp = r["expected"] + (f"; qty {r['qty']}" if r["qty"] else "")
         bound, note = None, r["note"]
+        if r["uplift_stn"] not in STATIONS:
+            note = (note + " " if note else "") + (f"Reference gives no uplift stn for this item: preparation checked at the "
+                                                   f"meal uplift stn ({ms}) - confirm with caterer.")
         if stn == "KUL" and f["dep"] != "KUL" and not f["round_trip"]:
             bound = [x["id"] for x in inbound]
-            note = (note + " " if note else "") + (f"Loaded at KUL on the inbound KUL-{f['dep']} sector: due capped at STD minus "
-                                                   f"shortest KUL-{f['dep']} block ({', '.join(bound) or 'none in agenda'}).")
+            note = (note + " " if note else "") + (f"Loaded at KUL on the inbound KUL-{f['dep']} sector: due capped at STD minus the "
+                                                   f"shortest agenda KUL-{f['dep']} block time minus the uplift window (latest possible KUL loading).")
         add("T-12H PREP", "Preparation", r["category"], r["item"] + " - prepared", exp, r["src"], r["applic"],
             note, stn, 0, 0, 1 if r["qty"] else 0, r["qty"], r["uplift_stn"], due_bound=bound)
     for t in STD_UPL:

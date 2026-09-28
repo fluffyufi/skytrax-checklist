@@ -1,18 +1,18 @@
 {
- "updated": "28 Sep 18:25",
+ "updated": "28 Sep 18:55",
  "checks": 738,
  "pieces": [
   {
    "name": "1. Schedule & uplift requirements data",
    "state": "run",
-   "round": 2,
-   "note": "Round 1 returned 10 defects; all fixed, awaiting round-2 critic"
+   "round": 3,
+   "note": "Round 2: schedule, time zones, citations and coverage all confirmed; one due-time gap fixed, round-3 critic next"
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
    "round": 1,
-   "note": "Core written; first full build + recalc running"
+   "note": "First full LibreOffice recalc too slow (>10 min); profiling formulas"
   },
   {
    "name": "3. Dashboard",
@@ -38,6 +38,11 @@
    "piece": "1. Schedule & uplift data",
    "round": 1,
    "gap": "No model for items loaded at a station other than the departure station: PEN/LGK return legs and KUL-sourced items on LHR/HKG departures had prep deadlines after the catering had already left KUL."
+  },
+  {
+   "piece": "1. Schedule & uplift data",
+   "round": 2,
+   "gap": "The inbound-loading cap left no loading window, so F07 MH0003 LHR-KUL's KUL-loaded pajamas, slippers and signature drinks were due after they had left KUL. The PEN/LGK rotation was also hard-wired (now an editable Flight ID)."
   }
  ],
  "log": [
@@ -60,6 +65,14 @@
   [
    "18:25",
    "Fixed: inbound-loading cap on due times, rotation confirmation checks, LHR sales cart moved to not-provided, DAM-cart slippers added, EY blanket regional rule, merged-cell citations"
+  ],
+  [
+   "18:45",
+   "Data critic round 2: FAIL on 1 gap (plus 4 minor points); all addressed"
+  ],
+  [
+   "18:55",
+   "Recalc performance investigation started"
   ]
  ]
 }

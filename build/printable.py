@@ -22,15 +22,15 @@ COLS = [
     ("Check ID", 10),
     ("Check item", 27),
     ("Requirement / expected", 33),
-    ("Applicability", 11),
+    ("Applicability", 12),
     ("Due (local @ stn)", 12),
-    ("Status", 10),
-    ("Result / assessment", 17),
+    ("Status (CA status)", 10),
+    ("Result / assessment", 18),
     ("Batch ID", 9),
     ("Exp qty", 10),
     ("Act qty", 7),
     ("Evidence ref", 12),
-    ("Corrective action", 16),
+    ("Corrective action", 18),
     ("Completion time (local)", 12),
     ("Verifier", 10),
     ("Record state", 15),
@@ -83,7 +83,7 @@ def _lines(text, width, size=FS, bold=False):
     """Conservative wrapped line count for Arial text in a column of `width` chars."""
     if text is None or text == "":
         return 1
-    per_char = 1.18 * (8.0 / size)  # Arial 8pt fits ~1.3 chars per width unit; keep margin
+    per_char = 1.5 * (8.0 / size)  # LibreOffice fits ~1.9 Arial-8 chars per width unit; keep margin for Excel
     if bold:
         per_char *= 0.9
     cap = max(1, int(width * per_char) - 1)
@@ -355,7 +355,7 @@ def _build_one(wb, data, n, f, checks_idx):
              align=Alignment(wrap_text=True, vertical="center", horizontal="left"))
         ws.conditional_formatting.add(
             f"{get_column_letter(c1)}{r}:{get_column_letter(c2)}{r}",
-            FormulaRule(formula=[f'{st_ref}="OUTSTANDING"'], fill=RED_STRONG, font=Font(color="FFFFFF", bold=True)))
+            FormulaRule(formula=[f'$F${dr}="OUTSTANDING"'], fill=RED_STRONG, font=Font(color="FFFFFF", bold=True)))
         body = r + 1
         ws.cell(body, c1, f'=IF({st_ref}="OUTSTANDING","Document OUTSTANDING – placeholder. '
                           f'Insert the current revision here before T-7D.",'
@@ -406,17 +406,17 @@ def _build_one(wb, data, n, f, checks_idx):
             vals = [
                 (f"={C('A')}", None, AL_WRAP),
                 (f'=IF({C("I")}="","",{C("I")}&": ")&{C("J")}', None, AL_WRAP),
-                (f'={C("K")}&IF({C("O")}="","",CHAR(10)&"Note: "&{C("O")})', None, AL_WRAP),
+                (f'={C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})', None, AL_WRAP),
                 (_blank(C("N")), None, AL_WRAP),
                 (f'=IF(ISNUMBER({C("R")}),TEXT({C("R")},"DD-MMM HH:MM")&" "&{C("P")},"")', None, AL_WRAP),
-                (_blank(C("U")), None, AL_WRAP),
+                (f'=IF({C("U")}="","",{C("U")})&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")})', None, AL_WRAP),
                 (f'=IF({C("V")}="","",{C("V")})&IF({C("AC")}="","",IF({C("V")}="","",CHAR(10))&"N/A just.: "&{C("AC")})',
                  None, AL_WRAP),
                 (_blank(C("W")), None, AL_WRAP),
                 (_blank(C("X")), None, AL_WRAP),
                 (_blank(C("Y")), None, AL_WRAP),
                 (_blank(C("Z")), None, AL_WRAP),
-                (f'=IF({C("AA")}="","",{C("AA")})&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")})', None, AL_WRAP),
+                (_blank(C("AA")), None, AL_WRAP),
                 (_blank(C("AD")), "dd-mmm hh:mm", AL_WRAP),
                 (_blank(C("AE")), None, AL_WRAP),
                 (_blank(C("AH")), None, AL_WRAP),
@@ -429,7 +429,7 @@ def _build_one(wb, data, n, f, checks_idx):
                 if fmt:
                     cell.number_format = fmt
             item_txt = (c["category"] + ": " if c["category"] else "") + c["item"]
-            req_txt = c["expected"] + ("\nNote: " + c["note"] if c["note"] else "")
+            req_txt = "\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t)
             nl = max(
                 _lines(c["check_id"], COLS[0][1]),
                 _lines(item_txt, COLS[1][1]),

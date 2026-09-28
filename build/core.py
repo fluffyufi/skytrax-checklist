@@ -162,7 +162,7 @@ def build_settings(wb, data):
 FL_HEAD = ["Flight ID", "Itin", "Seq", "Date", "Day", "Flight No", "Dep", "Arr", "STD local", "STA local",
            "Class assessed", "Fleet (schedule)", "Aircraft ref type (STD UPLIFT INFO)", "Tail / Reg (input)",
            "Seat", "Transit", "Remark", "Sector key", "Region", "Service (ref)", "Ref uplift stns",
-           "Meal uplift stn", "Round-trip: return meals loaded on", "Caterer (input)", "Flight PIC (input)",
+           "Meal uplift stn", "Return meals loaded on (Flight ID, input)", "Caterer (input)", "Flight PIC (input)",
            "Dep UTC offset (h)", "STD UTC", "Block time (h)", "T-7D due UTC", "T-24H due UTC",
            "T-12H prep due UTC", "Uplift due UTC (= STD)", "T-7D due local (meal uplift stn)",
            "T-24H due local", "T-12H prep due local", "T-7D %", "T-24H %", "T-12H prep %", "Uplift %",
@@ -186,7 +186,7 @@ def build_flights(wb, data, n_checks):
         loaded = ""
         if fl["loaded_on"]:
             lf = byid[fl["loaded_on"]]
-            loaded = f"{lf['id']} {lf['flt']} (KUL {lf['std_text']})"
+            loaded = lf["id"]
         static = [fl["id"], fl["itin"], fl["seq"], dt(fl["date"] + " 00:00"), fl["day"], fl["flt"], fl["dep"],
                   fl["arr"], dt(fl["std_local"]), dt(fl["sta_local"]), fl["cls"], fl["fleet"], fl["fleet_ref"],
                   None, fl["seat"], fl["transit"], fl["remark"], fl["sector"], fl["region"], fl["service"],
@@ -200,20 +200,18 @@ def build_flights(wb, data, n_checks):
         ws[f"Z{r}"] = "=" + off(f"G{r}", f"(I{r}-{stdoff(f'G{r}')}/24)")
         ws[f"AA{r}"] = f"=I{r}-Z{r}/24"
         arr_u0 = f"(J{r}-{stdoff('H' + str(r))}/24)"
-        ws[f"AB{r}"] = f"=ROUND((J{r}-({off('H' + str(r), arr_u0)})/24-AA{r})*24,2)"
+        ws[f"AB{r}"] = f"=(J{r}-({off('H' + str(r), arr_u0)})/24-AA{r})*24"
+        ws[f"AB{r}"].number_format = "0.00"
+        ws[f"AC{r}"] = f"=AA{r}-7"
+        lk = f"INDEX($AA$5:$AA$26,MATCH(TRIM(W{r}),$A$5:$A$26,0))-UpliftWindowH/24"
+        ws[f"AD{r}"] = f"=IF(TRIM(W{r})=\"\",AA{r}-1,MIN(AA{r}-1,{lk}))"
+        ws[f"AE{r}"] = f"=IF(TRIM(W{r})=\"\",AA{r}-0.5,MIN(AA{r}-0.5,{lk}))"
         if fl["loaded_on"]:
-            lr = 5 + int(fl["loaded_on"][1:]) - 1
-            ws[f"AC{r}"] = f"=AA{r}-7"
-            ws[f"AD{r}"] = f"=MIN(AA{r}-1,$AA${lr}-UpliftWindowH/24)"
-            ws[f"AE{r}"] = f"=MIN(AA{r}-0.5,$AA${lr}-UpliftWindowH/24)"
-            ws[f"AE{r}"].comment = Comment(
+            ws[f"W{r}"].comment = Comment(
                 "Round-trip catered: reference uplift stn for this sector is KUL only, so return catering is loaded at KUL "
                 f"on {byid[fl['loaded_on']]['flt']}. Preparation checks must finish before that loading window. "
-                "Confirm aircraft rotation.", "MAGCS")
-        else:
-            ws[f"AC{r}"] = f"=AA{r}-7"
-            ws[f"AD{r}"] = f"=AA{r}-1"
-            ws[f"AE{r}"] = f"=AA{r}-0.5"
+                "Confirm aircraft rotation. Editable: enter the Flight ID (e.g. F10) of the KUL departure that carries this leg's "
+                "catering, or clear the cell if the leg is catered locally.", "MAGCS")
         ws[f"AF{r}"] = f"=AA{r}"
         for src, dst in (("AC", "AG"), ("AD", "AH"), ("AE", "AI")):
             ws[f"{dst}{r}"] = f"={src}{r}+({off(f'V{r}', f'{src}{r}')})/24"
@@ -250,7 +248,7 @@ def build_flights(wb, data, n_checks):
             c.border = BORDER
             if c.alignment.horizontal is None:
                 c.alignment = Alignment(vertical="top", wrap_text=True)
-            if j in (14, 24, 25):
+            if j in (14, 23, 24, 25):
                 c.fill = F_INPUT
             elif j >= 26:
                 c.fill = F_CALC
@@ -326,7 +324,7 @@ def build_checks(wb, data):
             "H": ck["check_type"], "I": ck["category"], "J": ck["item"], "K": ck["expected"], "L": ck["src"],
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
             "Q": (f"=MIN(Flights!${code_due[cp]}${fr},Flights!$AA${fr}-MIN("
-                  + ",".join(f"Flights!$AB${5 + fidx[b]}" for b in ck["due_bound"]) + ")/24)")
+                  + ",".join(f"Flights!$AB${5 + fidx[b]}" for b in ck["due_bound"]) + ")/24-UpliftWindowH/24)")
                  if ck.get("due_bound") else f"=Flights!${code_due[cp]}${fr}",
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
             "S": f"=Q{r}-{early[cp]}/24" if early[cp] else "",
@@ -615,8 +613,8 @@ INSTR = [
     ("b", "Overdue = not complete and the as-of time (Settings B6, UTC) is past the due time."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),
-    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so return catering is loaded at KUL on MH1140 / MH1450. Their T-24H and T-12H preparation deadlines are pulled forward to before that loading window. Confirm aircraft rotation."),
-    ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M."),
+    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so return catering is loaded at KUL on MH1140 / MH1450. Their T-24H and T-12H preparation deadlines are pulled forward to before that loading window. Confirm the aircraft rotation; the linked flight is editable on Flights (column W)."),
+    ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at STD minus the shortest agenda KUL-to-outstation block time minus the uplift window."),
     ("h2", "Outstanding inputs at issue"),
     ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet and each P-sheet)."),
     ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights."),
