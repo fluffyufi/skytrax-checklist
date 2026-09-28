@@ -242,8 +242,9 @@ def build_flights(wb, data, n_checks):
                      f"SUMIFS({rng('AI')},{rng('B')},$A{r},{rng('H')},\"Preparation\")")
         ws[f"AT{r}"] = (f"=IF(AND(AW{r}>0,AO{r}=0,AQ{r}=0,AR{r}=0,AU{r}=0),\"READY\","
                         f"IF(AP{r}>0,\"NOT READY {ND} OVERDUE\",IF(AQ{r}>0,\"NOT READY {ND} DISCREPANCY\","
-                        f"IF(AU{r}>0,\"NOT READY {ND} INVALID ENTRY\",IF(AND(AV{r}>0,{prep_done}),"
-                        f"\"PREP DONE {ND} AWAITING UPLIFT\",IF(AV{r}=0,\"NOT STARTED\",\"IN PROGRESS\"))))))")
+                        f"IF(AU{r}>0,\"NOT READY {ND} INVALID ENTRY\",IF(AR{r}>0,\"NOT READY {ND} DOCUMENTS OUTSTANDING\","
+                        f"IF(AS{r}>0,\"NOT READY {ND} CLARIFICATION OPEN\",IF(AND(AV{r}>0,{prep_done}),"
+                        f"\"PREP DONE {ND} AWAITING UPLIFT\",IF(AV{r}=0,\"NOT STARTED\",\"IN PROGRESS\"))))))))")
         ws[f"AU{r}"] = f"=SUMIFS({rng('AM')},{rng('B')},$A{r})"
         ws[f"AV{r}"] = f"=SUMIFS({rng('AJ')},{rng('B')},$A{r})"
         ws[f"AW{r}"] = f"=SUMIFS({rng('AI')},{rng('B')},$A{r})"
@@ -317,10 +318,10 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Completion time (local @ check stn)", "Verifier",
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
-           "Req batch", "Req qty", "Req doc"]
+           "Req batch", "Req qty", "Req doc", "N/A permitted"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 28, 16, 9, 9, 20, 28, 9, 26, 17, 14,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8]
 
 
 def build_checks(wb, data):
@@ -340,7 +341,7 @@ def build_checks(wb, data):
         cp = ck["checkpoint"]
         applic = ck["applic"]
         if applic == "RULE:A339":
-            applic = f"=IF(Flights!$L${fr}=\"A339\",\"Required\",\"N/A {ND} rule\")"
+            applic = f"=IF(TRIM(Flights!$L${fr})=\"A339\",\"Required\",\"N/A {ND} rule\")"
         elif applic == "RULE:LOADFLT":
             applic = f"=IF(TRIM(Flights!$W${fr})=\"\",\"N/A {ND} rule\",\"Required\")"
         exp_qty = None
@@ -373,32 +374,42 @@ def build_checks(wb, data):
                    f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\",")
         # msg = qty-variance / CA checks joined with &; "" when OK. IF(msg<>"", msg, rest) keeps Excel-2007 nesting.
-        msg = (f"IF(AND(U{r}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
-               f"IF(AND(U{r}=\"Pass after CA\",OR(AA{r}=\"\",AB{r}<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
+        U = f"TRIM(U{r})"
+        msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
+               f"IF(AND({U}=\"Pass\",AB{r}=\"Open\"),\"INVALID {ND} corrective action still open: use Fail, then Pass after CA\",\"\")&"
+               f"IF(AND({U}=\"Pass after CA\",OR(TRIM(AA{r})=\"\",AB{r}<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
                 f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
-                f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after departure\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")))))))")
+                f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
+                f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))")
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
-            f"IF(Z{r}=\"\",\"INVALID {ND} evidence missing\","
-            f"IF(AE{r}=\"\",\"INVALID {ND} verifier missing\","
-            f"IF(AND(AQ{r}=1,W{r}=\"\"),\"INVALID {ND} batch ID missing\","
+            f"IF(TRIM(T{r})=\"\",\"INVALID {ND} PIC missing\","
+            f"IF(TRIM(Z{r})=\"\",\"INVALID {ND} evidence missing\","
+            f"IF(TRIM(AE{r})=\"\",\"INVALID {ND} verifier missing\","
+            f"IF(AND(AQ{r}=1,TRIM(W{r})=\"\"),\"INVALID {ND} batch ID missing\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
-            f"IF({msg}<>\"\",{msg},{rest}))))))")
+            f"IF({msg}<>\"\",{msg},{rest})))))))")
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
-            f"IF(U{r}=\"N/A\",IF(AND(TRIM(AC{r})<>\"\",TRIM(AE{r})<>\"\"),\"N/A {ND} JUSTIFIED\",\"INVALID {ND} N/A needs justification and verifier\"),"
-            f"IF(OR(U{r}=\"Pass\",U{r}=\"Pass after CA\"),{valid},"
-            f"IF(U{r}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
-            f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\"))))))")
+            f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this mandatory check\","
+            f"IF(AND(TRIM(AC{r})<>\"\",TRIM(AE{r})<>\"\",TRIM(T{r})<>\"\"),\"N/A {ND} JUSTIFIED\","
+            f"\"INVALID {ND} N/A needs justification, PIC and verifier\")),"
+            f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
+            f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
+            f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
+            f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
+        na_ok = int(ck["item"].endswith(" - prepared") or ck["item"].endswith(" - on board") or ck["category"] == "Menu"
+                    or ck["applic"] == "Clarification required")
+        vals["AT"] = na_ok
         vals["AH"] = state
         vals["AI"] = f"=IF(OR(AH{r}=\"N/A {ND} RULE\",AH{r}=\"N/A {ND} JUSTIFIED\"),0,1)"
         vals["AJ"] = f"=IF(LEFT(AH{r},8)=\"COMPLETE\",1,0)"
         vals["AK"] = f"=IF(AND(AI{r}=1,AJ{r}=0,AsOfUTC>Q{r}),1,0)"
-        vals["AL"] = (f"=IF(AND(AI{r}=1,OR(U{r}=\"Fail\",AB{r}=\"Open\",AND(ISNUMBER(AF{r}),AF{r}<>0,U{r}<>\"Pass after CA\"))),1,0)")
+        vals["AL"] = (f"=IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AB{r}=\"Open\",AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0)")
         vals["AM"] = f"=IF(LEFT(AH{r},7)=\"INVALID\",1,0)"
         vals["AN"] = f"=IF(AND(N{r}=\"Clarification required\",AI{r}=1,AJ{r}=0),1,0)"
         vals["AO"] = f"=IF(AK{r}=1,SUM(AK$5:AK{r}),\"\")"
@@ -471,7 +482,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS"):
+    for col in ("AQ", "AR", "AS", "AT"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -658,13 +669,16 @@ INSTR = [
     ("n", "3. T-24H sensory: Batch ID (W) is mandatory. Status Pass = batch accepted; Fail = rejected (enter corrective action AA and CA status AB)."),
     ("n", "4. Quantity lines: enter Expected (X, from menu checklist / GLD) and Actual (Y). A variance cannot be 'Pass' – use Fail, then 'Pass after CA' once the corrective action is recorded and Closed."),
     ("n", "5. Set Status (U) last. The Record state (AH) tells you whether the entry is accepted."),
-    ("n", "6. N/A only with a written justification (AC) and a verifier (AE). Rule-based N/A (digital IFE menu on non-A339) is automatic and excluded from completion rates."),
+    ("n", "6. N/A only with a written justification (AC), PIC (T) and verifier (AE), and only on rows where N/A is permitted. Rule-based N/A (digital IFE menu on non-A339) is automatic and excluded from completion rates."),
     ("h2", "Rules built into the formulas"),
-    ("b", "Blank or 'Not started'/'In progress' never counts as complete. 'Pass' without completion time, evidence or verifier shows INVALID and does not count."),
+    ("b", "Blank or 'Not started'/'In progress' never counts as complete. 'Pass' without completion time, PIC, evidence or verifier (blank or spaces) shows INVALID and does not count."),
+    ("b", "A check completed after the flight's departure never counts (INVALID – completed after departure). A check completed after its due time but before departure counts as COMPLETE – LATE."),
+    ("b", "N/A is only accepted where it can legitimately apply: printed menu cards, reference-derived uplift items and clarification items. Mandatory checks (sensory tests, catering officer, ISOP, GLD, menu checklist, meal/equipment preparation and physical uplift) cannot be N/A'd."),
     ("b", "Completion % = complete ÷ in-scope checks; justified and rule-based N/A are removed from both, so they neither raise nor lower the rate."),
     ("b", "Preparation checks (T-12H PREP, at the caterer) never confirm loading. Physical uplift rows (UPLIFT) are only accepted when the completion time is inside the uplift window before STD (Settings B7) – an earlier entry shows 'INVALID – before uplift window'."),
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),
     ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present)."),
+    ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS OUTSTANDING, – CLARIFICATION OPEN, then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),

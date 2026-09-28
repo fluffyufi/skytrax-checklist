@@ -44,7 +44,7 @@ AO Open required checks · AP Overdue · AQ Open discrepancies · AR Docs outsta
 AS Clarifications open · AT Readiness (text) · AU Invalid entries · AV Checks completed · AW Checks in scope ·
 AX Inbound carrying flight KUL departure UTC (input; "n/a" where not applicable) · AY KUL loading deadline for KUL-sourced items (UTC)
 Readiness values: `READY`, `NOT READY – OVERDUE`, `NOT READY – DISCREPANCY`,
-`NOT READY – INVALID ENTRY`, `PREP DONE – AWAITING UPLIFT`, `IN PROGRESS`, `NOT STARTED`.
+`NOT READY – INVALID ENTRY`, `NOT READY – DOCUMENTS OUTSTANDING`, `NOT READY – CLARIFICATION OPEN`, `PREP DONE – AWAITING UPLIFT`, `IN PROGRESS`, `NOT STARTED`.
 
 ## Checks (owner: core) — header row 4, data rows 5 … (one row per check line, in data.json order)
 A CheckID · B FlightID · C Flight No · D Date · E Sector (DEP-ARR) · F Class · G Checkpoint
@@ -58,7 +58,7 @@ Z Evidence ref · AA Corrective action · AB CA status · AC N/A justification �
 COMPUTED: AF Qty variance · AG Completion UTC · AH Record state (text) · AI In scope (1/0) ·
 AJ Complete (1/0) · AK Overdue (1/0) · AL Open discrepancy (1/0) · AM Invalid (1/0) ·
 AN Clarification open (1/0) · AO Overdue seq (1..n or "") · AP Discrepancy seq (1..n or "") ·
-AQ Req batch · AR Req qty · AS Req doc (1 = GLD, 2 = menu checklist)
+AQ Req batch · AR Req qty · AS Req doc (1 = GLD, 2 = menu checklist, 3 = carrying flight on Flights AX) · AT N/A permitted (hidden)
 Record state values start with one of: `COMPLETE`, `COMPLETE – LATE`, `N/A – RULE`, `N/A – JUSTIFIED`,
 `OPEN`, `OPEN – CLARIFICATION`, `OVERDUE`, `FAIL – DISCREPANCY`, `INVALID – <reason>`.
 The last data row number is `5 + len(data["checks"]) - 1`; use `len(data["checks"])` — do not hardcode.

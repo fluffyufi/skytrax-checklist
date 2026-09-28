@@ -524,16 +524,16 @@ def check_lines(f, reqs, flights):
     if f["round_trip"]:
         allnames = ", ".join(["meals / refreshment", "equipment"] + [r["item"] for r in reqs])
         add("UPLIFT", "Physical uplift", "Uplift plan",
-            f"Return catering for {f['flt']} physically loaded at KUL on the carrying flight: {allnames}",
-            "Quantities as per menu checklist, GLD and Requirements", "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)",
+            f"Return catering for {f['flt']} physically loaded at KUL on the carrying flight (meals, equipment and all items below)",
+            f"Items: {allnames}. Quantities as per menu checklist, GLD and Requirements", "User brief (physical uplift) + CATERING UPLIFT STN (KUL only)",
             "Required",
             "Loading happens at KUL, so it is confirmed at KUL inside the uplift window before the carrying flight's KUL "
             "departure (Flights AX). The on-board lines below are then re-checked at the departure station.", "KUL",
             due_bound=rt_bound, due_rule="CARRY")
     if carry:
         add("UPLIFT", "Physical uplift", "Uplift plan",
-            f"KUL-sourced items physically loaded at KUL on the inbound KUL-{f['dep']} flight: {names}",
-            "Items and quantities as per Requirements", f"{REFNAME} > item uplift stn columns", "Required",
+            f"KUL-sourced items physically loaded at KUL on the inbound KUL-{f['dep']} flight",
+            f"Items: {names}. Quantities as per Requirements", f"{REFNAME} > item uplift stn columns", "Required",
             "Confirmed at KUL inside the uplift window before the carrying flight's KUL departure (Flights AX).", "KUL",
             due_bound=[x["id"] for x in inbound], due_rule="CARRY")
     for r in reqs:

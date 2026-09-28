@@ -19,19 +19,22 @@ FONT = "Arial"
 FS = 9  # body font size
 
 # ------------------------------------------------------------------ layout
+# Total 143 width units: A4 landscape, 0.25" margins -> fit-to-width scale ~97 % (measured in LibreOffice).
 COLS = [
-    ("Check ID / item", 22),
-    ("Requirement / expected", 25),
-    ("Applicability / due (local @ stn)", 14),
-    ("Status (CA status)", 11),
-    ("Result  |  batch  |  exp / act qty", 34),
-    ("Evidence  |  corrective action", 24),
-    ("Completed (local) / verifier", 14),
-    ("Record state", 11),
+    ("Check ID / item", 18),
+    ("Requirement / expected", 21),
+    ("Applicability / due (local @ stn)", 12),
+    ("Status (CA status)", 10),
+    ("Result  |  batch  |  exp / act qty", 31),
+    ("Evidence  |  corrective action", 31),
+    ("Completed (local) / verifier", 11),
+    ("Record state", 9),
 ]
 NCOL = len(COLS)
 LASTCOL = get_column_letter(NCOL)
 C_REC = get_column_letter(8)
+REF_SHEETS = ["AIRCRAFT TYPE", "CATERING UPLIFT STN", "AMENITIES", "F&B LINEN", "SEAT LINEN", "SALES CART",
+              "Signature Drinks"]
 
 CHECKPOINTS = [
     ("T-7D", "7 days before departure", "AG", "AJ"),
@@ -61,8 +64,9 @@ AL_TOP = Alignment(wrap_text=True, vertical="top", horizontal="left")
 AL_MID = Alignment(wrap_text=True, vertical="center", horizontal="left")
 AL_CEN = Alignment(wrap_text=True, vertical="center", horizontal="center")
 
-LINE_PT = {8: 10.5, 9: 11.5, 10: 13.0, 11: 14.5, 12: 15.5, 13: 17.0}
-ENTRY_LINES = 5  # room for ~140 chars of result/CA + batch + qty lines
+LINE_PT = {8: 10.0, 8.5: 10.5, 9: 11.0, 10: 13.0, 11: 14.5, 12: 15.5, 13: 17.0}
+LS = 8.5  # label size
+BLANK = "__________________"
 
 
 def _width(c1, c2=None):
@@ -73,7 +77,7 @@ def _lines(text, width, size=FS, bold=False):
     """Conservative wrapped line count for Arial text in `width` column units."""
     if text is None or text == "":
         return 1
-    per_char = 1.5 * (8.0 / size)  # LibreOffice fits ~1.9 Arial-8 chars/unit; margin for Excel
+    per_char = 1.15 * (9.0 / size)  # measured: Arial 9pt ~1.24 chars per width unit in print; small margin
     if bold:
         per_char *= 0.9
     cap = max(1, int(width * per_char) - 1)
@@ -155,6 +159,29 @@ def sheet_title(n, f):
     return t[:31]
 
 
+
+
+# sample entries used to reserve room for hand-written / typed inputs
+_RESULT_SAMPLE = ("Panel of 4 tasted chicken rendang and nasi lemak; texture, seasoning and temperature within spec; "
+                  "plating matched the menu photo ok.")  # 140 chars
+_CA_SAMPLE = ("Sauce re-seasoned and re-tasted; batch re-labelled; caterer supervisor informed; re-check logged "
+              "at 20:40 by QA.")  # ~115 chars (+ evidence line ~ 160)
+
+
+def _refify(expr, texts):
+    """Prefix reference-sheet cell refs with 'Ref: ' (only for sheet names present in this row)."""
+    for name in REF_SHEETS:
+        if any(name + "!" in t for t in texts):
+            expr = f'SUBSTITUTE({expr},"{name}!","Ref: {name}!")'
+    return expr
+
+
+def _ref_static(t):
+    for name in REF_SHEETS:
+        t = t.replace(name + "!", "Ref: " + name + "!")
+    return t
+
+
 # ------------------------------------------------------------------ builder
 def _build_one(wb, n, f, checks_idx):
     fr = FIRST_FLIGHT_ROW + n - 1
@@ -165,208 +192,178 @@ def _build_one(wb, n, f, checks_idx):
     ws.sheet_properties.tabColor = NAVY
     for i, (_, w) in enumerate(COLS, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    lab = dict(font=_font(8, True), fill=F_LABEL)
+    lab = dict(font=_font(LS, True), fill=F_LABEL)
     d_text = datetime.strptime(f["date"], "%Y-%m-%d").strftime("%d-%b-%y")
     flight_tag = f"{f['id']} {f['flt']} {d_text} {f['dep']}-{f['arr']} Class {f['cls']}"
+    fill_in = lambda ref: f'=IF(TRIM({ref})="","{BLANK}",{ref})'  # noqa: E731
 
-    # ---------------- title (one row, formula-driven flight line)
+    # ---------------- title
     r = 1
     _put(ws, r, 1,
          f'="SKYTRAX 2026 CATERING READINESS CHECKLIST  |  {f["id"]}  "&{FL("F")}&"  "&TEXT({FL("D")},"DD-MMM-YY")'
          f'&" ("&{FL("E")}&")  "&{FL("G")}&" → "&{FL("H")}&"  |  Class "&{FL("K")}',
          NCOL, font=_font(12, True, "FFFFFF"), fill=F_NAVY)
-    ws.row_dimensions[r].height = 21
+    ws.row_dimensions[r].height = 20
 
-    # ---------------- flight details
-    V = dict(font=_font(FS))
-    tail = f'=IF({FL("N")}="","(enter in Flights!N)",{FL("N")})'
-    loaded = (f'=IF(TRIM({FL("W")})="","–",{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F$'
-              f'{FIRST_FLIGHT_ROW + NFL - 1},MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A$'
-              f'{FIRST_FLIGHT_ROW + NFL - 1},0)),""))')
-    # each item: (label, lc1, lc2, formula, vc1, vc2, sizing text)
-    grid = [
-        [("Flight no", 1, 1, f"={FL('F')}", 2, 2, f["flt"]),
-         ("Date / day", 3, 3, f'=TEXT({FL("D")},"DD-MMM-YY")&" ("&{FL("E")}&")"', 4, 4, "08-Oct-26 (THU)"),
-         ("Sector (DEP-ARR)", 5, 5, f'={FL("G")}&"-"&{FL("H")}', 6, 6, ""),
-         ("Class assessed", 7, 7, f"={FL('K')}", 8, 8, "")],
-        [("STD local (dep)", 1, 1, f'={_t(FL("I"))}&" "&{FL("G")}', 2, 2, "08-Oct-26 21:35 LHR"),
-         ("STA local (arr)", 3, 3, f'={_t(FL("J"))}&" "&{FL("H")}', 4, 4, "09-Oct-26 17:50 KUL"),
-         ("Seat", 5, 5, f"={FL('O')}", 6, 6, ""),
-         ("Tail / Reg", 7, 7, tail, 8, 8, "(enter in Flights!N)")],
-        [("Aircraft ref type", 1, 1, f"={FL('M')}", 2, 4, f["fleet_ref"]),
-         ("Fleet (schedule)", 5, 5, f"={FL('L')}", 6, 6, f["fleet"]),
-         ("Block (h)", 7, 7, f"={FL('AB')}", 8, 8, "")],
-        [("Service type", 1, 1, f"={FL('T')}", 2, 2, f["service"]),
-         ("Meal uplift stn", 3, 3, f"={FL('V')}", 4, 4, f["meal_uplift_stn"]),
-         ("Ref uplift stns", 5, 5, f"={FL('U')}", 6, 6, f["ref_uplift_stns"]),
-         ("Transit / remark", 7, 7, f'=TRIM({FL("P")}&"  "&{FL("Q")})', 8, 8, f"{f['transit']}  {f['remark']}")],
-        [("Round-trip: loaded on", 1, 1, loaded, 2, 2, "F10 MH1140 (KUL 1145)"),
-         ("Caterer", 3, 3, f'=IF({FL("X")}="","(enter in Flights!X)",{FL("X")})', 4, 5, "x" * 40),
-         ("Flight PIC", 6, 6, f'=IF({FL("Y")}="","(enter in Flights!Y)",{FL("Y")})', 7, 8, "x" * 36)],
+    # ---------------- two blocks sharing rows: flight key/value (A:D) | due & readiness (E:H)
+    left = [
+        ("Flight / date", f'={FL("F")}&"   "&TEXT({FL("D")},"DD-MMM-YY")&" ("&{FL("E")}&")"', "MH0001 08-Oct-26 (THU)"),
+        ("Sector / class / seat", f'={FL("G")}&" → "&{FL("H")}&"   Class "&{FL("K")}&"   Seat "&{FL("O")}', "x" * 30),
+        ("STD → STA (local)", f'={_t(FL("I"))}&" "&{FL("G")}&"  →  "&{_t(FL("J"))}&" "&{FL("H")}',
+         "08-Oct-26 21:35 LHR  →  09-Oct-26 17:50 KUL"),
+        ("Fleet / aircraft ref", f'={FL("L")}&" – "&{FL("M")}', f"{f['fleet']} – {f['fleet_ref']}"),
+        ("Tail / Reg", fill_in(FL("N")), BLANK),
+        ("Service type", f"={FL('T')}", f["service"]),
+        ("Meal uplift stn", f'={FL("V")}&"   (reference uplift stns: "&{FL("U")}&")"',
+         f"{f['meal_uplift_stn']}   (reference uplift stns: {f['ref_uplift_stns']})"),
+        ("Transit / remark", f'=TRIM({FL("P")}&"  "&{FL("Q")})', f"{f['transit']}  {f['remark']}"),
+        ("Caterer", fill_in(FL("X")), "x" * 40),
+        ("Flight PIC", fill_in(FL("Y")), "x" * 40),
     ]
-    for row in grid:
-        r += 1
-        nl = 1
-        for label, l1, l2, formula, v1, v2, txt in row:
-            _put(ws, r, l1, label, l2, **lab)
-            _put(ws, r, v1, formula, v2, fmt="0.00" if label.startswith("Block") else None, **V)
-            nl = max(nl, _lines(label, _width(l1, l2), 8, True), _lines(txt, _width(v1, v2)))
-        ws.row_dimensions[r].height = _height(nl, FS, 4, 16)
-
-    # ---------------- due times / readiness
-    r += 1
-    hdr = r
-    for (c1, c2), t in zip([(1, 1), (2, 2), (3, 4), (5, 5)],
-                           ["Checkpoint", "Purpose",
-                            "Due (local) – T-7D / T-24H / T-12H PREP at meal uplift stn; UPLIFT = STD at DEPARTURE stn",
-                            "% complete"]):
-        _put(ws, r, c1, t, c2, font=_font(8, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
-    _put(ws, r, 6, "READINESS STATUS", 6, font=_font(8, True), fill=F_LABEL, align=AL_CEN)
-    _put(ws, r, 7, f"={FL('AT')}", 8, font=_font(10, True), align=AL_CEN)
-    ws.row_dimensions[r].height = _height(max(2, _lines(ws.cell(r, 3).value, _width(3, 4), 8, True)), 8, 4)
-    readiness = f"$G${r}"
-    ws.conditional_formatting.add(f"G{r}:H{r}", FormulaRule(formula=[f'LEFT({readiness},5)="READY"'],
-                                                           fill=GREEN_FILL, stopIfTrue=True))
-    ws.conditional_formatting.add(f"G{r}:H{r}", FormulaRule(formula=[f'LEFT({readiness},9)="NOT READY"'],
-                                                           fill=RED_FILL, font=Font(color="9C0006", bold=True),
-                                                           stopIfTrue=True))
-    ws.conditional_formatting.add(f"G{r}:H{r}", FormulaRule(formula=[f'{readiness}<>""'], fill=AMBER_FILL))
-
-    counts = [("Overdue checks", "AP", True), ("Open discrepancies", "AQ", True),
-              ("Open required checks", "AO", False), ("Invalid entries", "AU", True),
-              ("Docs outstanding (0-2)", "AR", True)]
+    top = r + 1
+    for i, (label, formula, txt) in enumerate(left):
+        rr = top + i
+        _put(ws, rr, 1, label, 1, **lab)
+        _put(ws, rr, 2, formula, 4, font=_font(FS))
+    # right block
+    rr = top
+    _put(ws, rr, 5, "READINESS STATUS", 5, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
+    _put(ws, rr, 6, f"={FL('AT')}", 8, font=_font(10, True), align=AL_CEN)
+    rd = f"$F${rr}"
+    for formula, fill, font in [(f'LEFT({rd},5)="READY"', GREEN_FILL, None),
+                                (f'LEFT({rd},9)="NOT READY"', RED_FILL, Font(color="9C0006", bold=True)),
+                                (f'{rd}<>""', AMBER_FILL, None)]:
+        ws.conditional_formatting.add(f"F{rr}:H{rr}", FormulaRule(formula=[formula], fill=fill, font=font,
+                                                                 stopIfTrue=True))
+    rr += 1
+    for c1, c2, t in [(5, 5, "Checkpoint"), (6, 6, "Due (local)"), (7, 8, "% complete")]:
+        _put(ws, rr, c1, t, c2, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
     due_txt = {
         "T-7D": f'={_t(FL("AG"))}&" "&{FL("V")}',
         "T-24H": f'={_t(FL("AH"))}&" "&{FL("V")}',
-        "T-12H PREP": f'={_t(FL("AI"))}&" "&{FL("V")}&IF({FL("AI")}={FL("AH")},"  (same as T-24H – see note)","")',
-        "UPLIFT": f'="STD "&{_t(FL("I"))}&" "&{FL("G")}&" (departure stn)"',
-        "OVERALL": f'="Last due: STD "&{_t(FL("I"))}&" "&{FL("G")}',
+        "T-12H PREP": f'={_t(FL("AI"))}&" "&{FL("V")}&IF({FL("AI")}={FL("AH")},"  (= T-24H due)","")',
+        "UPLIFT": f'="STD "&{_t(FL("I"))}&" "&{FL("G")}&" (dep stn)"',
     }
-    rows = CHECKPOINTS + [("OVERALL", "All checkpoints", None, "AN")]
-    for (cp, desc, _due, pct), (clab, ccol, red) in zip(rows, counts):
-        r += 1
-        _put(ws, r, 1, cp, 1, **lab)
-        _put(ws, r, 2, desc, 2, font=_font(8, cp == "OVERALL"))
-        _put(ws, r, 3, due_txt[cp], 4, font=_font(FS, cp != "OVERALL"), align=AL_CEN)
-        _put(ws, r, 5, f"={FL(pct)}", 5, font=_font(FS, True), fmt="0%", align=AL_CEN)
-        _put(ws, r, 6, clab, 6, **lab)
-        cell = _put(ws, r, 7, f"={FL(ccol)}", 8, font=_font(10, True), align=AL_CEN)
-        if red:
-            cc = cell.coordinate
-            ws.conditional_formatting.add(f"G{r}:H{r}", FormulaRule(
-                formula=[f"AND(ISNUMBER(${cc}),${cc}>0)"], fill=RED_FILL, font=Font(color="9C0006", bold=True)))
-        ws.row_dimensions[r].height = _height(max(_lines(desc, _width(2), 8), 1), 8, 4, 15)
-    # T-12H warning + clarifications
+    cp_label = {"T-7D": "T-7D – 7 days before departure",
+                "T-24H": "T-24H – production batch sensory",
+                "T-12H PREP": "T-12H PREP – prep check at caterer (does NOT confirm loading)",
+                "UPLIFT": "UPLIFT – physical on-board confirmation"}
+    right_h = {}
+    for cp, desc, _due, pct in CHECKPOINTS + [("OVERALL", "", None, "AN")]:
+        rr += 1
+        _put(ws, rr, 5, cp_label.get(cp, "OVERALL (all checkpoints)"), 5, **lab)
+        _put(ws, rr, 6, due_txt.get(cp, "–"), 6, font=_font(FS, cp != "OVERALL"), align=AL_CEN)
+        _put(ws, rr, 7, f"={FL(pct)}", 8, font=_font(FS, True), fmt="0%", align=AL_CEN)
+        right_h[rr] = _lines(cp_label.get(cp, ""), COLS[4][1], LS, True)
+    # counts: three per row, each value in its own cell for local conditional formatting
+    for label, cols, red in [("Overdue / discrepancies / invalid", ("AP", "AQ", "AU"), True),
+                             ("Open required / clarifications / docs out", ("AO", "AS", "AR"), None)]:
+        rr += 1
+        right_h[rr] = _lines(label, COLS[4][1], LS, True)
+        _put(ws, rr, 5, label, 5, **lab)
+        for c, col in zip((6, 7, 8), cols):
+            cell = _put(ws, rr, c, f"={FL(col)}", c, font=_font(10, True), align=AL_CEN)
+            if red or col == "AR":
+                cc = cell.coordinate
+                ws.conditional_formatting.add(cc, FormulaRule(formula=[f"AND(ISNUMBER({cc}),{cc}>0)"],
+                                                              fill=RED_FILL, font=Font(color="9C0006", bold=True)))
+    rr += 1
+    _put(ws, rr, 5, "Completed / in scope  |  as of (UTC)", 5, **lab)
+    _put(ws, rr, 6, f'={FL("AV")}&" / "&{FL("AW")}', 6, font=_font(10, True), align=AL_CEN)
+    _put(ws, rr, 7, f"={_t('Settings!$B$6')}", 8, font=_font(8), align=AL_CEN)
+    assert rr == top + len(left) - 1
+    for i, (label, formula, txt) in enumerate(left):
+        row = top + i
+        nl = max(_lines(txt, _width(2, 4)), _lines(label, COLS[0][1], LS, True), right_h.get(row, 1))
+        ws.row_dimensions[row].height = _height(nl, FS, 2, 13)
+    r = rr
+
+    # ---------------- notes: T-12H warning / round-trip
     r += 1
-    warn = ("T-12H PREP is a preparation check at the caterer only – loading is confirmed solely by the "
-            "UPLIFT physical on-board check.")
-    _put(ws, r, 1, warn, 5, font=_font(8, True, "C00000"))
-    _put(ws, r, 6, "Clarifications open", 6, **lab)
-    _put(ws, r, 7, f"={FL('AS')}", 8, font=_font(10, True), align=AL_CEN)
-    ws.row_dimensions[r].height = _height(_lines(warn, _width(1, 5), 8, True), 8, 4, 15)
-    # legend + completed
-    r += 1
-    _put(ws, r, 1, "Record state legend", 1, **lab)
-    for c, (t, fill) in zip(range(2, 6), [("COMPLETE", GREEN_FILL), ("OPEN", AMBER_FILL), ("N/A", GREY_FILL),
+    warn = ("T-12H PREP = preparation at the caterer only; loading is confirmed solely by the UPLIFT "
+            "on-board check.  Record-state legend →")
+    _put(ws, r, 1, warn, 4, font=_font(LS, True, "C00000"))
+    for c, (t, fill) in zip(range(5, 9), [("COMPLETE", GREEN_FILL), ("OPEN", AMBER_FILL), ("N/A", GREY_FILL),
                                           ("OVERDUE / FAIL / INVALID", RED_FILL)]):
         _put(ws, r, c, t, c, font=_font(8, True), fill=fill, align=AL_CEN)
-    _put(ws, r, 6, "Completed / in scope", 6, **lab)
-    _put(ws, r, 7, f'={FL("AV")}&" / "&{FL("AW")}', 8, font=_font(10, True), align=AL_CEN)
-    ws.row_dimensions[r].height = 15
-    # round-trip / completion note + as-of
-    r += 1
-    rt_note = (f'=IF(TRIM({FL("W")})<>"","ROUND-TRIP LEG: return catering is loaded at "&{FL("V")}&" on "&'
-               f'{FL("W")}&" before that flight departs, so T-24H and T-12H PREP are pulled forward to before that '
-               f'loading window (they may share one due time). UPLIFT is still confirmed on board at "&{FL("G")}&".",'
-               f'"Completion % = completed / in-scope checks (n/a when nothing is in scope).")')
-    _put(ws, r, 1, rt_note, 5, font=_font(8, bool(f["round_trip"]), "7F4F00" if f["round_trip"] else "595959",
-                                         italic=not f["round_trip"]))
+    ws.row_dimensions[r].height = _height(max(_lines(warn, _width(1, 4), LS, True),
+                                              _lines("OVERDUE / FAIL / INVALID", COLS[7][1], 8, True)), LS, 3)
     if f["round_trip"]:
-        ws.cell(r, 1).fill = AMBER_FILL
-    _put(ws, r, 6, "Status as of (UTC)", 6, **lab)
-    _put(ws, r, 7, f"={_t('Settings!$B$6')}", 8, font=_font(FS), align=AL_CEN)
-    rt_sz = ("ROUND-TRIP LEG: return catering is loaded at KUL on F10 MH1140 before that flight departs, so T-24H "
-             "and T-12H PREP are pulled forward to before that loading window (they may share one due time). "
-             "UPLIFT is still confirmed on board at PEN.")
-    ws.row_dimensions[r].height = _height(_lines(rt_sz if f["round_trip"] else "x" * 80, _width(1, 5), 8, True),
-                                          8, 4, 15)
-
-    # ---------------- PIC reference documents
-    r += 1
-    _band(ws, r, "PIC REFERENCE DOCUMENTS (register: Documents sheet)")
-    r += 1
-    for (c1, c2), t in zip([(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 8)],
-                           ["Document", "Doc no", "Revision / rev date", "Status", "Attachment (link / location)",
-                            "Flag"]):
-        _put(ws, r, c1, t, c2, font=_font(8, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
-    ws.row_dimensions[r].height = _height(2, 8, 3)
-    doc_rows = {}
-    for name, (no, rev, rdate, att, st) in [("Galley Loading Diagram", ("F", "G", "H", "I", "J")),
-                                            ("Menu Checklist", ("K", "L", "M", "N", "O"))]:
         r += 1
-        _put(ws, r, 1, name, 1, **lab)
-        _put(ws, r, 2, _blank(DC(no)), 2)
-        _put(ws, r, 3, f'=IF({DC(rev)}="","",{DC(rev)})&IF(ISNUMBER({DC(rdate)}),CHAR(10)&TEXT({DC(rdate)},"DD-MMM-YY"),"")',
-             3, align=AL_CEN)
-        _put(ws, r, 4, _blank(DC(st)), 4, font=_font(8, True), align=AL_CEN)
-        _put(ws, r, 5, _blank(DC(att)), 5, font=_font(8))
-        _put(ws, r, 6, f'=IF({DC(st)}="OUTSTANDING","OUTSTANDING – attach before T-7D (due "&'
-                       f'{_t(FL("AG"))}&" "&{FL("V")}&")",IF({DC(st)}="","Status not recorded in Documents sheet",'
-                       f'"On file – see attachment location"))', 8, font=_font(FS, True))
-        ws.row_dimensions[r].height = _height(3, 8, 4)
-        doc_rows[name] = r
-        for rng in (f"D{r}", f"F{r}:H{r}"):
-            ws.conditional_formatting.add(rng, FormulaRule(formula=[f'$D${r}="OUTSTANDING"'], fill=RED_STRONG,
-                                                           font=Font(color="FFFFFF", bold=True), stopIfTrue=True))
-            ws.conditional_formatting.add(rng, FormulaRule(formula=[f'$D${r}="ON FILE"'], fill=GREEN_FILL))
-    r += 1
-    _put(ws, r, 1, "Notes", 1, **lab)
-    _put(ws, r, 2, _blank(DC("Q")), NCOL, font=_font(8))
-    ws.row_dimensions[r].height = _height(2, 8, 3)
+        kul = ("IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)")
+        cand = (f'{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F${FIRST_FLIGHT_ROW + NFL - 1},'
+                f'MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A${FIRST_FLIGHT_ROW + NFL - 1},0)),"")')
+        note = (f'="ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate "&{cand}'
+                f'&"; actual KUL departure entered on Flights AX). T-24H / T-12H PREP are capped at the KUL loading '
+                f'deadline "&IF(ISNUMBER({FL("AY")}),TEXT({FL("AY")}+{kul}/24,"{TFMT}")&" KUL","(not set)")'
+                f'&"; on-board UPLIFT checks are at "&{FL("G")}&"."')
+        _put(ws, r, 1, note, NCOL, font=_font(LS, True, "7F4F00"), fill=AMBER_FILL)
+        sz = ("ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate F10 MH1140; "
+              "actual KUL departure entered on Flights AX). T-24H / T-12H PREP are capped at the KUL loading "
+              "deadline 12-Oct-26 05:45 KUL; on-board UPLIFT checks are at PEN.")
+        ws.row_dimensions[r].height = _height(_lines(sz, _width(1, NCOL), LS, True), LS, 4)
 
-    # ---------------- attachment spaces (cols 1-2, 3-5) + sign-off (cols 6-8)
+    # ---------------- attachments register (paper pack)
     r += 1
-    top = r
-    box_rows = 7
-    for name, c1, c2 in [("Galley Loading Diagram", 1, 2), ("Menu Checklist", 3, 5)]:
-        dr = doc_rows[name]
-        _put(ws, r, c1, f'=IF($D${dr}="OUTSTANDING","⚠ OUTSTANDING – attach before T-7D | ","")'
-                        f'&"ATTACHMENT SPACE – attach / insert {name} here (Insert > Picture or Object)"',
-             c2, font=_font(8, True, NAVY), fill=F_BAND, border=False)
-        ws.conditional_formatting.add(f"{get_column_letter(c1)}{r}:{get_column_letter(c2)}{r}",
-                                      FormulaRule(formula=[f'$D${dr}="OUTSTANDING"'], fill=RED_STRONG,
-                                                  font=Font(color="FFFFFF", bold=True)))
-        body = r + 1
-        ws.cell(body, c1, f'=IF($D${dr}="OUTSTANDING","Placeholder – document OUTSTANDING. Insert the current '
-                          f'revision here before T-7D.","On file: "&$B${dr}&" "&$C${dr})')
-        ws.cell(body, c1).font = _font(8, False, "7F7F7F", italic=True)
-        ws.cell(body, c1).alignment = AL_CEN
-        _merge(ws, body, c1, top + box_rows - 1, c2)
-        _box(ws, top, c1, top + box_rows - 1, c2, side=Side(style="medium", color=NAVY))
-    # sign-off block stacked in cols 6-8
-    _put(ws, top, 6, "SIGN-OFF", NCOL, font=_font(9, True, "FFFFFF"), fill=F_NAVY)
-    so = [("Flight PIC", f'=IF({FL("Y")}="","",{FL("Y")})'), ("Verifier", None),
-          ("Station catering officer", f'="Station: "&{FL("V")}')]
-    rr = top + 1
-    for role, name in so:
-        _put(ws, rr, 6, role, 6, **lab)
-        _put(ws, rr, 7, name if name else "Name:", 8,
-             font=_font(8, False, "000000" if name else "7F7F7F", italic=not name))
-        _put(ws, rr + 1, 6, "Signature / date-time", 6, font=_font(8, False, "7F7F7F", italic=True))
-        _put(ws, rr + 1, 7, None, 8)
-        rr += 2
-    for i in range(box_rows):
-        ws.row_dimensions[top + i].height = 18 if i % 2 == 0 else 24
-    ws.row_dimensions[top].height = _height(2, 8, 3)
-    r = top + box_rows - 1
+    for (c1, c2), t in zip([(1, 1), (2, 2), (3, 4), (5, 5), (6, 8)],
+                           ["Attachments", "Doc no", "Rev / rev date", "Status (from Documents sheet)",
+                            "Paper pack instruction / location"]):
+        _put(ws, r, c1, t, c2, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
+    ws.row_dimensions[r].height = 14
+    for code, name, (no, rev, rdate, att, st) in [("A1", "Galley Loading Diagram", ("F", "G", "H", "I", "J")),
+                                                  ("A2", "Menu Checklist", ("K", "L", "M", "N", "O"))]:
+        r += 1
+        _put(ws, r, 1, f"{code}  {name}", 1, **lab)
+        _put(ws, r, 2, _blank(DC(no)), 2)
+        _put(ws, r, 3, f'=IF({DC(rev)}="","",{DC(rev)})&IF(ISNUMBER({DC(rdate)}),"  "&TEXT({DC(rdate)},"DD-MMM-YY"),"")',
+             4, align=AL_CEN)
+        _put(ws, r, 5, f'=IF({DC(st)}="OUTSTANDING","OUTSTANDING – attach before T-7D (due "&{_t(FL("AG"))}'
+                       f'&" "&{FL("V")}&")",IF({DC(st)}="","Status not recorded",{DC(st)}))', 5,
+             font=_font(FS, True))
+        _put(ws, r, 6, f'="Staple behind this sheet as page {code}."&IF({DC(att)}="",""," Location: "&{DC(att)})',
+             8, font=_font(LS))
+        ws.row_dimensions[r].height = _height(
+            _lines("OUTSTANDING – attach before T-7D (due 01-Oct-26 21:35 LHR)", COLS[4][1], FS, True), FS, 3)
+        ws.conditional_formatting.add(f"E{r}", FormulaRule(formula=[f'LEFT($E${r},11)="OUTSTANDING"'],
+                                                           fill=RED_STRONG, font=Font(color="FFFFFF", bold=True),
+                                                           stopIfTrue=True))
+        ws.conditional_formatting.add(f"E{r}", FormulaRule(formula=[f'$E${r}="ON FILE"'], fill=GREEN_FILL))
+    r += 1
+    _put(ws, r, 1, "Document notes", 1, **lab)
+    _put(ws, r, 2, _blank(DC("Q")), 5, font=_font(8))
+    _put(ws, r, 6, "In Excel you may also insert the document image in the insertion area after the checklist "
+                   "(Insert > Picture).", 8, font=_font(8, False, "595959", italic=True))
+    ws.row_dimensions[r].height = _height(2, 8, 2)
+
+    # ---------------- sign-off (horizontal)
+    r += 1
+    roles = [("Flight PIC", 1, 2, f'="Name: "&IF(TRIM({FL("Y")})="","{BLANK}",{FL("Y")})'),
+             ("Verifier", 3, 5, f'="Name: {BLANK}"'),
+             ("Station catering officer", 6, 8, f'="Name: {BLANK}"&"   Station: "&{FL("V")}')]
+    for role, c1, c2, _ in roles:
+        _put(ws, r, c1, "SIGN-OFF – " + role, c2, font=_font(LS, True, "FFFFFF"), fill=F_NAVY)
+    ws.row_dimensions[r].height = 14
+    r += 1
+    for role, c1, c2, nm in roles:
+        _put(ws, r, c1, nm, c2, font=_font(FS))
+    ws.row_dimensions[r].height = 18
+    r += 1
+    for role, c1, c2, _ in roles:
+        _put(ws, r, c1, "Signature / date-time:", c2, font=_font(8, False, "7F7F7F", italic=True), align=AL_TOP)
+    ws.row_dimensions[r].height = 30
 
     # ---------------- checklist table
     r += 1
     head_row = r
     for i, (h, w) in enumerate(COLS, 1):
-        _put(ws, r, i, h, font=_font(8, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
-    ws.row_dimensions[r].height = _height(max(_lines(h, w, 8, True) for h, w in COLS), 8, 3)
+        _put(ws, r, i, h, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
+    ws.row_dimensions[r].height = _height(max(_lines(h, w, LS, True) for h, w in COLS), LS, 3)
 
+    entry_lines = max(
+        _lines(_RESULT_SAMPLE + "\nBatch: BATCH-LHR-20261001-JCL-0042\nExp: 280  /  Act: 280", COLS[4][1]),
+        _lines("Evidence: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
+        _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)", COLS[6][1]),
+    ) + 1  # spare line
     by_cp = {cp: [] for cp, *_ in CHECKPOINTS}
     for gi, c in checks_idx:
         by_cp.setdefault(c["checkpoint"], []).append((gi, c))
@@ -379,14 +376,13 @@ def _build_one(wb, n, f, checks_idx):
             due = f'{_t(FL(due_col))}&" "&{FL("V")}&" (meal uplift stn)"'
         pct_txt = f'IF(ISNUMBER({FL(pct)}),TEXT({FL(pct)},"0%"),{FL(pct)})'
         _band(ws, r, f'="{cp} — {desc}   |   Checkpoint due "&{due}&"; rows with a different due show their own'
-                     f'   |   Complete: "&{pct_txt}&"   |   {len(by_cp[cp])} line(s)"', 9, fill=F_BAND, color=NAVY,
-              lines=2 if len(desc) > 40 else 1)
+                     f'   |   Complete: "&{pct_txt}&"   |   {len(by_cp[cp])} line(s)"', FS, fill=F_BAND, color=NAVY)
         ws.row_dimensions[r].height = _height(_lines(
             f"{cp} — {desc}   |   Checkpoint due STD 08-Oct-26 21:35 LHR (meal uplift stn); rows with a different due "
-            f"show their own   |   Complete: 100%   |   49 line(s)", _width(1, NCOL), 9, True), 9, 5)
+            f"show their own   |   Complete: 100%   |   49 line(s)", _width(1, NCOL), FS, True), FS, 4)
         if not by_cp[cp]:
             r += 1
-            _put(ws, r, 1, "No check lines at this checkpoint for this flight.", NCOL, font=_font(8, italic=True))
+            _put(ws, r, 1, "No check lines at this checkpoint for this flight.", NCOL, font=_font(LS, italic=True))
             ws.row_dimensions[r].height = 16
             continue
         for gi, c in by_cp[cp]:
@@ -394,9 +390,11 @@ def _build_one(wb, n, f, checks_idx):
             first_data = first_data or r
             k = FIRST_CHECK_ROW + gi
             C = lambda col: f"Checks!${col}${k}"  # noqa: E731
+            req = _refify(f'{C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
+                          (c["expected"], c["note"]))
             vals = [
                 f'={C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}',
-                f'={C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
+                "=" + req,
                 f'={C("N")}&CHAR(10)&{_t(C("R"))}&" "&{C("P")}',
                 f'=IF({C("U")}="","",{C("U")})&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")})',
                 (f'=IF({C("V")}="","",{C("V")})'
@@ -411,24 +409,25 @@ def _build_one(wb, n, f, checks_idx):
             ]
             for i, v in enumerate(vals, 1):
                 cell = ws.cell(r, i, v)
-                cell.font = _font(8 if i == 8 else FS, bold=(i == 8))
+                cell.font = _font(LS if i == 8 else FS, bold=(i == 8))
                 cell.alignment = AL_TOP
                 cell.border = BORDER
             item_txt = c["check_id"] + "\n" + (c["category"] + ": " if c["category"] else "") + c["item"]
-            req_txt = "\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t)
+            req_txt = _ref_static("\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t))
             app = "Clarification required" if c["applic"] != "Required" else "Required"
-            exp_line = f"Exp: {c.get('exp_qty') or ''}  /  Act: 9999" if c.get("exp_qty") else ""
+            exp_extra = (_lines(f"Exp: {c['exp_qty']}  /  Act: 9999", COLS[4][1]) - 1) if c.get("exp_qty") else 0
             nl = max(
                 _lines(item_txt, COLS[0][1]),
                 _lines(req_txt, COLS[1][1]),
                 _lines(app + "\n08-Oct-26 21:35 LHR", COLS[2][1]),
-                ENTRY_LINES + (_lines(exp_line, COLS[4][1]) - 1 if exp_line else 0),
+                _lines("INVALID – completion time is in the future", COLS[7][1], LS, True),
+                entry_lines + exp_extra,
             )
-            ws.row_dimensions[r].height = _height(nl, FS, 5)
-    last_row = r
+            ws.row_dimensions[r].height = _height(nl, FS, 4)
+    last_table = r
 
     if first_data:
-        rs = f"{C_REC}{first_data}:{C_REC}{last_row}"
+        rs = f"{C_REC}{first_data}:{C_REC}{last_table}"
         tl = f"${C_REC}{first_data}"
         for formula, fill, color in [
             (f'LEFT({tl},8)="COMPLETE"', GREEN_FILL, "006100"),
@@ -438,11 +437,27 @@ def _build_one(wb, n, f, checks_idx):
         ]:
             ws.conditional_formatting.add(rs, FormulaRule(formula=[formula], fill=fill,
                                                           font=Font(color=color, bold=True), stopIfTrue=True))
-        ws.conditional_formatting.add(f"A{first_data}:G{last_row}",
+        ws.conditional_formatting.add(f"A{first_data}:G{last_table}",
                                       FormulaRule(formula=[f'LEFT({tl},3)="N/A"'], font=Font(color="808080")))
-        ws.conditional_formatting.add(f"D{first_data}:D{last_row}",
+        ws.conditional_formatting.add(f"D{first_data}:D{last_table}",
                                       FormulaRule(formula=[f'LEFT($D{first_data},4)="Fail"'], fill=RED_FILL,
                                                   font=Font(color="9C0006", bold=True)))
+
+    # ---------------- Excel insertion area (end of sheet, never pushes the table)
+    r += 2
+    _put(ws, r, 1, "EXCEL INSERTION AREA – A1 Galley Loading Diagram (Insert > Picture). On paper: staple behind "
+                   "this sheet as page A1.", 4, font=_font(LS, True, NAVY), fill=F_BAND)
+    _put(ws, r, 5, "EXCEL INSERTION AREA – A2 Menu Checklist (Insert > Picture). On paper: staple behind this "
+                   "sheet as page A2.", 8, font=_font(LS, True, NAVY), fill=F_BAND)
+    ws.row_dimensions[r].height = _height(2, LS, 3)
+    body = r + 1
+    for c1, c2 in ((1, 4), (5, 8)):
+        _merge(ws, body, c1, body + 9, c2)
+        ws.cell(body, c1).alignment = AL_CEN
+        _box(ws, r, c1, body + 9, c2, side=Side(style="medium", color=NAVY))
+    for i in range(10):
+        ws.row_dimensions[body + i].height = 22
+    last_row = body + 9
 
     # ---------------- print setup
     ws.print_area = f"A1:{LASTCOL}{last_row}"
@@ -455,7 +470,7 @@ def _build_one(wb, n, f, checks_idx):
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_options.horizontalCentered = True
     ws.page_margins.left = ws.page_margins.right = 0.25
-    ws.page_margins.top = ws.page_margins.bottom = 0.5
+    ws.page_margins.top = ws.page_margins.bottom = 0.45
     ws.page_margins.header = ws.page_margins.footer = 0.2
     for part, text, font in [(ws.oddHeader.left, "MAGCS – Skytrax 2026 catering readiness", "Arial"),
                              (ws.oddHeader.right, flight_tag, "Arial,Bold"),
