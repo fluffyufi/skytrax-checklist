@@ -1,5 +1,5 @@
 {
- "updated": "28 Sep 23:35",
+ "updated": "29 Sep 00:40",
  "checks": 744,
  "pieces": [
   {
@@ -11,20 +11,20 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 2,
-   "note": "Round 1 gap fixed (READY without valid evidence); readiness tests pass; round-2 critic running"
+   "round": 3,
+   "note": "Round 2 holes closed (carry-aware uplift window, strict CA, PIC\u2260verifier, staleness, protection); 19 regression cases pass; round-3 critic running"
   },
   {
    "name": "3. Dashboard",
    "state": "run",
-   "round": 4,
-   "note": "Round 3: readiness label clipped (fixed by shorter labels); round-4 render critic running"
+   "round": 5,
+   "note": "Round 4: dashboard fully readable; round-5 render critic running"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "run",
-   "round": 4,
-   "note": "Round 3: P-sheets usable on paper; PIC per check, clearer carry deadlines added; round-4 critic running"
+   "round": 5,
+   "note": "Round 4: P11 banner/row deadline wording conflict fixed; round-5 critic running"
   },
   {
    "name": "5. Instructions & delivery",
@@ -73,6 +73,16 @@
    "piece": "3. Dashboard",
    "round": 3,
    "gap": "Per-flight Readiness column clipped 'NOT READY \u2013 DOCUMENTS OUTSTANDING' on every flight in print."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 2,
+   "gap": "Round-trip on-board uplift could be confirmed before the carrying flight left KUL; CA status 'Open ' or 'Pending' counted as closed."
+  },
+  {
+   "piece": "4. Printable checklists",
+   "round": 4,
+   "gap": "P11 cover banner gave a prep deadline (05:45) that contradicted the binding row due (03:50)."
   }
  ],
  "log": [
@@ -163,6 +173,14 @@
   [
    "23:35",
    "Fixes applied and rebuilt (0 errors); render critic round 4 launched; logic critic round 2 still testing"
+  ],
+  [
+   "00:10",
+   "Logic critic r2: FAIL (early on-board confirmation on round-trip legs); render critic r4: narrow FAIL (P11 banner wording, 2 titles)"
+  ],
+  [
+   "00:40",
+   "All fixed; regression tests pass; launched logic r3 and render r5 on frozen build"
   ]
  ]
 }
