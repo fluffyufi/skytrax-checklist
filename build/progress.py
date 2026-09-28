@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = "/tmp/claude-0/-home-user-skytrax-checklist/c0ab9c35-2f2c-5eff-909f-a4943aca1b4a/scratchpad/progress.html"
 st = json.load(open(os.path.join(HERE, "progress.json")))
 
-PILL = {"pass": "Passed", "fail": "Returned", "run": "In progress", "wait": "Queued"}
+PILL = {"pass": "Passed", "fail": "Returned for fix", "run": "In progress", "wait": "Queued"}
 
 
 def e(s):

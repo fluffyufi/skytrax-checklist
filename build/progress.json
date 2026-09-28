@@ -1,12 +1,12 @@
 {
- "updated": "28 Sep 19:20",
- "checks": 738,
+ "updated": "28 Sep 20:05",
+ "checks": 744,
  "pieces": [
   {
    "name": "1. Schedule & uplift requirements data",
    "state": "run",
-   "round": 3,
-   "note": "Round-3 critic checking data and how it lands in the workbook"
+   "round": 4,
+   "note": "Round 3 gap fixed: carrying-flight input (Flights AX) drives due times; KUL loading now confirmed at KUL"
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
@@ -16,15 +16,15 @@
   },
   {
    "name": "3. Dashboard",
-   "state": "run",
+   "state": "fail",
    "round": 1,
-   "note": "Built; covered by the logic critic (KPIs vs Checks) and the blind render critic"
+   "note": "Render critic: blank 40-row lists spill over 3.5 pages; builder reworking"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
-   "state": "run",
+   "state": "fail",
    "round": 1,
-   "note": "Built (22 sheets); blind render critic inspecting PDF pages"
+   "note": "Render critic: prints at ~5pt and clips real entries; builder redesigning for paper"
   },
   {
    "name": "5. Instructions & delivery",
@@ -43,6 +43,16 @@
    "piece": "1. Schedule & uplift data",
    "round": 2,
    "gap": "The inbound-loading cap left no loading window, so F07 MH0003 LHR-KUL's KUL-loaded pajamas, slippers and signature drinks were due after they had left KUL. The PEN/LGK rotation was also hard-wired (now an editable Flight ID)."
+  },
+  {
+   "piece": "4. Printable checklists",
+   "round": 1,
+   "gap": "P-sheets unusable on paper: ~5pt text, 10-20 mm answer boxes, fixed row heights clip real entries, page 1 a third empty, sign-off split under wrong header."
+  },
+  {
+   "piece": "1. Schedule & uplift data",
+   "round": 3,
+   "gap": "No input for the actual carrying flight of KUL-sourced items on outstation departures, so capped dues ran 2.5-5 h late and the KUL loading itself was never checked."
   }
  ],
  "log": [
@@ -85,6 +95,18 @@
   [
    "19:20",
    "Launched 3 fresh critics in parallel: data (round 3), formula logic, blind render"
+  ],
+  [
+   "19:45",
+   "Render critic: FAIL (P-sheets unreadable in print); returned to printable and dashboard builders"
+  ],
+  [
+   "19:50",
+   "Data critic round 3: FAIL (carrying-flight gap); fixed with Flights AX input + KUL loading lines; table cloth back to clarification"
+  ],
+  [
+   "20:05",
+   "Rebuilt: 0 formula errors; targeted test of the carrying-flight rule passed"
   ]
  ]
 }
