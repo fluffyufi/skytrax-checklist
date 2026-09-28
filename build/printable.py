@@ -323,7 +323,8 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         r += 1
         kul = "IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)"
         ay = FL("AY")
-        est = f'IF(ISNUMBER({FL("AX")}),""," (estimated – enter actual on Flights AX)")'
+        est = (f'IF(ISNUMBER({FL("AX")}),"",IF(TRIM({FL("W")})<>""," (agenda candidate – enter actual on Flights AX)",'
+               f'" (latest possible – enter actual on Flights AX)"))')
         times = (f'"KUL loading window opens (caps prep dues; each row shows its binding due): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
                  f'&" KUL","(not set)")&"   |   Carrying flight KUL departure (loading confirmed by): "&'
                  f'IF(ISNUMBER({ay}),TEXT({ay}+UpliftWindowH/24+{kul}/24,"{TFMT}")&" KUL","(not set)")&{est}')

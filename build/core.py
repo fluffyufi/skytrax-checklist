@@ -731,7 +731,7 @@ INSTR = [
     ("b", "Caterer per station, ISOP revision numbers and expected meal/equipment quantities come from the caterer/MAGCS documents – not invented here."),
     ("h2", "Illustrative entry (example only – not recorded anywhere in this workbook)"),
     ("p", "Check F02-T24-01 · PIC: A. Rahman · Status: Pass · Result: Panel score 4.5/5, texture & temperature OK · Batch ID: PASB-261008-BC-017 · "
-          "Evidence: SENS-261008-017.pdf · Completion time: 08-Oct-26 22:10 (KUL) · Verifier: N. Ismail"),
+          "Evidence: SENS-261008-017.pdf · Completion time: 08-Oct-26 20:10 (KUL) · Verifier: N. Ismail"),
     ("h2", "Colour key"),
     ("k1", "Yellow cell = input – enter data here"),
     ("k2", "Grey cell = formula – do not overwrite"),

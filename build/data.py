@@ -569,6 +569,26 @@ if __name__ == "__main__":
             all_np.append(n)
         all_lines += check_lines(f, reqs, flights)
         f["expected_due_utc"] = expected_dues(f)
+    # DST note where a checkpoint's local time differs from STD's offset (e.g. LHR BST->GMT on 25 Oct)
+    seen = set()
+    for ln in all_lines:
+        f = byid[ln["flight_id"]]
+        stn = ln["station"]
+        if ln["checkpoint"] == "UPLIFT" or stn not in STATIONS or (f["id"], ln["checkpoint"]) in seen:
+            continue
+        hrs = {"T-7D": 168, "T-24H": 24, "T-12H PREP": 12}[ln["checkpoint"]]
+        std = datetime.strptime(f["std_utc"], "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("UTC"))
+        tz = ZoneInfo(STATIONS[stn][0])
+        if (std - timedelta(hours=hrs)).astimezone(tz).utcoffset() != std.astimezone(tz).utcoffset():
+            ln["note"] = ((ln["note"] + " ") if ln["note"] else "") + (
+                f"Clock change: {stn} local time changes between this due time and departure, so the due time "
+                f"shows a different clock hour than STD ({hrs} h before STD is still correct).")
+            seen.add((f["id"], ln["checkpoint"]))
+    for ln in all_lines:
+        ln["note"] = ln["note"].replace("shows _/", "shows a tick").replace("_/", "tick")
+        ln["expected"] = ln["expected"].replace("_/", "tick")
+    for r in all_reqs:
+        r["note"] = r["note"].replace("shows _/", "shows a tick").replace("_/", "tick")
     for fid, lid in ROUND_TRIP_LOADED_ON.items():
         byid[fid]["loaded_on_flt"] = byid[lid]["flt"]
         byid[fid]["loaded_on_std_local"] = byid[lid]["std_local"]
