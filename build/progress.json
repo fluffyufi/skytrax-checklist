@@ -1,12 +1,12 @@
 {
- "updated": "28 Sep 22:40",
+ "updated": "28 Sep 23:35",
  "checks": 744,
  "pieces": [
   {
    "name": "1. Schedule & uplift requirements data",
-   "state": "run",
+   "state": "pass",
    "round": 5,
-   "note": "Round-5 critic on frozen build"
+   "note": "PASS: all 22 legs, 157 requirements and every check line verified against both references; minor notes applied"
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
@@ -17,14 +17,14 @@
   {
    "name": "3. Dashboard",
    "state": "run",
-   "round": 3,
-   "note": "Now prints at 8.9pt on 4 labelled pages; round-3 render critic running"
+   "round": 4,
+   "note": "Round 3: readiness label clipped (fixed by shorter labels); round-4 render critic running"
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "run",
-   "round": 3,
-   "note": "Cover sheet + checklist from page 2, body \u2265 8.5pt, 30pt signature rows, attachments register; round-3 critic running"
+   "round": 4,
+   "note": "Round 3: P-sheets usable on paper; PIC per check, clearer carry deadlines added; round-4 critic running"
   },
   {
    "name": "5. Instructions & delivery",
@@ -68,6 +68,11 @@
    "piece": "2. Core formulas",
    "round": 1,
    "gap": "Paths to READY without valid evidence: prep checks completed after departure counted, PIC not required, whitespace evidence passed, and N/A could waive physical uplift of meals."
+  },
+  {
+   "piece": "3. Dashboard",
+   "round": 3,
+   "gap": "Per-flight Readiness column clipped 'NOT READY \u2013 DOCUMENTS OUTSTANDING' on every flight in print."
   }
  ],
  "log": [
@@ -146,6 +151,18 @@
   [
    "22:40",
    "Launched 3 fresh critics on a frozen build: logic r2, render r3, data r5"
+  ],
+  [
+   "23:05",
+   "Data critic round 5: PASS"
+  ],
+  [
+   "23:10",
+   "Render critic round 3: FAIL (dashboard readiness label, titles on column bands, missing per-check PIC)"
+  ],
+  [
+   "23:35",
+   "Fixes applied and rebuilt (0 errors); render critic round 4 launched; logic critic round 2 still testing"
   ]
  ]
 }
