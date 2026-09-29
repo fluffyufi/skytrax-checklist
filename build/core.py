@@ -141,6 +141,8 @@ def build_settings(wb, data):
           "good", "passed", "satisfactory", "accepted", "fine", "noted", "complete", "completed",
           "notavailable", "notprovided", "nobatch", "nobatchno", "nobatchnumber", "seelabel", "unknownbatch",
           "nonerequired", "nocarequired", "noca", "nilca", "noactionrequired", "noactionneeded", "nonenecessary",
+          "qa", "qaqc", "csm", "dutycsm", "supervisor", "caterer", "pasb", "mcat", "crew", "team", "cic", "ccic",
+          "manager", "officer", "qaofficer", "station", "stationstaff", "staff", "inspector",
           "done", "yes", "checked", "ok", "okay", "visual", "verbal", "naverbal", "photo", "email", "seen", "fine"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
@@ -198,7 +200,7 @@ def build_settings(wb, data):
     ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above", "by phone",
           "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call",
           "telephone", "telephoned", "phoned", "called", "via phone", "phone confirmation", "rang", "orally",
-          "oral confirmation", "tel call", "tel", "on call", "on a call", "via call", "call"]
+          "oral confirmation", "tel call", "tel", "on call", "on a call", "via call"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -468,6 +470,20 @@ def norm(ref):
     return x
 
 
+ROLE_WORDS = ["supervisor", "inspector", "controller", "executive", "catering", "manager", "officer", "caterer",
+              "station", "captain", "verified", "verifier", "checked", "senior", "leader", "cabin", "staff", "crew",
+              "team", "duty", "lead", "head", "chef", "pasb", "mcat", "magcs", "qaqc", "ccic", "cic", "csm", "ops",
+              "pic", "self", "qa", "qc", "by", "sr"]
+
+
+def role_stripped(ref):
+    """Normalised name with role / job-title words removed (what is left must still be a name)."""
+    x = ref
+    for w in ROLE_WORDS:
+        x = f'SUBSTITUTE({x},"{w}","")'
+    return x
+
+
 def spaced(ref):
     """' word word ' form: lower case, punctuation turned into single spaces, padded (whole-word SEARCH)."""
     x = f"LOWER({ref}&\"\")"
@@ -554,29 +570,45 @@ def ref_ok(raw, dmap, amap, batch=False):
 EVIDENCE_TYPES = ["Form / checklist", "Sensory panel sheet", "Load / uplift sheet", "Photo", "Email", "Seal no.",
                   "Delivery note / receipt", "Memo / letter", "Document (GLD / menu / ISOP)", "System record",
                   "Link / file path"]
-LINK_EXT = ("{\"http\",\"www.\",\"\\\",\"/\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
-            "\".msg\",\".eml\"}")
-JOINED = '{\"a0\",\"a-0\",\"a_0\",\"a/0\",\"a.0\",\"a#0\"}'
-DATE_SHAPES = '{\"00aaa00\",\"00aaa0000\",\"aaa00\",\"aaa0000\",\"00-aaa-00\",\"00-aaa-0000\",\"00/aaa/00\"}'
+# real links / paths / file names only (a bare "/" is NOT a link: 9/10, A/C, QA/QC)
+LINK_EXT = ("{\"http\",\"www.\",\"\\\\\",\":\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
+            "\".msg\",\".eml\",\".ppt\",\".txt\",\".zip\"}")
+JOINED = '{\"a0\",\"a-0\",\"a_0\",\"a/0\",\"a.0\",\"a#0\",\"0a\",\"0-a\",\"0_a\",\"0/a\"}'
+BAD_SHAPES = ('{\"0000a\",\"000a\",\"00a\",\"0000aa\",\"000aa\",\"00.00.0000\",\"00/00/0000\",\"00-00-0000\",'
+              '\"0000-00-00\",\"00.00.00\",\"00/00/00\",\"00-00-00\",\"0.00.0000\",\"0/00/0000\",\"0-00-0000\"}')
+STRIP = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "hrs", "hr", "lt", "utc",
+         "am", "pm", "rev", "ver"]
+
+
+def stripped(ref):
+    """Lower-case, digit-mapped text with month / time-unit / revision words removed (so 9OCT26, 1400hrs, Rev3
+    no longer look like letter+digit IDs)."""
+    x = ref
+    for w in STRIP:
+        x = f"SUBSTITUTE({x},\"{w}\",\"\")"
+    return x
 
 
 def id_shape_ok(raw, amap, typ, flight):
-    """Evidence ID is structurally an ID for its type: letters joined to digits (SF-2210, IMG_2231, DN88213),
-    or a 4+ digit number for seal / receipt / email / photo types, or a link / path / file name.
-    A bare flight number or a date is not an ID."""
+    """Evidence ID is ONE token that is structurally an ID: letters joined to 2+ digits (SF-2210, IMG_2231,
+    CO/26/331, DN88213) or a 5+ digit number; for 'Link / file path' a real link, path or file name.
+    Rejected: text with spaces, flight numbers (MH0727), dates, times, revisions and years."""
+    t = f"TRIM({raw})"
+    letters = f"(LEN({amap})-LEN(SUBSTITUTE({amap},\"a\",\"\")))"
+    digits = f"(LEN({amap})-LEN(SUBSTITUTE({amap},\"0\",\"\")))"
     joined = f"SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0"
     link = f"SUMPRODUCT(--ISNUMBER(SEARCH({LINK_EXT},{raw})))>0"
-    run4 = f"ISNUMBER(SEARCH(\"0000\",{amap}))"
-    numeric_types = '{\"Seal no.\",\"Delivery note / receipt\",\"Email\",\"Photo\"}'
-    not_flight = f"TRIM(LOWER({raw}))<>LOWER({flight})"
-    not_date = f"ISNA(MATCH(TRIM({amap}),{DATE_SHAPES},0))"
-    return (f"AND({not_flight},{not_date},IF({typ}=\"Link / file path\",{link},"
-            f"OR({joined},{link},AND(ISNUMBER(MATCH({typ},{numeric_types},0)),{run4}))))")
+    flight_like = f"OR(LOWER({t})=LOWER({flight}),AND(LEFT(LOWER({t}),2)=\"mh\",{letters}<=2))"
+    bad_shape = f"ISNUMBER(MATCH(LEFT({amap},255),{BAD_SHAPES},0))"
+    token = (f"AND(ISERROR(FIND(\" \",{t})),NOT({flight_like}),NOT({bad_shape}),"
+             f"OR(AND({letters}>=1,{digits}>=2,{joined}),AND({letters}=0,{digits}>=5)))")
+    return f"IF(TRIM({typ})=\"Link / file path\",AND(LEN({t})>=5,{link}),{token})"
 
 
 def batch_shape_ok(raw, amap, flight):
-    """Batch ID: letters joined to digits (PASB-261008-BC-017) or a 6+ digit production code (261008-017)."""
-    return (f"AND(TRIM(LOWER({raw}))<>LOWER({flight}),ISNA(MATCH(TRIM({amap}),{DATE_SHAPES},0)),"
+    """Batch ID: letters joined to digits (PASB-261008-BC-017, LOT-2410-B7) or a 6+ digit production code
+    (261008-017); not a flight number."""
+    return (f"AND(ISERROR(SEARCH(\" mh\",\" \"&LOWER({raw}))),ISNA(MATCH(LEFT(TRIM({amap}),255),{BAD_SHAPES},0)),"
             f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0,ISNUMBER(SEARCH(\"000000\",{amap}))))")
 
 
@@ -682,6 +714,8 @@ def build_checks(wb, data):
         helper = {"T": "AU", "V": "AV", "Z": "AW", "AE": "AX", "W": "AY", "AC": "AZ", "AA": "BA"}
         for src, hcol in helper.items():
             vals[hcol] = "=" + norm(f"{src}{r}")
+        vals["BR"] = f"=LEN({role_stripped(f'AU{r}')})"  # PIC: letters left after role words
+        vals["BS"] = f"=LEN({role_stripped(f'AX{r}')})"  # verifier: letters left after role words
         sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
         for src, hcol in sp.items():
             vals[hcol] = "=" + spaced(f"{src}{r}")
@@ -696,11 +730,11 @@ def build_checks(wb, data):
                       if not prep_row else "=0")
         # structural evidence ID: shape checked against the chosen evidence type (column S)
         vals["BM"] = "=" + digitmap(f"Z{r}")
-        vals["BN"] = "=" + alphamap(f"BM{r}")
+        vals["BN"] = "=" + alphamap(stripped(f"BM{r}"))
         vals["BO"] = "=" + digitmap(f"W{r}")
         vals["BP"] = "=" + alphamap(f"BO{r}")
         vals["BZ"] = f"=IFERROR(IF({id_shape_ok(f'Z{r}', f'BN{r}', f'S{r}', f'Flights!$F${fr}')},1,0),0)"
-        vals["BL"] = f"=IF(TRIM(S{r})=\"\",0,BZ{r})"
+        vals["BL"] = f"=IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),0,BZ{r})"
         vals["BQ"] = f"=IFERROR(IF({batch_shape_ok(f'W{r}', f'BP{r}', f'Flights!$F${fr}')},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
@@ -735,13 +769,13 @@ def build_checks(wb, data):
             link_close = "))"
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
-            f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
+            f"IF(OR({bad('T', 2)},BR{r}<3),\"INVALID {ND} PIC missing or not a named person (a role such as QA / CSM is not a name)\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
             f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')},BI{r}=1),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
-            f"IF(TRIM(S{r})=\"\",\"INVALID {ND} choose the evidence type (column S)\","
-            f"IF(BL{r}=0,\"INVALID {ND} evidence ID does not match its type (e.g. SF-2210, IMG_2231, seal 88213, link)\","
-            f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
-            f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
+            f"IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),\"INVALID {ND} choose the evidence type from the list (column S)\","
+            f"IF(BL{r}=0,\"INVALID {ND} evidence ID must be the record's ID only (e.g. SF-2210, IMG_2231, 1045521), or a link / path for links\","
+            f"IF(OR({bad('AE', 2)},BS{r}<3),\"INVALID {ND} verifier missing or not a named person (a role such as QA / CSM is not a name)\","
+            f"IF(OR(AX{r}=AU{r},AND(LEN(AU{r})>=4,ISNUMBER(SEARCH(AU{r},AX{r}))),AND(LEN(AX{r})>=4,ISNUMBER(SEARCH(AX{r},AU{r})))),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
             f"IF(BV{r}=1,\"INVALID {ND} wording says not on board: an on-board confirmation needs the item loaded\","
             f"IF(AND(AQ{r}=1,OR({bad('W', 3)},BJ{r}=1,BQ{r}=0)),\"INVALID {ND} batch ID missing, placeholder or not an ID (e.g. PASB-261008-BC-017)\","
@@ -813,8 +847,8 @@ def build_checks(wb, data):
     ws.add_data_validation(dv)
     dvt = DataValidation(type="list", formula1="=L_EvidenceType", allow_blank=True, showErrorMessage=True,
                          showInputMessage=True, promptTitle="Evidence type",
-                         prompt="Choose the kind of record, then enter its ID in column Z (e.g. SF-2210, IMG_2231, "
-                                "seal 88213, or a link / file path).", errorTitle="Evidence type",
+                         prompt="Choose the kind of record, then enter ONLY its ID in column Z (e.g. SF-2210, IMG_2231, "
+                                "CO/26/331, 1045521), or a link / file path.", errorTitle="Evidence type",
                          error="Choose an evidence type from the list.")
     dvt.add(f"S5:S{last}")
     ws.add_data_validation(dvt)
@@ -1065,7 +1099,7 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
-    ("b", "Evidence is recorded in two fields: choose the Evidence type in column S, then enter the record's ID in column Z. The ID must look like an ID for that type: letters joined to digits (SF-2210, IMG_2231, DN88213, PCS-0727), a 4+ digit number for seal / receipt / email / photo types, or a link / file path. A bare flight number, date, time or phone call is not evidence, and wording that says the record is still coming ('to follow', 'awaiting') blocks the check. Batch IDs follow the same rule (e.g. PASB-261008-BC-017 or 261008-017). Document attachment locations on the Documents sheet need a path, link or file name."),
+    ("b", "Evidence is recorded in two fields: choose the Evidence type in column S, then enter ONLY the record's ID in column Z (describe the record in Result, not here). An ID is one token with letters joined to at least two digits (SF-2210, IMG_2231, CO/26/331, DN88213, PCS-0727) or a number of 5+ digits (seal 1045521); for 'Link / file path' enter a link, network path or file name. A flight number, date, time, revision ('Rev3') or free text is not an ID. Batch IDs likewise (PASB-261008-BC-017 or 261008-017). Document attachment locations on the Documents sheet need a path, link or file name. The verifier must be a named person other than the PIC – not a role such as 'QA' or 'CSM'."),
     ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),

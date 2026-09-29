@@ -75,3 +75,4 @@ ISOP revision register below (rows 30+).
 
 
 Earliest valid UTC moved from S to hidden BY; BZ = evidence ID shape ok for its type.
+BR / BS = letters left in the PIC / verifier name after role words are removed (< 3 = role only → INVALID).

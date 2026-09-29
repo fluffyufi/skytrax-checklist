@@ -14,10 +14,12 @@ It covers all 22 legs of the *Skytrax Agenda 2026*, across 3 itineraries. Requir
    - A flight cannot be READY while any of them is outstanding.
 4. **Checks.** This is the only place to record results; use the yellow columns T–AE.
    - Record the PIC, a result, evidence, the completion time and a *different* verifier. Enter the completion time in local time at the check station shown in column P.
+   - **Evidence is two fields.** Pick the *Evidence type* from the list in column S, then enter only the record's own ID in column Z: one token such as `SF-2210`, `IMG_2231`, `DN88213` or a 5+ digit number such as a seal number. A link, network path or file name is accepted only for type *Link / file path*. Free text, flight numbers, dates, times and revisions ("Rev3") are rejected; describe what you found in Result instead.
+   - PIC and verifier must be named people, and different ones. A role alone ("QA", "PASB supervisor") is rejected.
    - T-24H checks also need a batch ID. Quantity lines need expected and actual quantities.
    - Set the Status last. Column AH shows whether the record is accepted.
 5. **Dashboard.** Shows completion for each checkpoint, overdue actions, outstanding discrepancies and each flight's readiness.
-6. **P01–P22.** One printable A4 pack per flight: a cover sheet with due times, the attachments register and sign-off, then the checklist from page 2. Print each flight's sheet on its own so the page numbers run per flight.
+6. **P01–P22.** One printable A4 pack per flight: a cover sheet with due times, the list of evidence types, the attachments register and sign-off, then the checklist from page 2. Each check row has "Type:" and "ID:" lines to fill in by hand. Print each flight's sheet on its own so the page numbers run per flight.
 
 ## Rules built in
 - **Due times.** T-7D, T-24H and T-12H are measured back from STD in UTC and shown in local time at the check station. This handles the LHR switch from BST to GMT on 25 Oct and Adelaide's summer time (ACDT) from 4 Oct.
@@ -40,5 +42,5 @@ These 44 check lines (preparation and on-board lines counted separately) are mar
 ```
 python build/data.py      # derive data.json from the schedule + reference workbook
 python build/build.py     # build + recalculate output/…xlsx (LibreOffice)
-python build/test_ready.py; python build/test_logic2.py; python build/test_logic2.py more   # regression tests
+python build/test_evidence.py; python build/test_ready.py; python build/test_logic2.py; python build/test_logic2.py more   # regression tests
 ```

@@ -8,6 +8,7 @@ Paper-first layout: 8 wide columns (~150 width units) so A4 landscape
 fit-to-width prints at ~95-100 % with a 9 pt body; every check row leaves room
 for hand-written or typed entries of ~140 characters in the combined cells.
 """
+import re
 from datetime import datetime
 
 from openpyxl.comments import Comment
@@ -15,6 +16,8 @@ from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
+
+from core import EVIDENCE_TYPES as EV_TYPES_SAMPLE
 
 NAVY = "1F3864"
 FONT = "Arial"
@@ -69,6 +72,9 @@ AL_CEN = Alignment(wrap_text=True, vertical="center", horizontal="center")
 LINE_PT = {8: 10.0, 8.5: 10.5, 9: 11.0, 10: 13.0, 11: 14.5, 12: 15.5, 13: 17.0}
 LS = 8.5  # label size
 BLANK = "__________________"
+AX_WARN = ("ENTER THE ACTUAL CARRYING FLIGHT ON FLIGHTS AX: until then its timing is assumed (agenda candidate, or "
+           "latest possible) and on-board (UPLIFT) checks timed before the assumed arrival show INVALID – before uplift window.")
+EV_BLANK = "______________ (see cover list)"
 
 
 def _width(c1, c2=None):
@@ -170,17 +176,43 @@ _CA_SAMPLE = ("Sauce re-seasoned and re-tasted; batch re-labelled; caterer super
               "at 20:40 by QA.")  # ~115 chars (+ evidence line ~ 160)
 
 
-def _refify(expr, texts):
-    """Prefix reference-sheet cell refs with 'Ref: ' (only for sheet names present in this row)."""
-    for name in REF_SHEETS:
-        if any(name + "!" in t for t in texts):
-            expr = f'SUBSTITUTE({expr},"{name}!","Ref: {name}!")'
+_SHEET = r"(?:AIRCRAFT TYPE|CATERING UPLIFT STN|AMENITIES|F&B LINEN|SEAT LINEN|SALES CART|Signature Drinks)"
+_RNG = r"![A-Z]{1,2}\d+(?::[A-Z]{1,2}\d+)?"
+# Paper wording: spreadsheet cell addresses of the reference workbook mean nothing to a PIC on paper.
+_PAPER = [
+    (r"Per note (" + _SHEET + ")" + _RNG + r"\.", r"Per the \1 reference note."),
+    (r"note (" + _SHEET + ")" + _RNG, r"the \1 reference note"),
+    (r" \((?:note )?(" + _SHEET + ")" + _RNG + r"\)", ""),
+    (r" \(note [A-Z]{1,2}\d+\)", ""),
+    (r"note [A-Z]{1,2}\d+: ", "reference note: "),
+    (r"A350 row AMENITIES![A-Z]{1,2}\d+", "The A350 row of the AMENITIES reference"),
+    (r"\(general row [A-Z]{1,2}\d+: uplift stn [A-Z]{1,2}\d+ = ", "(general row: uplift stn "),
+    (r"but [A-Z]{1,2}\d+ excludes", "but the reference excludes"),
+    (r"(?<=[a-z]) -(?=,| \(|$| \|)", " n/a"),
+]
+
+
+def _paper_pairs(texts):
+    """Literal (old, new) substitutions that turn reference-workbook cell addresses into plain words."""
+    pairs = []
+    for t in texts:
+        for pat, rep in _PAPER:
+            for m in re.finditer(pat, t or ""):
+                pr = (m.group(0), m.expand(rep))
+                if pr not in pairs:
+                    pairs.append(pr)
+    return pairs
+
+
+def _paperify(expr, texts):
+    for old, new in _paper_pairs(texts):
+        expr = f'SUBSTITUTE({expr},"{old.replace(chr(34), chr(34) * 2)}","{new}")'
     return expr
 
 
-def _ref_static(t):
-    for name in REF_SHEETS:
-        t = t.replace(name + "!", "Ref: " + name + "!")
+def _paper_static(t):
+    for old, new in _paper_pairs([t]):
+        t = t.replace(old, new)
     return t
 
 
@@ -318,13 +350,22 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, r, c, t, c, font=_font(8, True), fill=fill, align=AL_CEN)
     ws.row_dimensions[r].height = _height(max(_lines(warn, _width(1, 4), LS, True),
                                               _lines("OVERDUE / FAIL / INVALID", COLS[7][1], 8, True)), LS, 3)
+    # ---------------- evidence legend: the Checks sheet needs a type from this list plus the record's own ID
+    r += 1
+    ev_list = "&\" · \"&".join(f"Settings!$U${4 + i}" for i in range(len(EV_TYPES_SAMPLE)))
+    ev_head = ("EVIDENCE – write both.  Type (one of): ")
+    ev_tail = ("   |   ID = the record's own number only (e.g. SF-2210, IMG_2231, 1045521); a link / file path only "
+               "for type 'Link / file path'. Words such as 'done', 'checked' or 'photo to follow' are not accepted.")
+    _put(ws, r, 1, f'="{ev_head}"&{ev_list}&"{ev_tail}"', NCOL, font=_font(LS, False, "1F3864"), fill=F_LABEL)
+    ev_sample = ev_head + " · ".join(EV_TYPES_SAMPLE) + ev_tail
+    ws.row_dimensions[r].height = _height(_lines(ev_sample, _width(1, NCOL), LS), LS, 3)
     carry = f["round_trip"] or f["id"] in carry_ids
     if carry:
         r += 1
         kul = "IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)"
         ay = FL("AY")
         est = (f'IF(ISNUMBER({FL("AX")}),"",IF(TRIM({FL("W")})<>""," (agenda candidate – enter actual on Flights AX)",'
-               f'" (latest possible – enter actual on Flights AX)"))')
+               f'" (latest possible – enter actual on Flights AX)"))&IF(ISNUMBER({FL("AX")}),"",CHAR(10)&"{AX_WARN}")')
         times = (f'"KUL loading window opens (caps prep dues; each row shows its binding due): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
                  f'&" KUL","(not set)")&"   |   Carrying flight KUL departure (loading confirmed by): "&'
                  f'IF(ISNUMBER({ay}),TEXT({ay}+UpliftWindowH/24+{kul}/24,"{TFMT}")&" KUL","(not set)")&{est}')
@@ -345,7 +386,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, r, 1, note, NCOL, font=_font(LS, True, "7F4F00"), fill=AMBER_FILL)
         sz = head + "\n" + ("KUL loading window opens (caps prep dues; each row shows its binding due): 12-Oct-26 05:45 KUL   |   Carrying flight "
                             "KUL departure (loading confirmed by): 12-Oct-26 11:45 KUL (estimated – enter actual on "
-                            "Flights AX)")
+                            "Flights AX)\n" + AX_WARN)
         ws.row_dimensions[r].height = _height(_lines(sz, _width(1, NCOL), LS, True), LS, 4)
 
     # ---------------- attachments register (paper pack)
@@ -412,7 +453,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
 
     entry_lines = max(
         _lines(_RESULT_SAMPLE + "\nBatch: BATCH-LHR-20261001-JCL-0042\nExp: 280  /  Act: 280", COLS[4][1]),
-        _lines("Evidence: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
+        _lines("Type: Document (GLD / menu / ISOP)\nID: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
         _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)\nPIC: Capt. Ahmad Rahman bin Abdullah",
                COLS[6][1]),
     ) + 1  # spare line
@@ -444,7 +485,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
             first_data = first_data or r
             k = FIRST_CHECK_ROW + gi
             C = lambda col: f"Checks!${col}${k}"  # noqa: E731
-            req = _refify(f'{C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
+            req = _paperify(f'{C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
                           (c["expected"], c["note"]))
             vals = [
                 f'={C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}',
@@ -455,8 +496,10 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'&IF({C("AC")}="","",IF({C("V")}="","",CHAR(10))&"N/A just.: "&{C("AC")})'
                  f'&IF({C("W")}="","",CHAR(10)&"Batch: "&{C("W")})'
                  f'&IF(AND({C("X")}="",{C("Y")}=""),"",CHAR(10)&"Exp: "&{C("X")}&"  /  Act: "&{C("Y")})'),
-                (f'=IF({C("Z")}="","","Evidence: "&IF({C("S")}="","",{C("S")}&" ")&{C("Z")})'
-                 f'&IF({C("AA")}="","",IF({C("Z")}="","",CHAR(10))&"CA: "&{C("AA")})'),
+                (f'=IF(AND(LEFT({C("AH")},10)="N/A – RULE",TRIM({C("S")}&{C("Z")})=""),"",'
+                 f'"Type: "&IF(TRIM({C("S")})="","{EV_BLANK}",{C("S")})'
+                 f'&CHAR(10)&"ID: "&IF(TRIM({C("Z")})="","{EV_BLANK}",{C("Z")}))'
+                 f'&IF({C("AA")}="","",CHAR(10)&"CA: "&{C("AA")})'),
                 (f'=IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}")&" "&{C("P")},"")'
                  f'&IF({C("AE")}="","",CHAR(10)&"Verifier: "&{C("AE")})'
                  f'&IF({C("T")}="","",CHAR(10)&"PIC: "&{C("T")})'),
@@ -468,7 +511,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                 cell.alignment = AL_TOP
                 cell.border = BORDER
             item_txt = c["check_id"] + "\n" + (c["category"] + ": " if c["category"] else "") + c["item"]
-            req_txt = _ref_static("\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t))
+            req_txt = _paper_static("\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t))
             app = "Clarification required" if c["applic"] != "Required" else "Required"
             exp_extra = (_lines(f"Exp: {c['exp_qty']}  /  Act: 9999", COLS[4][1]) - 1) if c.get("exp_qty") else 0
             nl = max(

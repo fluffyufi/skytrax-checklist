@@ -6,13 +6,14 @@ sys.argv = [sys.argv[0]]
 sys.path.insert(0, "/home/user/skytrax-checklist/build")
 import test_logic2 as L, test_ready as T
 
-GOOD = [("Form / checklist", "SF-2210"), ("Photo", "IMG_2231"), ("Photo", "Photos 2231-2236"), ("Seal no.", "88213-88220"),
-        ("Delivery note / receipt", "DN 88213"), ("Email", "PASB email ref 4471"), ("Load / uplift sheet", "PCS-0727"),
-        ("Document (GLD / menu / ISOP)", "GLD-MH0727-A rev 3"), ("Link / file path", "\\\\fs01\\QA\\F11\\SF-2210.pdf"),
-        ("System record", "Q-Pulse QP-5521"), ("Memo / letter", "Memo QA/26/118"), ("Form / checklist", "QF-44")]
-BAD = [("Form / checklist", "Verified by CSM 1400"), ("Form / checklist", "Checked 1400 hrs"), ("Photo", "Photo 17"),
-       ("Form / checklist", "MH1149"), ("Email", "Email sent"), ("Link / file path", "SF-2210"), ("", "SF-2210"),
-       ("Form / checklist", "09OCT26"), ("Seal no.", "seal ok"), ("Form / checklist", "SF-2210 to follow")]
+GOOD = [("Form / checklist", "SF-2210"), ("Photo", "IMG_2231"), ("Photo", "2231-2236"), ("Seal no.", "88213-88220"),
+        ("Delivery note / receipt", "DN88213"), ("Email", "PASB-4471"), ("Load / uplift sheet", "PCS-0727"),
+        ("Document (GLD / menu / ISOP)", "GLD-MH0727-A"), ("Link / file path", "\\\\fs01\\QA\\F11\\SF-2210.pdf"),
+        ("System record", "QP-5521"), ("Memo / letter", "QA/26/118"), ("Form / checklist", "QF-44")]
+BAD = [("Form / checklist", "Verified by CSM 1400"), ("Form / checklist", "Checked 10/10/26"), ("Photo", "1415"),
+       ("Form / checklist", "MH1149"), ("Email", "QA/QC"), ("Link / file path", "SF-2210"), ("", "SF-2210"),
+       ("Form / checklist", "9OCT26"), ("Seal no.", "Rev3"), ("Form / checklist", "SF-2210 to follow"),
+       ("Photo", "MH88"), ("Form / checklist", "QA form QF-1234")]
 IDS = ["T7-01", "T7-02", "T7-04", "T7-05", "T7-06", "T12-01", "T12-02", "T12-03", "T12-04", "T12-05", "T12-06", "T12-07"]
 
 
@@ -34,3 +35,19 @@ def run(tag, cases, batch=None):
 
 run("good", GOOD, "261008-017")
 run("bad", BAD, "Morning batch 0600")
+
+
+def run_verifiers():
+    cases = ["Siti Aminah", "QA", "CSM", "Duty CSM", "A. Rahman", "Rahman", "PASB supervisor"]
+    p = T.TMP.format("ev_verifier"); shutil.copy(T.SRC, p)
+    wb = openpyxl.load_workbook(p); wb["Settings"]["B4"] = datetime(2026, 10, 12, 7, 49); L.fill_f11(wb)
+    ck = wb["Checks"]; rows = {ck.cell(r, 1).value: r for r in range(5, ck.max_row + 1)}
+    for sid, v in zip(IDS, cases):
+        ck[f"AE{rows['F11-' + sid]}"] = v
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    ck = openpyxl.load_workbook(p, data_only=True)["Checks"]
+    for sid, v in zip(IDS, cases):
+        print(f"verif {v:16s} (PIC {ck['T' + str(rows['F11-' + sid])].value}) -> {ck['AH' + str(rows['F11-' + sid])].value[:70]}")
+
+
+run_verifiers()
