@@ -486,6 +486,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         rs = f"{C_REC}{first_data}:{C_REC}{last_table}"
         tl = f"${C_REC}{first_data}"
         for formula, fill, color in [
+            (f'ISNUMBER(SEARCH("CHECK WORDING",{tl}))', AMBER_FILL, "7F4F00"),
             (f'LEFT({tl},8)="COMPLETE"', GREEN_FILL, "006100"),
             (f'OR(LEFT({tl},7)="OVERDUE",LEFT({tl},4)="FAIL",LEFT({tl},7)="INVALID")', RED_FILL, "9C0006"),
             (f'LEFT({tl},4)="OPEN"', AMBER_FILL, "9C5700"),

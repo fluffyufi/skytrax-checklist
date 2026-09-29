@@ -149,7 +149,7 @@ def build_settings(wb, data):
             "not yet", "not confirmed", "not received", "to be provided"]
     # extra phrases rejected only as evidence / attachment (the record itself is not on file)
     ev = pend + ["will upload", "to be uploaded", "upload later", "send later", "will send", "not available",
-                 "not attached", "as above", "see above", "ditto", "verbal", "verbally"]
+                 "as above", "see above", "ditto", "verbal", "verbally"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -245,9 +245,10 @@ FL_HEAD = ["Flight ID", "Itin", "Seq", "Date", "Day", "Flight No", "Dep", "Arr",
            "Overall %", "Open required checks", "Overdue", "Open discrepancies", "Docs outstanding",
            "Clarifications open", "READINESS", "Invalid entries", "Checks completed", "Checks in scope",
            "Inbound carrying flight: KUL departure (UTC, input)", "KUL loading deadline for KUL-sourced items (UTC)",
-           "Carrying flight earliest arrival at departure stn (UTC)", "First on-board confirmation (UTC)"]
+           "Carrying flight earliest arrival at departure stn (UTC)", "First on-board confirmation (UTC)",
+           "Wording flags to review"]
 FL_W = [7, 5, 5, 10, 6, 9, 6, 6, 15, 15, 8, 9, 30, 12, 6, 8, 14, 13, 12, 22, 11, 9, 16, 14, 16,
-        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9, 17, 17, 17, 15]
+        8, 15, 8, 15, 15, 15, 15, 15, 15, 15, 8, 8, 8, 8, 8, 9, 8, 9, 9, 9, 26, 8, 9, 9, 17, 17, 17, 15, 10]
 
 
 def build_flights(wb, data, n_checks):
@@ -344,6 +345,7 @@ def build_flights(wb, data, n_checks):
             ws[f"AZ{r}"] = "n/a"
         ws[f"BA{r}"] = (f"=IFERROR(1/(1/_xlfn.MINIFS({rng('AG')},{rng('B')},$A{r},{rng('H')},\"Physical uplift\","
                         f"{rng('P')},$G{r})),\"\")")
+        ws[f"BB{r}"] = f"=SUMIFS({rng('BG')},{rng('B')},$A{r})"
         ws[f"AZ{r}"].number_format = DT
         ws[f"BA{r}"].number_format = DT
         ws[f"AX{r}"].number_format = DT
@@ -373,7 +375,7 @@ def build_flights(wb, data, n_checks):
     ws.conditional_formatting.add("AP5:AS26", CellIsRule(operator="greaterThan", formula=["0"],
                                   font=Font(name=FONT, color="C00000", bold=True)))
     ws.freeze_panes = "G5"
-    ws.auto_filter.ref = f"A4:BA26"
+    ws.auto_filter.ref = f"A4:BB26"
     dvx = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
                          showErrorMessage=True, error="Enter the carrying flight's KUL departure as a UTC date-time (Jul 2026 - Jan 2027).")
     dvx.add("AX5:AX26")
@@ -384,7 +386,7 @@ def build_flights(wb, data, n_checks):
     ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
-    fit_pages(ws, "A", "BA", title_cols_w=43)
+    fit_pages(ws, "A", "BB", title_cols_w=43)
     ws.print_title_rows = "4:4"
     ws.print_title_cols = "A:F"
 
@@ -393,7 +395,7 @@ def build_flights(wb, data, n_checks):
 def norm(ref):
     """Lower-case text with spaces, non-breaking spaces and punctuation removed (placeholder / identity tests)."""
     x = f"LOWER({ref}&\"\")"
-    for ch in ('CHAR(160)', '" "', '"."', '"-"', '"/"', '"?"', '"_"', '","', '"["', '"]"', '"("', '")"', '"*"'):
+    for ch in ('CHAR(10)', 'CHAR(13)', 'CHAR(9)', 'CHAR(160)', '" "', '"."', '"-"', '"/"', '"?"', '"_"', '","', '"["', '"]"', '"("', '")"', '"*"'):
         x = f"SUBSTITUTE({x},{ch},\"\")"
     return x
 
@@ -401,7 +403,7 @@ def norm(ref):
 def spaced(ref):
     """' word word ' form: lower case, punctuation turned into single spaces, padded (whole-word SEARCH)."""
     x = f"LOWER({ref}&\"\")"
-    for ch in ('CHAR(160)', '"."', '","', '"-"', '"/"', '"("', '")"', '":"', '";"', '"_"', '"–"', '"?"', '"!"',
+    for ch in ('CHAR(10)', 'CHAR(13)', 'CHAR(9)', 'CHAR(160)', '"."', '","', '"-"', '"/"', '"("', '")"', '":"', '";"', '"_"', '"–"', '"?"', '"!"',
                '"*"', '"["', '"]"', '"\'"', '"#"', '"+"', '"&"'):
         x = f"SUBSTITUTE({x},{ch},\" \")"
     return f"\" \"&TRIM({x})&\" \""
@@ -437,10 +439,10 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
-           "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just."]
+           "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8]
 
 
 def build_checks(wb, data):
@@ -507,6 +509,9 @@ def build_checks(wb, data):
         sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
         for src, hcol in sp.items():
             vals[hcol] = "=" + spaced(f"{src}{r}")
+        # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
+        vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
+                      f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
 
         def bad(x, minlen):
             n = f"{helper[x]}{r}"
@@ -528,7 +533,7 @@ def build_checks(wb, data):
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>={cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")&IF(BG{r}=1,\" {ND} CHECK WORDING\",\"\"))))))))))")
         link_chk, link_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -543,12 +548,11 @@ def build_checks(wb, data):
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
             f"IF({has('L_Pending', f'BC{r}')},\"INVALID {ND} result not yet available (awaiting / TBC)\","
-            f"IF(AND({U}=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>{occurrences('L_NegPhrase', f'BC{r}')}),\"INVALID {ND} result describes a problem: use Fail, then Pass after CA\","
             f"IF(AND(AQ{r}=1,OR({bad('W', 3)},{has('L_Pending', f'BE{r}')})),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
-            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close})))))))))))")
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))")
         vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
@@ -631,6 +635,7 @@ def build_checks(wb, data):
     red = PatternFill("solid", fgColor="FFC7CE")
     amber = PatternFill("solid", fgColor="FFEB9C")
     grey = PatternFill("solid", fgColor="D9D9D9")
+    ws.conditional_formatting.add(st, FormulaRule(formula=['ISNUMBER(SEARCH("CHECK WORDING",AH5))'], fill=amber, stopIfTrue=True))
     ws.conditional_formatting.add(st, FormulaRule(formula=['LEFT(AH5,8)="COMPLETE"'], fill=green))
     ws.conditional_formatting.add(st, FormulaRule(formula=['OR(LEFT(AH5,7)="INVALID",AH5="OVERDUE",LEFT(AH5,4)="FAIL")'], fill=red))
     ws.conditional_formatting.add(st, FormulaRule(formula=['LEFT(AH5,4)="OPEN"'], fill=amber))
@@ -643,7 +648,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -842,7 +847,7 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
-    ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. A plain Pass cannot describe a problem ('3 trays missing'), but negated or zero counts are fine ('no defects found', '0 discrepancies', 'nothing missing'). Settings K–O hold the word lists."),
+    ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
     ("b", "Quantity lines: after a corrective action, update Actual to the corrected quantity; 'Pass after CA' requires Actual = Expected."),
