@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 10,
-   "note": "Round 9: advisory design judged sound; pending wording now negation-aware, evidence must carry a traceable reference; round-10 critic running"
+   "round": 11,
+   "note": "Round 10: narrow FAIL (unlisted not-yet phrases); strict list + prep-stage negations added; round-11 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -118,6 +118,11 @@
    "piece": "2. Core formulas",
    "round": 9,
    "gap": "Pending detection still blocked READY without negation ('no CA pending' rejected) and missed future forms ('Photos will be uploaded' accepted as evidence)."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 10,
+   "gap": "Evidence with a reference number plus unlisted not-yet wording ('SF-2210 awaited', 'will be forwarded', 'outstanding') still counted; prep-stage results like 'awaiting loading' were rejected."
   }
  ],
  "log": [
@@ -264,6 +269,10 @@
   [
    "29 Sep",
    "Logic critic round 9: FAIL (pending wording); evidence reference rule + negation-aware pending check; round 10 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 10: narrow FAIL; strict not-yet list, prep-stage negations, Nil CA fix; round 11 launched"
   ]
  ]
 }
