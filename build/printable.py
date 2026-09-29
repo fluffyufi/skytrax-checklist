@@ -30,9 +30,9 @@ COLS = [
     ("Requirement / expected", 19),
     ("Applic. / due (local)", 12),
     ("Status (CA)", 10),
-    ("Result  |  batch  |  exp / act qty", 28),
-    ("Evidence  |  corrective action", 29),
-    ("Done (local) / verifier / PIC", 14),
+    ("Result  |  batch  |  exp / act qty", 25),
+    ("Evidence  |  corrective action", 28),
+    ("Done (local) / verifier / PIC", 18),
     ("Record state", 13)  # fits "CLARIFICATION" in bold 8.5 pt without a mid-word break,
 ]
 NCOL = len(COLS)
@@ -76,7 +76,7 @@ AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED (Flights sheet): its timing is assum
            "before the assumed arrival show INVALID – before uplift window.")
 EV_BLANK = "______________ (see cover list)"
 ID_BLANK = "______________ (record's own no.)"
-W_BLANK = "____________"
+W_BLANK = "________________"
 Q_BLANK = "______"
 
 
@@ -494,7 +494,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                           (c["expected"], c["note"]))
             rna = f'LEFT({C("AH")},10)="N/A – RULE"'  # rule-N/A rows: nothing to write by hand
             vals = [
-                f'={C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}',
+                "=" + _paperify(f'{C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}', (c["item"],)),
                 "=" + req,
                 f'={C("N")}&CHAR(10)&{_t(C("R"))}&" "&{C("P")}',
                 (f'=IF(TRIM({C("U")})<>"",{C("U")}&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")}),'
@@ -520,7 +520,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                 cell.font = _font(LS if i == 8 else FS, bold=(i == 8))
                 cell.alignment = AL_TOP
                 cell.border = BORDER
-            item_txt = c["check_id"] + "\n" + (c["category"] + ": " if c["category"] else "") + c["item"]
+            item_txt = _paper_static(c["check_id"] + "\n" + (c["category"] + ": " if c["category"] else "") + c["item"])
             req_txt = _paper_static("\n".join(t for t in (c["expected"], "Note: " + c["note"] if c["note"] else "") if t))
             app = "Clarification required" if c["applic"] != "Required" else "Required"
             exp_extra = (_lines(f"Exp: {c['exp_qty']}  /  Act: 9999", COLS[4][1]) - 1) if c.get("exp_qty") else 0
