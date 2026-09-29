@@ -133,3 +133,21 @@ def round6():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r6":
     round6()
+
+
+def round7():
+    ok = {"F11-T7-01": "0 discrepancies", "F11-T7-02": "Discrepancies: 0", "F11-T7-04": "Clean - 0 defects",
+          "F11-T7-05": "fail-safe seals intact", "F11-T7-06": "Nothing missing, count matches",
+          "F11-T24-01": "Short rib and rice to spec", "F11-T12-01": "Menu cards correct, not damaged"}
+    for i, (cid, txt) in enumerate(ok.items()):
+        run(f"r7_ok_result_{i}", cell(cid, "V", txt))
+    run("r7_ok_na_not_available", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
+        wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Printed menu card not available on refreshment service per MAGCS policy")])
+    run("r7_bad_missing_no_spares", cell("F11-T12-03", "V", "2 BC meals missing, no spares available"))
+    run("r7_bad_evidence_visual", cell("F11-T7-01", "Z", "Visually checked"))
+    run("r7_bad_verifier_self", cell("F11-T7-01", "AE", "Self"))
+    run("r7_bad_prep_same_minute_as_loading", cell("F11-T12-01", "AD", datetime(2026, 10, 12, 14, 0)))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r7":
+    round7()
