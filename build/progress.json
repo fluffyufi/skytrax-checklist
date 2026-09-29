@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 04:10",
+ "updated": "29 Sep",
  "checks": 744,
  "pieces": [
   {
@@ -12,7 +12,7 @@
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
    "round": 5,
-   "note": "Round-4 findings fixed; 36 regression cases pass. Round-5 critic was stopped by a platform safety-check outage before reporting; it needs a re-run"
+   "note": "Round-5 logic critic re-launched on the delivered build (identical copy)"
   },
   {
    "name": "3. Dashboard",
@@ -215,6 +215,10 @@
   [
    "04:10",
    "Round-5 logic critic stopped by the platform before finishing; current build delivered with that caveat"
+  ],
+  [
+   "29 Sep",
+   "Container restarted; environment intact. Round-5 logic critic re-run started on the delivered build"
   ]
  ]
 }
