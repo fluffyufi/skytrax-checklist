@@ -72,9 +72,12 @@ AL_CEN = Alignment(wrap_text=True, vertical="center", horizontal="center")
 LINE_PT = {8: 10.0, 8.5: 10.5, 9: 11.0, 10: 13.0, 11: 14.5, 12: 15.5, 13: 17.0}
 LS = 8.5  # label size
 BLANK = "__________________"
-AX_WARN = ("ENTER THE ACTUAL CARRYING FLIGHT ON FLIGHTS AX: until then its timing is assumed (agenda candidate, or "
-           "latest possible) and on-board (UPLIFT) checks timed before the assumed arrival show INVALID – before uplift window.")
+AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED (Flights sheet): its timing is assumed, so on-board (UPLIFT) checks "
+           "before the assumed arrival show INVALID – before uplift window.")
 EV_BLANK = "______________ (see cover list)"
+ID_BLANK = "______________ (record's own no.)"
+W_BLANK = "____________"
+Q_BLANK = "______"
 
 
 def _width(c1, c2=None):
@@ -180,6 +183,7 @@ _SHEET = r"(?:AIRCRAFT TYPE|CATERING UPLIFT STN|AMENITIES|F&B LINEN|SEAT LINEN|S
 _RNG = r"![A-Z]{1,2}\d+(?::[A-Z]{1,2}\d+)?"
 # Paper wording: spreadsheet cell addresses of the reference workbook mean nothing to a PIC on paper.
 _PAPER = [
+    (r"\b([a-z]+) -(,| \(| \||$)", r"\1 n/a\2"),  # galley data "-" = none; anchored so other dashes survive
     (r"Per note (" + _SHEET + ")" + _RNG + r"\.", r"Per the \1 reference note."),
     (r"note (" + _SHEET + ")" + _RNG, r"the \1 reference note"),
     (r" \((?:note )?(" + _SHEET + ")" + _RNG + r"\)", ""),
@@ -188,7 +192,11 @@ _PAPER = [
     (r"A350 row AMENITIES![A-Z]{1,2}\d+", "The A350 row of the AMENITIES reference"),
     (r"\(general row [A-Z]{1,2}\d+: uplift stn [A-Z]{1,2}\d+ = ", "(general row: uplift stn "),
     (r"but [A-Z]{1,2}\d+ excludes", "but the reference excludes"),
-    (r"(?<=[a-z]) -(?=,| \(|$| \|)", " n/a"),
+    (r" \(Flights A[XY]\)", ""),
+    (r"entered on Flights col AX", "recorded in the workbook (Flights sheet)"),
+    (r"until Flights AX holds", "until the workbook (Flights sheet) holds"),
+    (r"in Flights AX", "in the workbook (Flights sheet)"),
+    (r"^Documents sheet row complete$", "Recorded on the Documents sheet; copy stapled as A1 / A2"),
 ]
 
 
@@ -317,13 +325,15 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, rr, 7, f"={FL(pct)}", 8, font=_font(FS, True), fmt="0%", align=AL_CEN)
         right_h[rr] = _lines(cp_label.get(cp, ""), COLS[4][1], LS, True)
     # counts: three per row, each value in its own cell for local conditional formatting
-    for label, cols, red in [("Overdue / discrep. / invalid", ("AP", "AQ", "AU"), True),
-                             ("Open reqd / clarif. / docs out", ("AO", "AS", "AR"), None)]:
+    for label, cols, red, names in [("Overdue / discrep. / invalid", ("AP", "AQ", "AU"), True,
+                                     ("Overdue", "Discrep.", "Invalid")),
+                                    ("Open reqd / clarif. / docs out", ("AO", "AS", "AR"), None,
+                                     ("Open reqd", "Clarif.", "Docs out"))]:
         rr += 1
         right_h[rr] = _lines(label, COLS[4][1], LS, True)
         _put(ws, rr, 5, label, 5, **lab)
-        for c, col in zip((6, 7, 8), cols):
-            cell = _put(ws, rr, c, f"={FL(col)}", c, font=_font(10, True), align=AL_CEN)
+        for c, col, nm in zip((6, 7, 8), cols, names):
+            cell = _put(ws, rr, c, f"={FL(col)}", c, font=_font(10, True), align=AL_CEN, fmt=f'"{nm} "0')
             if red or col == "AR":
                 cc = cell.coordinate
                 ws.conditional_formatting.add(cc, FormulaRule(formula=[f"AND(ISNUMBER({cc}),{cc}>0)"],
@@ -353,9 +363,9 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
     # ---------------- evidence legend: the Checks sheet needs a type from this list plus the record's own ID
     r += 1
     ev_list = "&\" · \"&".join(f"Settings!$U${4 + i}" for i in range(len(EV_TYPES_SAMPLE)))
-    ev_head = ("EVIDENCE – write both.  Type (one of): ")
-    ev_tail = ("   |   ID = the record's own number only (e.g. SF-2210, IMG_2231, 1045521); a link / file path only "
-               "for type 'Link / file path'. Words such as 'done', 'checked' or 'photo to follow' are not accepted.")
+    ev_head = ("EVIDENCE  Type (one of): ")
+    ev_tail = ("  |  ID: the record's own no. only (SF-2210, IMG_2231, 1045521); a link or path only for "
+               "'Link / file path'.")
     _put(ws, r, 1, f'="{ev_head}"&{ev_list}&"{ev_tail}"', NCOL, font=_font(LS, False, "1F3864"), fill=F_LABEL)
     ev_sample = ev_head + " · ".join(EV_TYPES_SAMPLE) + ev_tail
     ws.row_dimensions[r].height = _height(_lines(ev_sample, _width(1, NCOL), LS), LS, 3)
@@ -364,29 +374,29 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         r += 1
         kul = "IFERROR(INDEX(Settings!$C$13:$C$22,MATCH(\"KUL\",Settings!$A$13:$A$22,0)),8)"
         ay = FL("AY")
-        est = (f'IF(ISNUMBER({FL("AX")}),"",IF(TRIM({FL("W")})<>""," (agenda candidate – enter actual on Flights AX)",'
-               f'" (latest possible – enter actual on Flights AX)"))&IF(ISNUMBER({FL("AX")}),"",CHAR(10)&"{AX_WARN}")')
-        times = (f'"KUL loading window opens (caps prep dues; each row shows its binding due): "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
-                 f'&" KUL","(not set)")&"   |   Carrying flight KUL departure (loading confirmed by): "&'
+        est = (f'IF(ISNUMBER({FL("AX")}),"",IF(TRIM({FL("W")})<>""," (agenda candidate – actual not yet entered)",'
+               f'" (latest possible – actual not yet entered)"))&IF(ISNUMBER({FL("AX")}),"",CHAR(10)&"{AX_WARN}")')
+        times = (f'"KUL loading window opens: "&IF(ISNUMBER({ay}),TEXT({ay}+{kul}/24,"{TFMT}")'
+                 f'&" KUL","(not set)")&"   |   Carrying flight leaves KUL: "&'
                  f'IF(ISNUMBER({ay}),TEXT({ay}+UpliftWindowH/24+{kul}/24,"{TFMT}")&" KUL","(not set)")&{est}')
         if f["round_trip"]:
             cand = (f'{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F${FIRST_FLIGHT_ROW + NFL - 1},'
                     f'MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A${FIRST_FLIGHT_ROW + NFL - 1},0)),"")')
-            note = (f'="ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate "&{cand}'
-                    f'&"). T-24H / T-12H PREP are capped at the KUL loading window; on-board UPLIFT checks are at "'
-                    f'&{FL("G")}&"."&CHAR(10)&{times}')
-            head = ("ROUND-TRIP LEG: all catering is uplifted at KUL on the carrying flight (agenda candidate F10 "
-                    "MH1140). T-24H / T-12H PREP are capped at the KUL loading window; on-board UPLIFT checks are at PEN.")
+            note = (f'="ROUND-TRIP LEG: all catering is loaded at KUL on the carrying flight (candidate "&{cand}'
+                    f'&"); prep dues are capped at the KUL loading window; on-board checks at "'
+                    f'&{FL("G")}&". Each row shows its own due."&CHAR(10)&{times}')
+            head = ("ROUND-TRIP LEG: all catering is loaded at KUL on the carrying flight (candidate F10 "
+                    "MH1140); prep dues are capped at the KUL loading window; on-board checks at PEN. Each row shows its own due.")
         else:
-            note = (f'="KUL-SOURCED ITEMS: some items for this flight are uplifted at KUL on an inbound carrying flight '
-                    f'(identify it in the clarification check). Their preparation is capped at the KUL loading window."'
+            note = (f'="KUL-SOURCED ITEMS: some items are uplifted at KUL on the inbound carrying flight; '
+                    f'their preparation is capped at the KUL loading window. Each row shows its own due."'
                     f'&CHAR(10)&{times}')
-            head = ("KUL-SOURCED ITEMS: some items for this flight are uplifted at KUL on an inbound carrying flight "
-                    "(identify it in the clarification check). Their preparation is capped at the KUL loading window.")
+            head = ("KUL-SOURCED ITEMS: some items are uplifted at KUL on the inbound carrying flight; "
+                    "their preparation is capped at the KUL loading window. Each row shows its own due.")
         _put(ws, r, 1, note, NCOL, font=_font(LS, True, "7F4F00"), fill=AMBER_FILL)
-        sz = head + "\n" + ("KUL loading window opens (caps prep dues; each row shows its binding due): 12-Oct-26 05:45 KUL   |   Carrying flight "
-                            "KUL departure (loading confirmed by): 12-Oct-26 11:45 KUL (estimated – enter actual on "
-                            "Flights AX)\n" + AX_WARN)
+        sz = head + "\n" + ("KUL loading window opens: 12-Oct-26 05:45 KUL   |   Carrying flight "
+                            "leaves KUL: 12-Oct-26 11:45 KUL (agenda candidate – actual not yet "
+                            "entered)\n" + AX_WARN)
         ws.row_dimensions[r].height = _height(_lines(sz, _width(1, NCOL), LS, True), LS, 4)
 
     # ---------------- attachments register (paper pack)
@@ -438,12 +448,6 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, r, c1, "Signature / date-time:", c2, font=_font(8, False, "7F7F7F", italic=True), align=AL_TOP)
     ws.row_dimensions[r].height = 30
 
-    # ---------------- cover caption (page 1 = cover sheet; manual break before the table)
-    r += 1
-    _put(ws, r, 1, "Cover sheet – checklist starts on page 2 (staple attachments A1 / A2 behind this pack).",
-         NCOL, font=_font(8, False, "595959", italic=True), border=False, align=AL_MID)
-    ws.row_dimensions[r].height = 14
-
     # ---------------- checklist table
     r += 1
     head_row = r
@@ -454,8 +458,9 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
     entry_lines = max(
         _lines(_RESULT_SAMPLE + "\nBatch: BATCH-LHR-20261001-JCL-0042\nExp: 280  /  Act: 280", COLS[4][1]),
         _lines("Type: Document (GLD / menu / ISOP)\nID: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
-        _lines("01-Oct-26 20:35 LHR\nNurul Izzah Mohd Shahrizal (QA Lead)\nPIC: Capt. Ahmad Rahman bin Abdullah",
-               COLS[6][1]),
+        _lines("Done: 01-Oct-26 20:35 LHR\nVerifier: Nurul Izzah Mohd Shahrizal (QA Lead)\n"
+               "PIC: Capt. Ahmad Rahman bin Abdullah", COLS[6][1]),
+        _lines("[ ] Pass\n[ ] Pass after CA\n[ ] Fail\n[ ] N/A\nCA: Open / Closed", COLS[3][1]),
     ) + 1  # spare line
     band_rows = []
     by_cp = {cp: [] for cp, *_ in CHECKPOINTS}
@@ -487,22 +492,27 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
             C = lambda col: f"Checks!${col}${k}"  # noqa: E731
             req = _paperify(f'{C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
                           (c["expected"], c["note"]))
+            rna = f'LEFT({C("AH")},10)="N/A – RULE"'  # rule-N/A rows: nothing to write by hand
             vals = [
                 f'={C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}',
                 "=" + req,
                 f'={C("N")}&CHAR(10)&{_t(C("R"))}&" "&{C("P")}',
-                f'=IF({C("U")}="","",{C("U")})&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")})',
+                (f'=IF(TRIM({C("U")})<>"",{C("U")}&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")}),'
+                 f'IF({rna},"","[ ] Pass"&CHAR(10)&"[ ] Pass after CA"&CHAR(10)&"[ ] Fail"'
+                 f'&IF({C("AT")}=1,CHAR(10)&"[ ] N/A","")&CHAR(10)&"CA: Open / Closed"))'),
                 (f'=IF({C("V")}="","",{C("V")})'
                  f'&IF({C("AC")}="","",IF({C("V")}="","",CHAR(10))&"N/A just.: "&{C("AC")})'
-                 f'&IF({C("W")}="","",CHAR(10)&"Batch: "&{C("W")})'
-                 f'&IF(AND({C("X")}="",{C("Y")}=""),"",CHAR(10)&"Exp: "&{C("X")}&"  /  Act: "&{C("Y")})'),
-                (f'=IF(AND(LEFT({C("AH")},10)="N/A – RULE",TRIM({C("S")}&{C("Z")})=""),"",'
+                 f'&IF(OR({C("W")}<>"",AND({C("AQ")}=1,NOT({rna}))),CHAR(10)&"Batch: "&IF({C("W")}="","{W_BLANK}",{C("W")}),"")'
+                 f'&IF(OR({C("X")}<>"",{C("Y")}<>"",AND({C("AR")}=1,NOT({rna}))),CHAR(10)&"Exp: "'
+                 f'&IF({C("X")}="","{Q_BLANK}",{C("X")})&"  /  Act: "&IF({C("Y")}="","{Q_BLANK}",{C("Y")}),"")'),
+                (f'=IF(AND({rna},TRIM({C("S")}&{C("Z")})=""),"",'
                  f'"Type: "&IF(TRIM({C("S")})="","{EV_BLANK}",{C("S")})'
-                 f'&CHAR(10)&"ID: "&IF(TRIM({C("Z")})="","{EV_BLANK}",{C("Z")}))'
+                 f'&CHAR(10)&"ID: "&IF(TRIM({C("Z")})="","{ID_BLANK}",{C("Z")}))'
                  f'&IF({C("AA")}="","",CHAR(10)&"CA: "&{C("AA")})'),
-                (f'=IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}")&" "&{C("P")},"")'
-                 f'&IF({C("AE")}="","",CHAR(10)&"Verifier: "&{C("AE")})'
-                 f'&IF({C("T")}="","",CHAR(10)&"PIC: "&{C("T")})'),
+                (f'=IF(AND({rna},NOT(ISNUMBER({C("AD")})),{C("AE")}="",{C("T")}=""),"",'
+                 f'"Done: "&IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}"),"{W_BLANK}")&" "&{C("P")}'
+                 f'&CHAR(10)&"Verifier: "&IF({C("AE")}="","{W_BLANK}",{C("AE")})'
+                 f'&CHAR(10)&"PIC: "&IF({C("T")}="","{W_BLANK}",{C("T")}))'),
                 _blank(C("AH")),
             ]
             for i, v in enumerate(vals, 1):

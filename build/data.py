@@ -64,7 +64,7 @@ STATIONS = {
 
 # Schedule fleet -> reference AIRCRAFT TYPE row(s)
 FLEET_REF = {
-    "A350": ("A350-900: A359 (9M-MAB..MAG, row 6) or A350 9M-MAH (row 7) - tail to confirm",
+    "A350": ("A350-900: A359 (9M-MAB..MAG) or A350 (9M-MAH) - tail to confirm",
              "AIRCRAFT TYPE!C6:R7"),
     "A333": ("A330-300 (A333)", "AIRCRAFT TYPE!C9:R9"),
     "A339": ("A330-900 (A339)", "AIRCRAFT TYPE!C8:R8"),
