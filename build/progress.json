@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 7,
-   "note": "Round 6: text rules too blunt/narrow; rebuilt as whole-word rules with negation, applied to all free-text fields; 62 regression cases pass; round-7 critic running"
+   "round": 8,
+   "note": "Round 7: negation handled per word, weak evidence/verifier rejected, prep strictly before loading; ~75 regression cases pass; round-8 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -103,6 +103,11 @@
    "piece": "2. Core formulas",
    "round": 6,
    "gap": "Text rules matched fragments with spaces removed: 'No defects found' and 'Sensory report BC-017' were rejected, while 'Awaiting\u2026' still passed in N/A justification, batch, result and document attachment."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 7,
+   "gap": "Negation counted anywhere in the text: '0 discrepancies' and 'fail-safe' were rejected while 'missing, no spares' passed; 'Visually checked' and verifier 'Self' were accepted."
   }
  ],
  "log": [
@@ -237,6 +242,10 @@
   [
    "29 Sep",
    "Logic critic round 6: FAIL (text rules); rebuilt with word boundaries + negation; round 7 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 7: FAIL (text negation); per-word negation counting added; round 8 launched"
   ]
  ]
 }
