@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 9,
-   "note": "Round 8: keyword rule oscillating; problem wording now an advisory CHECK WORDING flag, structure (Status, CA, qty) decides; round-9 critic running"
+   "round": 10,
+   "note": "Round 9: advisory design judged sound; pending wording now negation-aware, evidence must carry a traceable reference; round-10 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -113,6 +113,11 @@
    "piece": "2. Core formulas",
    "round": 8,
    "gap": "The problem-word rule rejected about a third of natural 'all good' phrasings ('No visible defects', 'No quantity discrepancy') yet passed tallies like 'Missing: 0, Dirty: 2'."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 9,
+   "gap": "Pending detection still blocked READY without negation ('no CA pending' rejected) and missed future forms ('Photos will be uploaded' accepted as evidence)."
   }
  ],
  "log": [
@@ -255,6 +260,10 @@
   [
    "29 Sep",
    "Logic critic round 8: FAIL (keyword rule); made advisory, line breaks normalised; round 9 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 9: FAIL (pending wording); evidence reference rule + negation-aware pending check; round 10 launched"
   ]
  ]
 }
