@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep",
+ "updated": "29 Sep 14:20",
  "checks": 744,
  "pieces": [
   {
@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 16,
-   "note": "User chose structured evidence: Evidence type dropdown + ID validated by shape for its type; 25 evidence cases + structural regressions pass; round-16 logic critic running"
+   "round": 17,
+   "note": "Round 16 FAIL (ID-shape check too loose: any '/' passed as a link; MH88, 9OCT26, Rev3, times passed; role verifiers accepted). Fixed: Evidence ID = one token of letters joined to 2+ digits or a 5+ digit number, links only for 'Link / file path'; PIC/verifier must be named people. 24 evidence + 7 verifier cases pass; round-17 logic critic running"
   },
   {
    "name": "3. Dashboard",
@@ -23,8 +23,8 @@
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "run",
-   "round": 6,
-   "note": "Evidence cell now shows type + ID; round-6 render critic re-checking the packs"
+   "round": 7,
+   "note": "Round 6 marginal PASS; gap: no place on paper for the Evidence type. Fixed: separate Type / ID write-in lines, evidence-type list on each cover, carrying-flight (AX) warning, reference cell addresses removed from printed text; round-7 render critic running"
   },
   {
    "name": "5. Instructions & delivery",
@@ -148,6 +148,16 @@
    "piece": "2. Core formulas",
    "round": 15,
    "gap": "Word-list fixes kept missing variants ('Verified by CSM 1400' accepted, 'GLD-MH0727-A' rejected). User decision: replace free-text evidence with a structured type + ID."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 16,
+   "gap": "Evidence ID shape check too loose: any '/' counted as a link, and flight numbers, dates, revisions and times passed as IDs; role-only verifiers (QA, CSM) accepted."
+  },
+  {
+   "piece": "4. Printable checklists",
+   "round": 6,
+   "gap": "The mandatory Evidence type had no place on paper and printed run together with the ID, so a hand-filled pack could not be transcribed reliably."
   }
  ],
  "log": [
@@ -318,6 +328,10 @@
   [
    "29 Sep",
    "Round 15 FAIL; user chose structured evidence fields; built and tested; logic r16 + render r6 launched"
+  ],
+  [
+   "14:20",
+   "Round-16 and render-6 fixes built (0 formula errors, max nesting 45), pushed; logic critic 17 and render critic 7 launched on frozen build r22"
   ]
  ]
 }
