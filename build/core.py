@@ -498,6 +498,9 @@ def ref_ok(raw, dmap, amap, batch=False):
     ext = ("{\"http\",\"www.\",\"\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
            "\".msg\",\".eml\"}")
     extra = f",ISNUMBER(SEARCH(\"0000\",{dmap}))" if batch else ""
+    # a named document store plus a folder/item number (e.g. "SharePoint F11/UPL-01")
+    extra += (f",AND(SUMPRODUCT(--ISNUMBER(SEARCH({{\"sharepoint\",\"onedrive\",\"teams\",\"dms\",\"q-pulse\",\"qpulse\"}},{raw})))>0,"
+              f"ISNUMBER(SEARCH(\"0\",{dmap})))")
     return (f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({alnum},{amap})))>0,SUMPRODUCT(--ISNUMBER(SEARCH({kw},{dmap})))>0,"
             f"SUMPRODUCT(--ISNUMBER(SEARCH({ext},{raw})))>0{extra})")
 
