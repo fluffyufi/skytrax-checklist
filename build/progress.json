@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 6,
-   "note": "Round 5 (rerun): FAIL on pending-evidence phrases; fixed with 42 regression cases passing; round-6 critic running"
+   "round": 7,
+   "note": "Round 6: text rules too blunt/narrow; rebuilt as whole-word rules with negation, applied to all free-text fields; 62 regression cases pass; round-7 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -98,6 +98,11 @@
    "piece": "2. Core formulas",
    "round": 5,
    "gap": "Evidence like 'photo to follow', 'TBC \u2013 will upload' or 'Done' still counted, because placeholders were matched only as whole words."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 6,
+   "gap": "Text rules matched fragments with spaces removed: 'No defects found' and 'Sensory report BC-017' were rejected, while 'Awaiting\u2026' still passed in N/A justification, batch, result and document attachment."
   }
  ],
  "log": [
@@ -228,6 +233,10 @@
   [
    "29 Sep",
    "Logic critic round 5: FAIL (evidence phrases); fixed, new build frozen, round 6 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 6: FAIL (text rules); rebuilt with word boundaries + negation; round 7 launched"
   ]
  ]
 }
