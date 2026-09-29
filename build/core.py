@@ -725,7 +725,7 @@ def id_shape_ok(raw, full, strp, prefix, dig, let, typ, flight):
     t = f"TRIM({raw})"
     link = f"SUMPRODUCT(--ISNUMBER(SEARCH({LINK_EXT},{raw})))>0"
     multi = (f"OR(SUMPRODUCT(--ISNUMBER(FIND({{\",\",\";\",\"&\",\"+\"}},{raw})))>0,"
-             f"SUMPRODUCT(--ISNUMBER(SEARCH({{\"0/aa\",\"0\\\\aa\"}},{full})))>0)")
+             f"SUMPRODUCT(--ISNUMBER(SEARCH({{\"0/aa\",\"0\\\\aa\",\"-0000/0000\",\"_0000/0000\",\"-000/000\",\"-00000/00000\"}},{full})))>0)")
     aircraft = f"ISNUMBER(MATCH(LEFT(LOWER({t}),4),{_arr(['a350', 'a359', 'a330', 'a332', 'a333', 'a339', 'b737', 'b738', 'b7m8', 'a320', 'a321'])},0))"
     slashes = f"(LEN({raw})-LEN(SUBSTITUTE({raw},\"/\",\"\")))"
     ext = ("{\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\",\".msg\",\".eml\",\".ppt\","
