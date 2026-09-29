@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 15,
-   "note": "Round 14: short time/count words, future loading wording and some real references mis-handled; fixed (nesting 37/64); round-15 critic running"
+   "round": 16,
+   "note": "User chose structured evidence: Evidence type dropdown + ID validated by shape for its type; 25 evidence cases + structural regressions pass; round-16 logic critic running"
   },
   {
    "name": "3. Dashboard",
@@ -22,9 +22,9 @@
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
-   "state": "pass",
-   "round": 5,
-   "note": "PASS: \u22489pt body, cover + sign-off intact, every filled entry prints in full; minor polish applied"
+   "state": "run",
+   "round": 6,
+   "note": "Evidence cell now shows type + ID; round-6 render critic re-checking the packs"
   },
   {
    "name": "5. Instructions & delivery",
@@ -143,6 +143,11 @@
    "piece": "2. Core formulas",
    "round": 14,
    "gap": "'Chkd 1400 hrs', 'Qty 180' and 'on call 1400' still counted as references; 'to be loaded' passed on on-board rows; 'seal numbers 88213-88220' and 'QA form F-2210' were rejected."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 15,
+   "gap": "Word-list fixes kept missing variants ('Verified by CSM 1400' accepted, 'GLD-MH0727-A' rejected). User decision: replace free-text evidence with a structured type + ID."
   }
  ],
  "log": [
@@ -309,6 +314,10 @@
   [
    "29 Sep",
    "Logic critic round 14: FAIL (text references); fixed; round 15 launched"
+  ],
+  [
+   "29 Sep",
+   "Round 15 FAIL; user chose structured evidence fields; built and tested; logic r16 + render r6 launched"
   ]
  ]
 }
