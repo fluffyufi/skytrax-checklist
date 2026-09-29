@@ -169,12 +169,16 @@ def build_settings(wb, data):
                    "not to be", "is to be", "are to be", "was to be", "will load", "will be loaded", "to be loaded",
                    "to be uplifted", "being loaded", "being uplifted"})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
-    strict = pend + ["will", "to be", "yet", "later", "awaited", "outstanding", "tomorrow", "being", "expected",
-                     "coming", "not in", "still with", "not sent", "not shared", "not forwarded", "not scanned",
-                     "not filed", "in progress"]
+    strict = pend + ["awaited", "to be forwarded", "will be forwarded", "to be scanned", "will be scanned", "to be filed",
+                     "will be filed", "to be shared", "will be shared", "will share", "will forward", "not sent",
+                     "not shared", "not forwarded", "not scanned", "not filed", "still with", "hard copy outstanding",
+                     "evidence outstanding", "copy outstanding", "documents outstanding", "being prepared", "to come",
+                     "once received", "requested from", "to upload", "draft only", "not in yet", "will be sent tomorrow",
+                     "expected tomorrow", "due tomorrow"]
     # extra phrases rejected only as evidence / attachment (the record itself is not on file)
     ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above", "by phone",
-          "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call"]
+          "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call",
+          "phone", "telephone", "telephoned", "phoned", "called", "via phone", "phone confirmation"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -449,6 +453,40 @@ def pending(s, lst="L_Pending"):
     return f"{occurrences(lst, s)}>{occurrences('L_PendNeg', s)}"
 
 
+def digitmap(ref):
+    x = f"LOWER({ref}&\"\")"
+    for d in "123456789":
+        x = f"SUBSTITUTE({x},\"{d}\",\"0\")"
+    return x
+
+
+def alphamap(ref):
+    x = ref
+    for ch in "bcdefghijklmnopqrstuvwxyz":
+        x = f"SUBSTITUTE({x},\"{ch}\",\"a\")"
+    return x
+
+
+REF_WORDS = ["ref", "ref no", "ref.", "ref:", "no.", "no:", "#", "rev", "email", "memo", "form", "sheet", "log", "doc",
+             "report", "photo", "photos", "img", "file", "ack", "batch", "lot", "job", "record", "fax", "letter"]
+
+
+def ref_ok(raw, dmap, amap):
+    """Traceable reference: an ID with letters then digits (SF-2210, IMG_2231), a keyword + number (ref 4471,
+    email 4471), a file name, link or path. A bare time or date does not count."""
+    alnum = "{" + ",".join(f'\"{p}\"' for p in ("a0", "a-0", "a_0", "a/0", "a.0")) + "}"
+    kw = "{" + ",".join(f'\"{w} 0\"' for w in REF_WORDS) + "," + ",".join(f'\"{w}0\"' for w in ("ref", "#", "no.", "no:")) + "}"
+    ext = ("{\"http\",\"www.\",\"\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
+           "\".msg\",\".eml\"}")
+    loose = "{" + ",".join(f'\" {w} \"' for w in ("ref", "email", "memo", "form", "sheet", "report", "ack", "letter",
+                                                        "record", "log", "doc", "file", "batch", "lot", "job", "fax",
+                                                        "rev", "ticket", "case", "order")) + "}"
+    sp = f"(\" \"&SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({dmap},\":\",\" \"),\".\",\" \"),\",\",\" \")&\" \")"
+    return (f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({alnum},{amap})))>0,SUMPRODUCT(--ISNUMBER(SEARCH({kw},{dmap})))>0,"
+            f"AND(SUMPRODUCT(--ISNUMBER(SEARCH({loose},{sp})))>0,ISNUMBER(SEARCH(\"000\",SUBSTITUTE({dmap},\":\",\" \")))),"
+            f"SUMPRODUCT(--ISNUMBER(SEARCH({ext},{raw})))>0)")
+
+
 def has_ref(ref):
     """Traceable reference: a digit, a link, a path or a file name."""
     return (f"OR(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{ref})))>0,"
@@ -482,10 +520,11 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
            "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag",
-           "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref"]
+           "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref",
+           "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8]
 
 
 def build_checks(wb, data):
@@ -555,7 +594,12 @@ def build_checks(wb, data):
         for src, sc, hcol, lst in (("V", "BC", "BH", "L_Pending"), ("Z", "BD", "BI", "L_PendStrict"),
                                    ("W", "BE", "BJ", "L_Pending"), ("AC", "BF", "BK", "L_PendStrict")):
             vals[hcol] = f"=IFERROR(IF({pending(f'{sc}{r}', lst)},1,0),1)"
-        vals["BL"] = f"=IFERROR(IF({has_ref(f'Z{r}')},1,0),0)"
+        vals["BM"] = "=" + digitmap(f"Z{r}")
+        vals["BN"] = "=" + alphamap(f"BM{r}")
+        vals["BO"] = "=" + digitmap(f"W{r}")
+        vals["BP"] = "=" + alphamap(f"BO{r}")
+        vals["BL"] = f"=IFERROR(IF({ref_ok(f'Z{r}', f'BM{r}', f'BN{r}')},1,0),0)"
+        vals["BQ"] = f"=IFERROR(IF({ref_ok(f'W{r}', f'BO{r}', f'BP{r}')},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
                       f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
@@ -571,7 +615,7 @@ def build_checks(wb, data):
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass after CA\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} after the corrective action the actual qty must equal expected (update Actual)\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass\",TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action not closed: use Fail, then Pass after CA\",\"\")&"
-               f"IF(AND(LEN(BA{r})>=2,ISNA(MATCH(BA{r},L_Placeholder,0)),TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
+               f"IF(AND(LEN(BA{r})>=2,ISNA(MATCH(LEFT(BA{r},255),L_Placeholder,0)),TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
                f"IF(AND({U}=\"Pass after CA\",OR({bad('AA', 5)},TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
@@ -596,7 +640,7 @@ def build_checks(wb, data):
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
-            f"IF(AND(AQ{r}=1,OR({bad('W', 3)},BJ{r}=1)),\"INVALID {ND} batch ID missing or placeholder\","
+            f"IF(AND(AQ{r}=1,OR({bad('W', 3)},BJ{r}=1,BQ{r}=0)),\"INVALID {ND} batch ID missing, placeholder or not an ID (e.g. PASB-261008-BC-017)\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
@@ -696,7 +740,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -728,7 +772,11 @@ def build_documents(wb, data):
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
             return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{has_ref(att + str(r))},NOT({pending(spaced(att + str(r)), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},NOT({pending(spaced(att + str(r)), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+        ws[f"R{r}"] = "=" + digitmap(f"I{r}")
+        ws[f"S{r}"] = "=" + alphamap(f"R{r}")
+        ws[f"T{r}"] = "=" + digitmap(f"N{r}")
+        ws[f"U{r}"] = "=" + alphamap(f"T{r}")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
         ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
@@ -763,6 +811,9 @@ def build_documents(wb, data):
     ws.freeze_panes = "C5"
     ws.print_title_cols = "A:B"
     ws.print_title_rows = "4:4"
+    for col in "RSTU":
+        ws.column_dimensions[col].hidden = True
+    ws.print_area = "A1:Q26"
     fit_pages(ws, "A", "Q", title_cols_w=16)
 
 
@@ -895,7 +946,7 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
-    ("b", "Evidence must point to a traceable record: include a reference number, file name or link (e.g. 'Sensory form SF-2210', 'Email PASB ref 4471', 'IMG_2231.jpg'). Document attachment locations likewise need a path, link or file name. Wording that says the record is still coming ('will be uploaded', 'to follow', 'awaiting') blocks the check; negated forms ('nothing pending', 'no CA pending') are fine."),
+    ("b", "Evidence must point to a traceable record: a document ID (e.g. 'SF-2210', 'PCS-0727', 'IMG_2231'), a reference word with a number ('email ref 4471', 'form 2210'), a file name, link or path. A bare time or date ('Checked 14:00') or a phone call is not evidence. Batch IDs must look like an ID (e.g. 'PASB-261008-BC-017'). Document attachment locations likewise need a path, link or file name. Wording that says the record is still coming ('will be uploaded', 'to follow', 'awaiting') blocks the check; negated forms ('nothing pending', 'no CA pending') are fine."),
     ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
