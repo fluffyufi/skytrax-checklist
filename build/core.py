@@ -140,6 +140,7 @@ def build_settings(wb, data):
           "phototaken", "byphone", "aspergld", "attached", "visually", "self", "sameaspic", "pic", "me", "myself",
           "good", "passed", "satisfactory", "accepted", "fine", "noted", "complete", "completed",
           "notavailable", "notprovided", "nobatch", "nobatchno", "nobatchnumber", "seelabel", "unknownbatch",
+          "nonerequired", "nocarequired", "noca", "nilca", "noactionrequired", "noactionneeded", "nonenecessary",
           "done", "yes", "checked", "ok", "okay", "visual", "verbal", "naverbal", "photo", "email", "seen", "fine"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
@@ -158,9 +159,22 @@ def build_settings(wb, data):
     pneg = sorted({f"{p} {w}" for w in single for p in ("no", "nothing", "not", "none", "nil")} |
                   {f"no {o} {w}" for o in objs for w in single} |
                   {"nothing to follow", "nothing further to follow", "nothing more to follow", "nothing to be confirmed",
-                   "nothing to be sent", "nothing to be uploaded", "not awaiting", "no longer awaiting", "no longer pending"})
+                   "nothing to be sent", "nothing to be uploaded", "not awaiting", "no longer awaiting", "no longer pending",
+                   # preparation-stage wording (T-12H PREP is before loading by design)
+                   "awaiting loading", "awaiting uplift", "awaiting dispatch", "awaiting transport", "pending loading",
+                   "pending uplift", "pending dispatch", "not yet loaded", "not yet uplifted", "not yet dispatched",
+                   "yet to be loaded", "yet to be uplifted", "yet to be dispatched", "waiting in", "waiting for loading",
+                   "waiting for uplift", "waiting for dispatch",
+                   # strict-list words used legitimately
+                   "not to be", "is to be", "are to be", "was to be", "will load", "will be loaded", "to be loaded",
+                   "to be uplifted", "being loaded", "being uplifted"})
+    # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
+    strict = pend + ["will", "to be", "yet", "later", "awaited", "outstanding", "tomorrow", "being", "expected",
+                     "coming", "not in", "still with", "not sent", "not shared", "not forwarded", "not scanned",
+                     "not filed", "in progress"]
     # extra phrases rejected only as evidence / attachment (the record itself is not on file)
-    ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above"]
+    ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above", "by phone",
+          "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -179,7 +193,8 @@ def build_settings(wb, data):
                                   ("M", "Result words that cannot be a plain Pass (whole words)", rb),
                                   ("N", "…cancelled when negated / zero-counted (per word)", negp),
                                   ("O", "'Still pending' phrases – result, evidence, batch, N/A justification, attachments", pend),
-                                  ("P", "…cancelled when negated (per occurrence)", pneg)):
+                                  ("P", "…cancelled when negated (per occurrence)", pneg),
+                                  ("Q", "Strict 'not on file yet' words – evidence, N/A justification, attachments", strict)):
         ws[f"{col}3"] = title_txt
         ws[f"{col}3"].font = f(9, True, NAVY)
         ws[f"{col}3"].alignment = WRAP
@@ -192,6 +207,7 @@ def build_settings(wb, data):
     name(wb, "L_NegPhrase", f"Settings!$N$4:$N${3 + len(negp)}")
     name(wb, "L_Pending", f"Settings!$O$4:$O${3 + len(pend)}")
     name(wb, "L_PendNeg", f"Settings!$P$4:$P${3 + len(pneg)}")
+    name(wb, "L_PendStrict", f"Settings!$Q$4:$Q${3 + len(strict)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
                               ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
@@ -419,7 +435,7 @@ def spaced(ref):
     """' word word ' form: lower case, punctuation turned into single spaces, padded (whole-word SEARCH)."""
     x = f"LOWER({ref}&\"\")"
     for ch in ('CHAR(10)', 'CHAR(13)', 'CHAR(9)', 'CHAR(160)', '"."', '","', '"-"', '"/"', '"("', '")"', '":"', '";"', '"_"', '"–"', '"?"', '"!"',
-               '"*"', '"["', '"]"', '"\'"', '"#"', '"+"', '"&"'):
+               '"*"', '"["', '"]"', '"\'"', '"#"', '"+"', '"&"', '"\\"'):
         x = f"SUBSTITUTE({x},{ch},\" \")"
     return f"\" \"&TRIM({x})&\" \""
 
@@ -429,8 +445,8 @@ def occurrences(listname, s):
     return (f"SUMPRODUCT((LEN({s})-LEN(SUBSTITUTE({s},\" \"&{listname}&\" \",\" \")))/(LEN({listname})+1))")
 
 
-def pending(s):
-    return f"{occurrences('L_Pending', s)}>{occurrences('L_PendNeg', s)}"
+def pending(s, lst="L_Pending"):
+    return f"{occurrences(lst, s)}>{occurrences('L_PendNeg', s)}"
 
 
 def has_ref(ref):
@@ -536,8 +552,9 @@ def build_checks(wb, data):
         sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
         for src, hcol in sp.items():
             vals[hcol] = "=" + spaced(f"{src}{r}")
-        for src, sc, hcol in (("V", "BC", "BH"), ("Z", "BD", "BI"), ("W", "BE", "BJ"), ("AC", "BF", "BK")):
-            vals[hcol] = f"=IFERROR(IF({pending(f'{sc}{r}')},1,0),1)"
+        for src, sc, hcol, lst in (("V", "BC", "BH", "L_Pending"), ("Z", "BD", "BI", "L_PendStrict"),
+                                   ("W", "BE", "BJ", "L_Pending"), ("AC", "BF", "BK", "L_PendStrict")):
+            vals[hcol] = f"=IFERROR(IF({pending(f'{sc}{r}', lst)},1,0),1)"
         vals["BL"] = f"=IFERROR(IF({has_ref(f'Z{r}')},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
@@ -554,7 +571,7 @@ def build_checks(wb, data):
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass after CA\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} after the corrective action the actual qty must equal expected (update Actual)\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass\",TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action not closed: use Fail, then Pass after CA\",\"\")&"
-               f"IF(AND(TRIM(AA{r})<>\"\",TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
+               f"IF(AND(LEN(BA{r})>=2,ISNA(MATCH(BA{r},L_Placeholder,0)),TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
                f"IF(AND({U}=\"Pass after CA\",OR({bad('AA', 5)},TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
@@ -711,7 +728,7 @@ def build_documents(wb, data):
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
             return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{has_ref(att + str(r))},NOT({pending(spaced(att + str(r)))})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{has_ref(att + str(r))},NOT({pending(spaced(att + str(r)), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
         ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
