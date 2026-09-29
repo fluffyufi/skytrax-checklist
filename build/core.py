@@ -139,17 +139,28 @@ def build_settings(wb, data):
           "visualcheck", "visuallychecked", "visuallyinspected", "checkedok", "sighted", "confirmed", "notrequired",
           "phototaken", "byphone", "aspergld", "attached", "visually", "self", "sameaspic", "pic", "me", "myself",
           "good", "passed", "satisfactory", "accepted", "fine", "noted", "complete", "completed",
+          "notavailable", "notprovided", "nobatch", "nobatchno", "nobatchnumber", "seelabel", "unknownbatch",
           "done", "yes", "checked", "ok", "okay", "visual", "verbal", "naverbal", "photo", "email", "seen", "fine"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
     ws.column_dimensions["K"].width = 22
     name(wb, "L_Placeholder", f"Settings!$K$4:$K${3 + len(ph)}")
     # 'still pending' phrases (whole words) – rejected in result, batch, N/A justification, evidence and attachments
-    pend = ["tbc", "tbd", "tba", "pending", "awaiting", "to follow", "will follow", "to be confirmed", "to be advised",
-            "not yet", "not confirmed", "not received", "to be provided"]
+    pend = ["tbc", "tbd", "tba", "pending", "awaiting", "waiting", "to follow", "will follow", "to be confirmed",
+            "to be advised", "not yet", "yet to", "not confirmed", "not received", "to be provided", "will be uploaded",
+            "will be emailed", "will be sent", "will be attached", "will be provided", "to be attached", "to be sent",
+            "to be emailed", "to be uploaded", "not uploaded", "will upload", "will email", "will send", "upload later",
+            "send later"]
+    # ...each occurrence cancelled by a negated form ("nothing pending", "no CA pending", "not awaiting anything")
+    objs = ["ca", "cas", "corrective action", "action", "actions", "item", "items", "issue", "issues", "clarification",
+            "clarifications", "document", "documents", "answer", "reply", "query", "queries", "further action", "follow up"]
+    single = [w for w in pend if " " not in w]
+    pneg = sorted({f"{p} {w}" for w in single for p in ("no", "nothing", "not", "none", "nil")} |
+                  {f"no {o} {w}" for o in objs for w in single} |
+                  {"nothing to follow", "nothing further to follow", "nothing more to follow", "nothing to be confirmed",
+                   "nothing to be sent", "nothing to be uploaded", "not awaiting", "no longer awaiting", "no longer pending"})
     # extra phrases rejected only as evidence / attachment (the record itself is not on file)
-    ev = pend + ["will upload", "to be uploaded", "upload later", "send later", "will send", "not available",
-                 "as above", "see above", "ditto", "verbal", "verbally"]
+    ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -158,14 +169,17 @@ def build_settings(wb, data):
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
     pre = ["no", "nil", "zero", "0", "nothing", "not", "without", "none", "free of", "no sign of", "no evidence of",
-           "or", "nor"]  # 'or'/'nor' carry a negation across a list: "no stains or defects"
-    post = ["0", "nil", "none", "zero", "free", "nothing", "not found", "found none"]
+           "or", "nor",  # 'or'/'nor' carry a negation across a list: "no stains or defects"
+           "no visible", "no quality", "no quantity", "no qty", "no meal", "no loading", "no printing", "no equipment",
+           "no cleanliness", "no presentation", "no obvious", "any", "free from", "no items", "no meals", "no trays"]
+    post = ["0", "nil", "none", "zero", "free", "nothing", "not found", "found none", "found 0", "found nil", "noted 0"]
     negp = sorted({f"{p} {w}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for p in pre} | {f"{w} {q}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for q in post} |
                   {"fail safe", "failsafe"})
-    for col, title_txt, items in (("L", "'Not yet on file' phrases – evidence & attachments (whole words)", ev),
+    for col, title_txt, items in (("L", "Evidence phrases that point elsewhere instead of to a record", ev),
                                   ("M", "Result words that cannot be a plain Pass (whole words)", rb),
                                   ("N", "…cancelled when negated / zero-counted (per word)", negp),
-                                  ("O", "'Still pending' phrases – result, batch, N/A justification", pend)):
+                                  ("O", "'Still pending' phrases – result, evidence, batch, N/A justification, attachments", pend),
+                                  ("P", "…cancelled when negated (per occurrence)", pneg)):
         ws[f"{col}3"] = title_txt
         ws[f"{col}3"].font = f(9, True, NAVY)
         ws[f"{col}3"].alignment = WRAP
@@ -177,6 +191,7 @@ def build_settings(wb, data):
     name(wb, "L_ResultBad", f"Settings!$M$4:$M${3 + len(rb)}")
     name(wb, "L_NegPhrase", f"Settings!$N$4:$N${3 + len(negp)}")
     name(wb, "L_Pending", f"Settings!$O$4:$O${3 + len(pend)}")
+    name(wb, "L_PendNeg", f"Settings!$P$4:$P${3 + len(pneg)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
                               ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
@@ -414,6 +429,17 @@ def occurrences(listname, s):
     return (f"SUMPRODUCT((LEN({s})-LEN(SUBSTITUTE({s},\" \"&{listname}&\" \",\" \")))/(LEN({listname})+1))")
 
 
+def pending(s):
+    return f"{occurrences('L_Pending', s)}>{occurrences('L_PendNeg', s)}"
+
+
+def has_ref(ref):
+    """Traceable reference: a digit, a link, a path or a file name."""
+    return (f"OR(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{ref})))>0,"
+            f"SUMPRODUCT(--ISNUMBER(SEARCH({{\"http\",\"www.\",\"\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\","
+            f"\".xls\",\".doc\",\".msg\",\".eml\"}},{ref})))>0)")
+
+
 def has(listname, spaced_cell):
     return f"SUMPRODUCT(--ISNUMBER(SEARCH(\" \"&{listname}&\" \",{spaced_cell})))>0"
 
@@ -439,10 +465,11 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
-           "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag"]
+           "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag",
+           "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8]
 
 
 def build_checks(wb, data):
@@ -509,6 +536,9 @@ def build_checks(wb, data):
         sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
         for src, hcol in sp.items():
             vals[hcol] = "=" + spaced(f"{src}{r}")
+        for src, sc, hcol in (("V", "BC", "BH"), ("Z", "BD", "BI"), ("W", "BE", "BJ"), ("AC", "BF", "BK")):
+            vals[hcol] = f"=IFERROR(IF({pending(f'{sc}{r}')},1,0),1)"
+        vals["BL"] = f"=IFERROR(IF({has_ref(f'Z{r}')},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
                       f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
@@ -544,21 +574,22 @@ def build_checks(wb, data):
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
-            f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')}),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
+            f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')},BI{r}=1),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
+            f"IF(BL{r}=0,\"INVALID {ND} evidence needs a traceable reference (number, file name or link)\","
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
-            f"IF({has('L_Pending', f'BC{r}')},\"INVALID {ND} result not yet available (awaiting / TBC)\","
-            f"IF(AND(AQ{r}=1,OR({bad('W', 3)},{has('L_Pending', f'BE{r}')})),\"INVALID {ND} batch ID missing or placeholder\","
+            f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
+            f"IF(AND(AQ{r}=1,OR({bad('W', 3)},BJ{r}=1)),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
-            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))")
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close})))))))))))")
         vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
             f"IF(AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action still open\","
-            f"IF(AND(NOT({bad('AC', 15)}),NOT({has('L_Pending', f'BF{r}')}),NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
+            f"IF(AND(NOT({bad('AC', 15)}),BK{r}=0,NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
             f"\"INVALID {ND} N/A needs a real, settled justification (15+ chars, not awaiting/TBC), PIC and a different verifier\"))),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
@@ -648,7 +679,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -678,9 +709,9 @@ def build_documents(wb, data):
         ws[f"D{r}"] = f"=Flights!G{fr}&\"-\"&Flights!H{fr}"
         ws[f"E{r}"] = f"=Flights!L{fr}"
         def docok(no, rev, dt, att):
-            ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},ISNA(MATCH({norm(x + str(r))},L_Placeholder,0)))"
+            ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
             return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},NOT({has('L_EvidencePhrase', spaced(att + str(r)))})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{has_ref(att + str(r))},NOT({pending(spaced(att + str(r)))})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
         ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
@@ -847,6 +878,7 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
+    ("b", "Evidence must point to a traceable record: include a reference number, file name or link (e.g. 'Sensory form SF-2210', 'Email PASB ref 4471', 'IMG_2231.jpg'). Document attachment locations likewise need a path, link or file name. Wording that says the record is still coming ('will be uploaded', 'to follow', 'awaiting') blocks the check; negated forms ('nothing pending', 'no CA pending') are fine."),
     ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
