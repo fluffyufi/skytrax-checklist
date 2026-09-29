@@ -455,7 +455,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'&IF({C("AC")}="","",IF({C("V")}="","",CHAR(10))&"N/A just.: "&{C("AC")})'
                  f'&IF({C("W")}="","",CHAR(10)&"Batch: "&{C("W")})'
                  f'&IF(AND({C("X")}="",{C("Y")}=""),"",CHAR(10)&"Exp: "&{C("X")}&"  /  Act: "&{C("Y")})'),
-                (f'=IF({C("Z")}="","","Evidence: "&{C("Z")})'
+                (f'=IF({C("Z")}="","","Evidence: "&IF({C("S")}="","",{C("S")}&" ")&{C("Z")})'
                  f'&IF({C("AA")}="","",IF({C("Z")}="","",CHAR(10))&"CA: "&{C("AA")})'),
                 (f'=IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}")&" "&{C("P")},"")'
                  f'&IF({C("AE")}="","",CHAR(10)&"Verifier: "&{C("AE")})'

@@ -51,9 +51,9 @@ A CheckID · B FlightID · C Flight No · D Date · E Sector (DEP-ARR) · F Clas
 (`T-7D`,`T-24H`,`T-12H PREP`,`UPLIFT`) · H Check type (Preparation / Physical uplift) · I Category ·
 J Check item · K Requirement / expected · L Source reference · M Item uplift stn · N Applicability
 (`Required`, `Clarification required`, `N/A – rule`) · O Rule note / clarification · P Check station ·
-Q Due UTC · R Due local @ check station · S Earliest valid UTC ·
+Q Due UTC · R Due local @ check station · S Evidence type (INPUT, dropdown L_EvidenceType) ·
 INPUTS: T PIC · U Status · V Result / assessment · W Batch ID · X Expected qty · Y Actual qty ·
-Z Evidence ref · AA Corrective action · AB CA status · AC N/A justification · AD Completion time
+Z Evidence ID / reference · AA Corrective action · AB CA status · AC N/A justification · AD Completion time
 (local @ check station) · AE Verifier ·
 COMPUTED: AF Qty variance · AG Completion UTC · AH Record state (text) · AI In scope (1/0) ·
 AJ Complete (1/0) · AK Overdue (1/0) · AL Open discrepancy (1/0) · AM Invalid (1/0) ·
@@ -72,3 +72,6 @@ ISOP revision register below (rows 30+).
 
 ## Dashboard (owner: dashboard builder) — see prompt.
 ## P01..P22 printable flight checklists (owner: printable builder) — see prompt.
+
+
+Earliest valid UTC moved from S to hidden BY; BZ = evidence ID shape ok for its type.

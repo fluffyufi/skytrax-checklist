@@ -237,6 +237,13 @@ def build_settings(wb, data):
     name(wb, "L_PendPrep", f"Settings!$R$4:$R${3 + len(pprep)}")
     name(wb, "L_NotLoaded", f"Settings!$S$4:$S${3 + len(notload)}")
     name(wb, "L_NotLoadedNeg", f"Settings!$T$4:$T${3 + len(nl_neg)}")
+    ws["U3"] = "Evidence types (Checks column S)"
+    ws["U3"].font = f(9, True, NAVY)
+    ws["U3"].alignment = WRAP
+    ws.column_dimensions["U"].width = 26
+    for i, v in enumerate(EVIDENCE_TYPES):
+        ws.cell(4 + i, 21, v).font = f(9)
+    name(wb, "L_EvidenceType", f"Settings!$U$4:$U${3 + len(EVIDENCE_TYPES)}")
     name(wb, "L_PendStrict", f"Settings!$Q$4:$Q${3 + len(strict)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
@@ -544,6 +551,35 @@ def ref_ok(raw, dmap, amap, batch=False):
             f"SUMPRODUCT(--ISNUMBER(SEARCH({ext},{raw})))>0{extra})")
 
 
+EVIDENCE_TYPES = ["Form / checklist", "Sensory panel sheet", "Load / uplift sheet", "Photo", "Email", "Seal no.",
+                  "Delivery note / receipt", "Memo / letter", "Document (GLD / menu / ISOP)", "System record",
+                  "Link / file path"]
+LINK_EXT = ("{\"http\",\"www.\",\"\\\",\"/\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
+            "\".msg\",\".eml\"}")
+JOINED = '{\"a0\",\"a-0\",\"a_0\",\"a/0\",\"a.0\",\"a#0\"}'
+DATE_SHAPES = '{\"00aaa00\",\"00aaa0000\",\"aaa00\",\"aaa0000\",\"00-aaa-00\",\"00-aaa-0000\",\"00/aaa/00\"}'
+
+
+def id_shape_ok(raw, amap, typ, flight):
+    """Evidence ID is structurally an ID for its type: letters joined to digits (SF-2210, IMG_2231, DN88213),
+    or a 4+ digit number for seal / receipt / email / photo types, or a link / path / file name.
+    A bare flight number or a date is not an ID."""
+    joined = f"SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0"
+    link = f"SUMPRODUCT(--ISNUMBER(SEARCH({LINK_EXT},{raw})))>0"
+    run4 = f"ISNUMBER(SEARCH(\"0000\",{amap}))"
+    numeric_types = '{\"Seal no.\",\"Delivery note / receipt\",\"Email\",\"Photo\"}'
+    not_flight = f"TRIM(LOWER({raw}))<>LOWER({flight})"
+    not_date = f"ISNA(MATCH(TRIM({amap}),{DATE_SHAPES},0))"
+    return (f"AND({not_flight},{not_date},IF({typ}=\"Link / file path\",{link},"
+            f"OR({joined},{link},AND(ISNUMBER(MATCH({typ},{numeric_types},0)),{run4}))))")
+
+
+def batch_shape_ok(raw, amap, flight):
+    """Batch ID: letters joined to digits (PASB-261008-BC-017) or a 6+ digit production code (261008-017)."""
+    return (f"AND(TRIM(LOWER({raw}))<>LOWER({flight}),ISNA(MATCH(TRIM({amap}),{DATE_SHAPES},0)),"
+            f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0,ISNUMBER(SEARCH(\"000000\",{amap}))))")
+
+
 def has_ref(ref):
     """Traceable reference: a digit, a link, a path or a file name."""
     return (f"OR(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{ref})))>0,"
@@ -569,26 +605,26 @@ def due_formula(ck, cp, fr, code_due):
 CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Checkpoint", "Check type", "Category",
            "Check item", "Requirement / expected (reference)", "Source reference", "Item uplift stn",
            "Applicability", "Rule note / clarification question", "Check station", "Due (UTC)",
-           "Due (local @ check stn)", "Earliest valid (UTC)",
+           "Due (local @ check stn)", "Evidence type",
            "PIC", "Status", "Result / assessment", "Batch ID (T-24H)", "Expected qty", "Actual qty",
-           "Evidence ref", "Corrective action", "CA status", "N/A justification",
+           "Evidence ID / reference", "Corrective action", "CA status", "N/A justification",
            "Completion time (local @ check stn)", "Verifier",
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
            "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag",
            "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref",
-           "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID", "m1 Evidence", "m1 Batch",
-           "m2 Evidence", "m2 Batch", "Not on board", "m3 Evidence", "m3 Batch"]
+           "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID", "(spare)", "(spare)",
+           "(spare)", "(spare)", "Not on board", "(spare)", "(spare)", "Earliest valid (UTC)", "Evidence ID shape ok"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8, 10, 10, 10, 10, 8, 10, 10]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8, 10, 10, 10, 10, 8, 10, 10, 15, 8]
 
 
 def build_checks(wb, data):
     ws = wb.create_sheet("Checks")
     title(ws, "Check register",
-          "Every readiness record for every flight (single source of truth). Enter results only in the yellow columns T–AE. Blank never counts as complete. Pass requires completion time, "
+          "Every readiness record for every flight (single source of truth). Enter results only in the yellow columns S–AE. Blank never counts as complete. Pass requires completion time, "
           "evidence and verifier (plus batch ID / quantities where required). N/A requires justification and verifier.",
           "D2:J2", 97)
     header(ws, 4, CK_HEAD, CK_W, height=54)
@@ -622,7 +658,7 @@ def build_checks(wb, data):
             "M": ck["uplift_stn"], "N": applic, "O": ck["note"], "P": ck["station"],
             "Q": "=ROUND((" + due_formula(ck, cp, fr, code_due)[1:] + ")*1440,0)/1440",
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
-            "S": (f"=IF(ISNUMBER(Flights!$AZ${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AZ${fr}),"
+            "BY": (f"=IF(ISNUMBER(Flights!$AZ${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AZ${fr}),"
                   f"Q{r}-UpliftWindowH/24)" if cp == "UPLIFT" and ck.get("due_rule") != "CARRY"
                   else f"=Q{r}-{early[cp]}/24"),
             "X": exp_qty,
@@ -658,18 +694,14 @@ def build_checks(wb, data):
         vals["BV"] = (f"=IFERROR(IF(OR({occurrences('L_NotLoaded', f'BC{r}')}>{occurrences('L_NotLoadedNeg', f'BC{r}')},"
                       f"{occurrences('L_NotLoaded', f'BD{r}')}>{occurrences('L_NotLoadedNeg', f'BD{r}')}),1,0),0)"
                       if not prep_row else "=0")
-        vals["BR"] = "=" + masked(f"BD{r}", f"Flights!$F${fr}", 1)
-        vals["BS"] = "=" + masked(f"BE{r}", f"Flights!$F${fr}", 1)
-        vals["BT"] = "=" + masked(f"BR{r}", f"Flights!$F${fr}", 2)
-        vals["BU"] = "=" + masked(f"BS{r}", f"Flights!$F${fr}", 2)
-        vals["BW"] = "=" + masked(f"BT{r}", f"Flights!$F${fr}", 3)
-        vals["BX"] = "=" + masked(f"BU{r}", f"Flights!$F${fr}", 3)
-        vals["BM"] = "=" + digitmap(f"BW{r}")
+        # structural evidence ID: shape checked against the chosen evidence type (column S)
+        vals["BM"] = "=" + digitmap(f"Z{r}")
         vals["BN"] = "=" + alphamap(f"BM{r}")
-        vals["BO"] = "=" + digitmap(f"BX{r}")
+        vals["BO"] = "=" + digitmap(f"W{r}")
         vals["BP"] = "=" + alphamap(f"BO{r}")
-        vals["BL"] = f"=IFERROR(IF({ref_ok(f'Z{r}', f'BM{r}', f'BN{r}')},1,0),0)"
-        vals["BQ"] = f"=IFERROR(IF({ref_ok(f'W{r}', f'BO{r}', f'BP{r}', batch=True)},1,0),0)"
+        vals["BZ"] = f"=IFERROR(IF({id_shape_ok(f'Z{r}', f'BN{r}', f'S{r}', f'Flights!$F${fr}')},1,0),0)"
+        vals["BL"] = f"=IF(TRIM(S{r})=\"\",0,BZ{r})"
+        vals["BQ"] = f"=IFERROR(IF({batch_shape_ok(f'W{r}', f'BP{r}', f'Flights!$F${fr}')},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
                       f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
@@ -689,7 +721,7 @@ def build_checks(wb, data):
                f"IF(AND({U}=\"Pass after CA\",OR({bad('AA', 5)},TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
                 f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
-                f"IF(AND(ISNUMBER(S{r}),AG{r}<S{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
+                f"IF(AND(ISNUMBER(BY{r}),AG{r}<BY{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>={cutoff}),\"INVALID {ND} {cut_msg}\","
@@ -706,7 +738,8 @@ def build_checks(wb, data):
             f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
             f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')},BI{r}=1),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
-            f"IF(BL{r}=0,\"INVALID {ND} evidence needs a traceable reference (number, file name or link)\","
+            f"IF(TRIM(S{r})=\"\",\"INVALID {ND} choose the evidence type (column S)\","
+            f"IF(BL{r}=0,\"INVALID {ND} evidence ID does not match its type (e.g. SF-2210, IMG_2231, seal 88213, link)\","
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
@@ -715,7 +748,7 @@ def build_checks(wb, data):
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
-            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))")
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close})))))))))))))")
         vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
@@ -747,7 +780,7 @@ def build_checks(wb, data):
             c.font = f(9)
             c.border = BORDER
             c.alignment = WRAP
-            if 20 <= j <= 31:
+            if 20 <= j <= 31 or j == 19:
                 c.fill = F_INPUT
             elif j >= 32:
                 c.fill = F_CALC
@@ -764,7 +797,7 @@ def build_checks(wb, data):
             ws[f"X{r}"].comment = Comment(f"Pre-filled from reference: {ck['src']}", "MAGCS")
         for col in ("D",):
             ws[f"{col}{r}"].number_format = "dd-mmm-yy"
-        for col in ("Q", "R", "S", "AD", "AG"):
+        for col in ("Q", "R", "BY", "AD", "AG"):
             ws[f"{col}{r}"].number_format = DT
         ws[f"AH{r}"].font = f(9, True)
         if not ck["req_batch"]:
@@ -778,6 +811,13 @@ def build_checks(wb, data):
                         promptTitle="Status", showInputMessage=True, showErrorMessage=True)
     dv.add(f"U5:U{last}")
     ws.add_data_validation(dv)
+    dvt = DataValidation(type="list", formula1="=L_EvidenceType", allow_blank=True, showErrorMessage=True,
+                         showInputMessage=True, promptTitle="Evidence type",
+                         prompt="Choose the kind of record, then enter its ID in column Z (e.g. SF-2210, IMG_2231, "
+                                "seal 88213, or a link / file path).", errorTitle="Evidence type",
+                         error="Choose an evidence type from the list.")
+    dvt.add(f"S5:S{last}")
+    ws.add_data_validation(dvt)
     dv2 = DataValidation(type="list", formula1="=L_CA", allow_blank=True, showErrorMessage=True,
                          errorTitle="CA status", error="Choose Open or Closed from the list.")
     dv2.add(f"AB5:AB{last}")
@@ -811,7 +851,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV", "BW", "BX"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV", "BW", "BX", "BY", "BZ"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -1001,14 +1041,14 @@ INSTR = [
     ("h2", "Sheets"),
     ("b", "Dashboard – checkpoint completion, overdue actions, outstanding discrepancies and readiness per flight."),
     ("b", "Flights – the 22 legs as scheduled. Enter Tail/Reg, Caterer and Flight PIC (yellow). Due times: T-7D, T-24H, T-12H prep and uplift (= STD)."),
-    ("b", "Checks – one row per check per flight. THE ONLY PLACE TO RECORD RESULTS (yellow columns T–AE)."),
+    ("b", "Checks – one row per check per flight. THE ONLY PLACE TO RECORD RESULTS (yellow columns S–AE)."),
     ("b", "Documents – galley loading diagram and menu checklist per flight (doc no, revision, date, attachment). ISOP Register – ISOP revisions communicated to caterers."),
     ("b", "Requirements – uplift requirements derived from STD UPLIFT INFORMATION.xlsx per flight, with source cell for each."),
     ("b", "Settings – as-of time, PC clock offset, validity windows, station time-zone table."),
     ("b", "P01–P22 – printable pack per flight (formula views of Checks, A4 landscape). Page 1 is a cover sheet with the flight's due times, readiness, the attachments register (A1 galley loading diagram, A2 menu checklist – staple behind, flagged OUTSTANDING until on file) and sign-off; the checklist starts on page 2. Print one flight's sheet on its own so page numbers run per flight."),
     ("h2", "Recording a check (Checks sheet)"),
     ("n", "1. Filter column B (Flight ID) or G (Checkpoint). Enter PIC (T)."),
-    ("n", "2. Record Result (V), Evidence ref (Z), Completion time in LOCAL time of the check station shown in column P (AD) and Verifier (AE)."),
+    ("n", "2. Record Result (V), Evidence type (S) and Evidence ID (Z), Completion time in LOCAL time of the check station shown in column P (AD) and Verifier (AE)."),
     ("n", "3. T-24H sensory: Batch ID (W) is mandatory. Status Pass = batch accepted; Fail = rejected (enter corrective action AA and CA status AB)."),
     ("n", "4. Quantity lines: enter Expected (X, from menu checklist / GLD) and Actual (Y). A variance cannot be 'Pass' – use Fail, then 'Pass after CA' once the corrective action is recorded and Closed."),
     ("n", "5. Set Status (U) last. The Record state (AH) tells you whether the entry is accepted."),
@@ -1025,7 +1065,7 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
-    ("b", "Evidence must point to a traceable record: a document ID (e.g. 'SF-2210', 'PCS-0727', 'IMG_2231'), a reference word with a number ('email ref 4471', 'form 2210'), a file name, link or path. A bare time or date ('Checked 14:00') or a phone call is not evidence. Batch IDs must look like an ID (e.g. 'PASB-261008-BC-017'). Document attachment locations likewise need a path, link or file name. Wording that says the record is still coming ('will be uploaded', 'to follow', 'awaiting') blocks the check; negated forms ('nothing pending', 'no CA pending') are fine."),
+    ("b", "Evidence is recorded in two fields: choose the Evidence type in column S, then enter the record's ID in column Z. The ID must look like an ID for that type: letters joined to digits (SF-2210, IMG_2231, DN88213, PCS-0727), a 4+ digit number for seal / receipt / email / photo types, or a link / file path. A bare flight number, date, time or phone call is not evidence, and wording that says the record is still coming ('to follow', 'awaiting') blocks the check. Batch IDs follow the same rule (e.g. PASB-261008-BC-017 or 261008-017). Document attachment locations on the Documents sheet need a path, link or file name."),
     ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
     ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
