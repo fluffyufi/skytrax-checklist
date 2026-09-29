@@ -33,6 +33,7 @@ def fill(ws, docs, fid="F02"):
         if ws[f"N{r}"].value == "Clarification required":
             ws[f"U{r}"] = "N/A"
             ws[f"AC{r}"] = "Confirmed – not carried on this sector"
+            ws[f"S{r}"] = "Email"; ws[f"Z{r}"] = f"EM-26-{1000 + r}"
         else:
             ws[f"U{r}"] = "Pass"
     d = docs
@@ -81,5 +82,9 @@ if __name__ == "__main__":
   run("na_clar_no_confirmation", m([("F02-T12-12", "Z", None)]))
   run("pass_clar_query_raised", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", None),
                                    ("F02-T12-12", "V", "Query raised with MAGCS planning on 20 Oct")]))
-  run("pass_clar_confirmed", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
+  run("r19_opposite_outcomes", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
+                                  ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))
+  run("r19_clar_photo_evidence", m([("F02-T12-12", "S", "Photo"), ("F02-T12-12", "Z", "IMG_2231")]))
+  run("pass_clar_confirmed", m([("F02-UPL-07", "U", "Pass"), ("F02-UPL-07", "AC", "Confirmed – applies / carried as listed"),
+                                ("F02-UPL-07", "V", "Table cloth loaded on board as confirmed"), ("F02-UPL-07", "Y", 12),("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
                                 ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))

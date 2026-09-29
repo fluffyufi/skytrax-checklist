@@ -74,8 +74,8 @@ LS = 8.5  # label size
 BLANK = "__________________"
 AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED (Flights sheet): its timing is assumed, so on-board (UPLIFT) checks "
            "before the assumed arrival show INVALID – before uplift window.")
-EV_BLANK = "______________ (see cover list)"
-ID_BLANK = "______________ (record's own no.)"
+EV_BLANK = "________________________"
+ID_BLANK = "________________________"
 W_BLANK = "________________"
 Q_BLANK = "______"
 
@@ -402,7 +402,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
     # ---------------- attachments register (paper pack)
     r += 1
     for (c1, c2), t in zip([(1, 1), (2, 2), (3, 4), (5, 5), (6, 8)],
-                           ["Attachments", "Doc no", "Rev / rev date", "Status (from Documents sheet)",
+                           ["Attachments", "Doc no", "Rev / rev date", "Status",
                             "Paper pack instruction / location"]):
         _put(ws, r, c1, t, c2, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
     ws.row_dimensions[r].height = 14
@@ -506,6 +506,8 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'"Outcome: [ ] as listed  [ ] not carried  [ ] n/a to aircraft")),'
                  f'IF({C("V")}="","",CHAR(10))&"Outcome: "&{C("AC")})'
                  f'&IF(OR({C("W")}<>"",AND({C("AQ")}=1,NOT({rna}))),CHAR(10)&"Batch: "&IF({C("W")}="","{W_BLANK}",{C("W")}),"")'
+                 f'&IF({C("AS")}=3,CHAR(10)&"Carrying flight: "&IF(ISNUMBER({FL("AX")}),"KUL dep "&TEXT({FL("AX")},"{TFMT}")&" UTC",'
+                 f'"MH______  KUL dep (UTC): ___-___ __:__"),"")'
                  f'&IF(OR({C("X")}<>"",{C("Y")}<>"",AND({C("AR")}=1,NOT({rna}))),CHAR(10)&"Exp: "'
                  f'&IF({C("X")}="","{Q_BLANK}",{C("X")})&"  /  Act: "&IF({C("Y")}="","{Q_BLANK}",{C("Y")}),"")'),
                 (f'=IF(AND({rna},TRIM({C("S")}&{C("Z")})=""),"",'
@@ -513,7 +515,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'&CHAR(10)&"ID: "&IF(TRIM({C("Z")})="","{ID_BLANK}",{C("Z")}))'
                  f'&IF({C("AA")}="","",CHAR(10)&"CA: "&{C("AA")})'),
                 (f'=IF(AND({rna},NOT(ISNUMBER({C("AD")})),{C("AE")}="",{C("T")}=""),"",'
-                 f'"Done: "&IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}"),"{W_BLANK}")&" "&{C("P")}'
+                 f'"Done (dd-mmm hh:mm "&{C("P")}&"): "&IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}"),"{W_BLANK}")'
                  f'&CHAR(10)&"Verifier: "&IF({C("AE")}="","{W_BLANK}",{C("AE")})'
                  f'&CHAR(10)&"PIC: "&IF({C("T")}="","{W_BLANK}",{C("T")}))'),
                 _blank(C("AH")),

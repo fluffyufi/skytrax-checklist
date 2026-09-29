@@ -17,7 +17,7 @@ def fill_f11(wb):
             continue
         cid = ck[f"A{r}"].value
         if cid == "F11-T7-10":  # carrying flight clarification: must be Pass (N/A not allowed)
-            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"
+            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"; ck[f"S{r}"] = "Email"
         if cid == "F11-UPL-03":  # KUL loading line: before MH1140 dep 11:45 KUL
             ck[f"AD{r}"] = datetime(2026, 10, 12, 10, 0)
         if ck[f"G{r}"].value in ("T-24H", "T-12H PREP"):  # capped by loading (AY = 12-Oct 05:45 KUL)
@@ -201,3 +201,21 @@ def round18():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r18":
     round18()
+
+
+def round19():
+    for i, (pic, ver) in enumerate([("Raj Kumar", "Ravi Kumar"), ("John Smith", "Jane Smith")]):
+        run(f"r19_ok_people_{i}", lambda wb, rows, pic=pic, ver=ver: [wb["Checks"].__setitem__(f"T{rows['F11-T7-01']}", pic),
+                                                                   wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", ver)])
+    run("r19_ok_id_year_serial", cell("F11-T7-01", "Z", "CAT/KUL/2026/0415"))
+    run("r19_ok_phone_photo", lambda wb, rows: [wb["Checks"].__setitem__(f"S{rows['F11-T7-01']}", "Photo"),
+                                                wb["Checks"].__setitem__(f"Z{rows['F11-T7-01']}", "20261008_101512")])
+    for i, txt in enumerate(["Not all meals loaded", "Meal temperature too high at 12C", "Toiletry kits left at caterer"]):
+        run(f"r19_bad_wording_{i}", cell("F11-UPL-01", "V", txt))
+    for i, txt in enumerate(["Leak test on water bottles passed, seals intact", "Missing items: none, all 12 on board",
+                             "Damaged-cart log reviewed, zero damaged carts"]):
+        run(f"r19_ok_wording_{i}", cell("F11-UPL-01", "V", txt))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r19":
+    round19()
