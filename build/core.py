@@ -154,11 +154,13 @@ def build_settings(wb, data):
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
           "discrepancy", "discrepancies", "defect", "defective", "defects", "dirty", "damaged", "missing", "broken",
-          "leaking", "expired", "non conforming", "nonconforming", "not to spec"]
+          "leaking", "expired", "non conforming", "nonconforming", "not to spec"] + \
+         [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
-    pre = ["no", "nil", "zero", "0", "nothing", "not", "without", "none", "free of", "no sign of", "no evidence of"]
+    pre = ["no", "nil", "zero", "0", "nothing", "not", "without", "none", "free of", "no sign of", "no evidence of",
+           "or", "nor"]  # 'or'/'nor' carry a negation across a list: "no stains or defects"
     post = ["0", "nil", "none", "zero", "free", "nothing", "not found", "found none"]
-    negp = sorted({f"{p} {w}" for w in rb for p in pre} | {f"{w} {q}" for w in rb for q in post} |
+    negp = sorted({f"{p} {w}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for p in pre} | {f"{w} {q}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for q in post} |
                   {"fail safe", "failsafe"})
     for col, title_txt, items in (("L", "'Not yet on file' phrases – evidence & attachments (whole words)", ev),
                                   ("M", "Result words that cannot be a plain Pass (whole words)", rb),
