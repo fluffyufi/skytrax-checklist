@@ -6,7 +6,7 @@ sys.argv = [sys.argv[0]]
 sys.path.insert(0, "/home/user/skytrax-checklist/build")
 import test_logic2 as L, test_ready as T
 
-GOOD = [("Form / checklist", "SF-2210"), ("Photo", "IMG_2231"), ("Photo", "2231-2236"), ("Seal no.", "88213-88220"),
+GOOD = [("Form / checklist", "SF-2210"), ("Photo", "IMG_2231"), ("Photo", "IMG_2231-2236"), ("Seal no.", "88213-88220"),
         ("Delivery note / receipt", "DN88213"), ("Email", "PASB-4471"), ("Load / uplift sheet", "PCS-0727"),
         ("Document (GLD / menu / ISOP)", "GLD-MH0727-A"), ("Link / file path", "\\\\fs01\\QA\\F11\\SF-2210.pdf"),
         ("System record", "QP-5521"), ("Memo / letter", "QA/26/118"), ("Form / checklist", "QF-44")]
@@ -33,8 +33,25 @@ def run(tag, cases, batch=None):
     print(tag, "batch", batch, "->", ck["AH" + str(rows["F11-T24-01"])].value[:60], "| F11:", wb["Flights"]["AT15"].value)
 
 
-run("good", GOOD, "261008-017")
-run("bad", BAD, "Morning batch 0600")
+GOOD2 = [("Load / uplift sheet", "LS/OCT/0118"), ("Delivery note / receipt", "DN/OCT/2210"), ("Form / checklist", "SF/DEC/2210"),
+         ("Form / checklist", "CAT/MAR/0045"), ("Form / checklist", "HR-2210"), ("Memo / letter", "PM-2210"),
+         ("Form / checklist", "AM-2210"), ("Seal no.", "1045521"), ("Email", "EM-26-0441"), ("Photo", "IMG_4410"),
+         ("System record", "QP-5521"), ("Form / checklist", "QF-44")]
+BAD2 = [("Form / checklist", "9OCT2026"), ("Form / checklist", "10-Oct-2026"), ("Form / checklist", "2026/10/09"),
+        ("Form / checklist", "20261009"), ("Form / checklist", "1415MYT"), ("Form / checklist", "14h15"),
+        ("Photo", "1415-1430"), ("Form / checklist", "ETD2150"), ("Form / checklist", "Revision12"),
+        ("Form / checklist", "v12"), ("Form / checklist", "A350-900"), ("Form / checklist", "Seat14C")]
+BAD3 = [("Photo", "IMG_2231.jpg"), ("Photo", "https://magcs.sharepoint.com/qa/SF-2210"), ("Form / checklist", "SF-2210,IMG_2231"),
+        ("Form / checklist", "SF-2210/IMG_2231"), ("Form / checklist", "00000"), ("Form / checklist", "12345"),
+        ("Form / checklist", "XX-0000"), ("Form / checklist", "ABC-123"), ("Form / checklist", "NA-12345"),
+        ("Form / checklist", "11111"), ("Form / checklist", "SF-00"), ("Form / checklist", "10OCT26-1415")]
+
+if __name__ == "__main__":
+    run("good", GOOD, "261008-017")
+    run("bad", BAD, "Morning batch 0600")
+    run("good2", GOOD2, "PASB-261008-BC-017")
+    run("bad2", BAD2, "9OCT2026")
+    run("bad3", BAD3, "Batch-1")
 
 
 def run_verifiers():
@@ -50,4 +67,26 @@ def run_verifiers():
         print(f"verif {v:16s} (PIC {ck['T' + str(rows['F11-' + sid])].value}) -> {ck['AH' + str(rows['F11-' + sid])].value[:70]}")
 
 
-run_verifiers()
+
+def run_people():
+    """(PIC, verifier, expected ok) on 12 rows."""
+    cases = [("A. Rahman", "Siti Aminah", True), ("Toby Lim", "Ruby Tan", True), ("Esra Yilmaz", "Isra Omar", True),
+             ("Abby Wong", "Ali", True), ("A. Rahman", "Shift Supervisor", False), ("A. Rahman", "Station Manager KUL", False),
+             ("A. Rahman", "Purser", False), ("A. Rahman", "Quality Assurance", False), ("A. Rahman", "Cabin Services Manager", False),
+             ("Aisyah Rahman", "Rahman, Aisyah", False), ("Station Manager KUL", "Siti Aminah", False), ("A. Rahman", "SATS QA", False)]
+    p = T.TMP.format("ev_people"); shutil.copy(T.SRC, p)
+    wb = openpyxl.load_workbook(p); wb["Settings"]["B4"] = datetime(2026, 10, 12, 7, 49); L.fill_f11(wb)
+    ck = wb["Checks"]; rows = {ck.cell(r, 1).value: r for r in range(5, ck.max_row + 1)}
+    for sid, (pic, ver, _) in zip(IDS, cases):
+        ck[f"T{rows['F11-' + sid]}"] = pic; ck[f"AE{rows['F11-' + sid]}"] = ver
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    ck = openpyxl.load_workbook(p, data_only=True)["Checks"]
+    for sid, (pic, ver, exp) in zip(IDS, cases):
+        st = ck['AH' + str(rows['F11-' + sid])].value
+        flag = "ok " if st.startswith("COMPLETE") == exp else "BAD"
+        print(f"people {flag} {pic:20s} / {ver:22s} -> {st[:70]}")
+
+
+if __name__ == "__main__":
+    run_verifiers()
+    run_people()

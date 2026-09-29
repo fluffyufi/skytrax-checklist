@@ -75,4 +75,10 @@ ISOP revision register below (rows 30+).
 
 
 Earliest valid UTC moved from S to hidden BY; BZ = evidence ID shape ok for its type.
-BR / BS = letters left in the PIC / verifier name after role words are removed (< 3 = role only → INVALID).
+Evidence ID helpers: BM digit map of Z, BN full shape (letters a / digits 0), BT shape without month / zone / revision
+words, BU letters before the first digit, BW digits only, BX letters only, BZ = ID ok for its type.
+Batch helpers: BO/BP digit map / shape of W, CA shape without month words, CB digits only, BQ = batch ok.
+People: CC / CD spaced PIC / verifier, BR / BS = name letters left after whole-word role list L_Role (Settings V; < 3 = role
+only → INVALID), CE = same person in another word order. CG = N/A justification letters beyond filler list L_NAFiller
+(Settings W; must be ≥ 8). BG = plain Pass whose result describes a problem (blocking).
+Flights AS also counts an A350 leg without a valid tail (9M-MAB..MAH); READY requires AS = 0.

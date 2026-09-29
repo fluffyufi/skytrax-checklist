@@ -26,7 +26,7 @@ def fill_f11(wb):
             ck[f"AD{r}"] = datetime(2026, 10, 12, 14, 0)  # PEN, after MH1140 arrival
     d = wb["Documents"]
     d["F15"], d["G15"], d["H15"], d["I15"] = "GLD-B7M8-PEN", "R1", datetime(2026, 9, 1), "\\\\share\\GLD\\MH1149.pdf"
-    d["K15"], d["L15"], d["M15"], d["N15"] = "MCL-PENKUL", "R1", datetime(2026, 9, 1), "\\\\share\\MCL\\MH1149.pdf"
+    d["K15"], d["L15"], d["M15"], d["N15"] = "MCL-PENKUL-2610", "R1", datetime(2026, 9, 1), "\\\\share\\MCL\\MH1149.pdf"
     wb["Flights"]["AX15"] = datetime(2026, 10, 12, 3, 45)
 
 
@@ -119,7 +119,7 @@ def round6():
         run(f"ok_result_{i}", cell(cid, "V", txt))
     for i, txt in enumerate(["Sensory report BC-017", "Photo at BC galley G2", "OCT BD sheet 12", "Log no. photo 17",
                              "Email from PASB 08-Oct ref 4471"]):
-        run(f"ok_evidence_{i}", cell("F11-T7-01", "Z", txt))
+        run(f"legacy_freetext_evidence_rejected_{i}", cell("F11-T7-01", "Z", txt))  # sentences are not IDs
     run("bad_result_awaiting", cell("F11-T24-01", "V", "Awaiting panel score"))
     run("bad_result_short", cell("F11-T12-03", "V", "Short 3 trays, replaced"))
     run("bad_batch_tbc", cell("F11-T24-01", "W", "Batch TBC"))
@@ -151,3 +151,21 @@ def round7():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r7":
     round7()
+
+
+def round17():
+    run("r17_bad_not_delivered", cell("F11-T12-01", "V", "Menu cards not delivered by caterer"))
+    run("r17_bad_meals_short", cell("F11-UPL-01", "V", "2 meals short, loaded 22 of 24"))
+    run("r17_ok_short_rib", cell("F11-T24-01", "V", "Short rib and rice to spec, nothing short"))
+    run("r17_bad_na_filler", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
+        wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Not applicable for this flight")])
+    run("r17_bad_na_as_above", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
+        wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "As above - see previous line")])
+    run("r17_bad_doc_no_digits", lambda wb, rows: wb["Documents"].__setitem__("F15", "GLD"))
+    run("r17_bad_doc_flight_no", lambda wb, rows: wb["Documents"].__setitem__("F15", "MH1149"))
+    run("r17_bad_fail_on_rule_row", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-03']}", "Fail"),
+        wb["Checks"].__setitem__(f"AA{rows['F11-T7-03']}", "n/a"), wb["Checks"].__setitem__(f"AB{rows['F11-T7-03']}", "Open")])
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r17":
+    round17()

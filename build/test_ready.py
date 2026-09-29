@@ -37,7 +37,7 @@ def fill(ws, docs, fid="F02"):
             ws[f"U{r}"] = "Pass"
     d = docs
     d["F6"], d["G6"], d["H6"], d["I6"] = "GLD-B7M8-KULCGK", "Rev 3", datetime(2026, 9, 1), "\\\\share\\GLD\\MH0727.pdf"
-    d["K6"], d["L6"], d["M6"], d["N6"] = "MCL-KULCGK-OCT", "Rev 2", datetime(2026, 9, 15), "\\\\share\\MCL\\MH0727.pdf"
+    d["K6"], d["L6"], d["M6"], d["N6"] = "MCL-KULCGK-2610", "Rev 2", datetime(2026, 9, 15), "\\\\share\\MCL\\MH0727.pdf"
 
 
 def run(tag, mutate=None, asof=datetime(2026, 10, 9, 13, 49)):

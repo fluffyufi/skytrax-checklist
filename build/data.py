@@ -479,7 +479,8 @@ def check_lines(f, reqs, flights):
     rt_bound = [x["id"] for x in inbound] if f["round_trip"] else None
     names = ", ".join(r["item"] for r in kul_items)
     if carry:
-        prior = [x for x in inbound if x["std_utc"] < f["std_utc"]]
+        lo = (datetime.strptime(f["std_utc"], "%Y-%m-%d %H:%M") - timedelta(days=3)).strftime("%Y-%m-%d %H:%M")
+        prior = [x for x in inbound if lo <= x["std_utc"] < f["std_utc"]]  # a carrier more than 3 days early is not valid
         cand = (f"agenda candidate {prior[-1]['flt']} {prior[-1]['date'][8:]}-Oct ({prior[-1]['id']})" if prior else
                 "no KUL-" + f["dep"] + " flight before this leg in the agenda")
         add("T-7D", "Preparation", "Uplift plan",

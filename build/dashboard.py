@@ -391,22 +391,22 @@ def build(wb, data):
         for k in range(1, top_n + 1):
             r += 1
             band = GREY if k % 2 == 0 else None
-            ws[f"T{r}"].value = f"=IFERROR(MATCH({k},{ck(seq_col)},0),\"\")"
+            ws[f"T{r}"].value = f"=IFERROR(MATCH({k},{ck(seq_col)},0)+4,\"\")"  # sheet row (data start row 5)
             ws[f"T{r}"].font = _font(8, color=GREY_TEXT)
             S.put(f"B{r}", f'=IF($T{r}="","",{k})', size=NOTE, color=GREY_TEXT, h="center",
                   v="top", fill=band, border=True)
             for a, b, _h, ccol, kind in spans:
                 cap = max(8, int(_chars(_width(a, b)) * lines * 0.85))
                 if kind == "duestn":  # due local + check station, one cell
-                    val = (f'=IF($T{r}="","",IF(ISNUMBER(INDEX({ck("R")},$T{r})),'
-                           f'TEXT(INDEX({ck("R")},$T{r}),"dd-mmm hh:mm"),"")'
-                           f'&" "&INDEX({ck("P")},$T{r}))')
+                    val = (f'=IF($T{r}="","",IF(ISNUMBER(INDEX({ck("R")},$T{r}-4)),'
+                           f'TEXT(INDEX({ck("R")},$T{r}-4),"dd-mmm hh:mm"),"")'
+                           f'&" "&INDEX({ck("P")},$T{r}-4))')
                 elif kind == "num":
                     rng = ck(ccol)
-                    val = (f'=IF($T{r}="","",IF(INDEX({rng},$T{r})="","",'
-                           f'INDEX({rng},$T{r})))')
+                    val = (f'=IF($T{r}="","",IF(INDEX({rng},$T{r}-4)="","",'
+                           f'INDEX({rng},$T{r}-4)))')
                 else:  # text: cut to what fits in `lines` lines, with an ellipsis
-                    x = f"INDEX({ck(ccol)},$T{r})"
+                    x = f"INDEX({ck(ccol)},$T{r}-4)"
                     val = (f'=IF($T{r}="","",IF(LEN({x})>{cap},LEFT({x},{cap - 1})&"\u2026",'
                            f'{x}&""))')
                 S.put(f"{a}{r}", val,

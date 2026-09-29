@@ -3,7 +3,7 @@
 Every due time, completion %, state and readiness value is a live formula.
 See CONTRACT.md for the column map shared with dashboard.py / printable.py.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from openpyxl.comments import Comment
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
@@ -205,7 +205,11 @@ def build_settings(wb, data):
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
           "discrepancy", "discrepancies", "defect", "defective", "defects", "dirty", "damaged", "missing", "broken",
-          "leaking", "expired", "non conforming", "nonconforming", "not to spec"] + \
+          "leaking", "expired", "non conforming", "nonconforming", "not to spec", "not delivered", "not received",
+          "not available", "not provided", "not supplied", "not loaded", "not on board", "incorrect", "wrong",
+          "stained", "torn", "spoiled", "spoilt", "contaminated", "insufficient", "not enough", "unavailable",
+          "out of stock", "short", "late", "undelivered", "mismatch", "not matching", "does not match",
+          "not match", "wrongly", "mislabelled", "mislabeled", "unlabelled", "unlabeled"] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
     pre = ["no", "nil", "zero", "0", "nothing", "not", "without", "none", "free of", "no sign of", "no evidence of",
@@ -214,7 +218,8 @@ def build_settings(wb, data):
            "no cleanliness", "no presentation", "no obvious", "any", "free from", "no items", "no meals", "no trays"]
     post = ["0", "nil", "none", "zero", "free", "nothing", "not found", "found none", "found 0", "found nil", "noted 0"]
     negp = sorted({f"{p} {w}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for p in pre} | {f"{w} {q}" for w in rb if not w[0].isdigit() and not w.startswith("short ") for q in post} |
-                  {"fail safe", "failsafe"})
+                  {"fail safe", "failsafe", "short rib", "short ribs", "short grain", "short crust", "short haul",
+                   "short sector", "short pasta", "short cake", "short term", "short notice"})
     for col, title_txt, items in (("L", "Evidence phrases that point elsewhere instead of to a record", ev),
                                   ("M", "Result words that cannot be a plain Pass (whole words)", rb),
                                   ("N", "…cancelled when negated / zero-counted (per word)", negp),
@@ -246,6 +251,16 @@ def build_settings(wb, data):
     for i, v in enumerate(EVIDENCE_TYPES):
         ws.cell(4 + i, 21, v).font = f(9)
     name(wb, "L_EvidenceType", f"Settings!$U$4:$U${3 + len(EVIDENCE_TYPES)}")
+    for col, title_txt, items, nm in (("V", "Role / title words – not a person's name (PIC, verifier)", ROLE_WORDS, "L_Role"),
+                                      ("W", "N/A justification filler – the reason must say more than these", NA_FILLER,
+                                       "L_NAFiller")):
+        ws[f"{col}3"] = title_txt
+        ws[f"{col}3"].font = f(9, True, NAVY)
+        ws[f"{col}3"].alignment = WRAP
+        ws.column_dimensions[col].width = 22
+        for i, v in enumerate(items):
+            ws.cell(4 + i, ord(col) - 64, v).font = f(9)
+        name(wb, nm, f"Settings!${col}$4:${col}${3 + len(items)}")
     name(wb, "L_PendStrict", f"Settings!$Q$4:$Q${3 + len(strict)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
@@ -384,10 +399,13 @@ def build_flights(wb, data, n_checks):
         ws[f"AP{r}"] = f"=SUMIFS({rng('AK')},{rng('B')},$A{r})"
         ws[f"AQ{r}"] = f"=SUMIFS({rng('AL')},{rng('B')},$A{r})"
         ws[f"AR{r}"] = f"=Documents!P{r}"
-        ws[f"AS{r}"] = f"=SUMIFS({rng('AN')},{rng('B')},$A{r},{rng('H')},\"Preparation\")"
+        tails = "{" + ",".join(f'\"9MMA{c}\"' for c in "BCDEFGH") + "}"
+        tail_open = (f"IF(AND(TRIM(L{r})=\"A350\",ISNA(MATCH(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(N{r}),\"-\",\"\"),\" \",\"\")),"
+                     f"{tails},0))),1,0)")  # A350 quantities / cart positions depend on the tail (9M-MAB..MAH)
+        ws[f"AS{r}"] = f"=SUMIFS({rng('AN')},{rng('B')},$A{r},{rng('H')},\"Preparation\")+{tail_open}"
         prep_done = (f"SUMIFS({rng('AJ')},{rng('B')},$A{r},{rng('H')},\"Preparation\")="
                      f"SUMIFS({rng('AI')},{rng('B')},$A{r},{rng('H')},\"Preparation\")")
-        ws[f"AT{r}"] = (f"=IF(AND(AW{r}>0,AO{r}=0,AQ{r}=0,AR{r}=0,AU{r}=0),\"READY\","
+        ws[f"AT{r}"] = (f"=IF(AND(AW{r}>0,AO{r}=0,AQ{r}=0,AR{r}=0,AS{r}=0,AU{r}=0),\"READY\","
                         f"IF(AP{r}>0,\"NOT READY {ND} OVERDUE\",IF(AQ{r}>0,\"NOT READY {ND} DISCREPANCY\","
                         f"IF(AU{r}>0,\"NOT READY {ND} INVALID ENTRY\",IF(AR{r}>0,\"NOT READY {ND} DOCUMENTS\","
                         f"IF(AS{r}>0,\"NOT READY {ND} CLARIFICATION\",IF(AND(AV{r}>0,{prep_done}),"
@@ -397,7 +415,8 @@ def build_flights(wb, data, n_checks):
         ws[f"AW{r}"] = f"=SUMIFS({rng('AI')},{rng('B')},$A{r})"
         bounds = next((ck["due_bound"] for ck in data["checks"] if ck["flight_id"] == fl["id"] and ck.get("due_rule") == "CARRY"), None)
         if bounds:
-            prior = [b for b in bounds if byid[b]["std_utc"] < fl["std_utc"]]
+            lo = (datetime.strptime(fl["std_utc"], "%Y-%m-%d %H:%M") - timedelta(days=3)).strftime("%Y-%m-%d %H:%M")
+            prior = [b for b in bounds if lo <= byid[b]["std_utc"] < fl["std_utc"]]  # same 3-day rule as Checks
             if prior:
                 default = f"$AA${5 + int(prior[-1][1:]) - 1}"
             else:
@@ -470,18 +489,37 @@ def norm(ref):
     return x
 
 
-ROLE_WORDS = ["supervisor", "inspector", "controller", "executive", "catering", "manager", "officer", "caterer",
-              "station", "captain", "verified", "verifier", "checked", "senior", "leader", "cabin", "staff", "crew",
-              "team", "duty", "lead", "head", "chef", "pasb", "mcat", "magcs", "qaqc", "ccic", "cic", "csm", "ops",
-              "pic", "self", "qa", "qc", "by", "sr"]
+ROLE_WORDS = ["qa", "qc", "qaqc", "csm", "cic", "ccic", "ops", "pic", "self", "team", "staff", "crew", "cabin", "caterer",
+              "catering", "pasb", "mcat", "sats", "magcs", "mas", "mh", "supervisor", "spvr", "supv", "sup", "manager",
+              "mgr", "officer", "offr", "steward", "stewardess", "purser", "agent", "agents", "rep", "reps",
+              "representative", "dept", "department", "shift", "night", "day", "morning", "evening", "ramp", "loading",
+              "hygiene", "inflight", "services", "service", "quality", "assurance", "control", "controller", "chief",
+              "head", "lead", "leader", "senior", "sr", "jr", "junior", "station", "duty", "inspector", "executive",
+              "exec", "captain", "capt", "chef", "verified", "verifier", "checked", "by", "the", "of", "and", "on", "desk",
+              "unit", "section", "office", "store", "stores", "kitchen", "production", "planning", "dispatch",
+              "coordinator", "assistant", "asst", "admin", "security", "engineer", "tech", "technician", "flight",
+              "mr", "mrs", "ms", "dr", "en", "puan", "cik", "kul", "lhr", "pen", "lgk", "cgk", "han", "hkg", "kix",
+              "nrt", "adl", "in", "charge", "person", "incharge", "airline", "aircraft", "operations", "operation"]
+# N/A justification filler: what is left after removing these must still say something (8+ letters)
+NA_FILLER = ["not", "applicable", "applies", "apply", "for", "this", "that", "the", "flight", "flights", "sector",
+             "leg", "na", "n", "a", "required", "needed", "need", "is", "it", "on", "same", "as", "previous", "above",
+             "below", "see", "refer", "line", "row", "item", "ditto", "per", "check", "checks", "nil", "none", "no",
+             "relevant", "case", "here", "now", "today", "x", "xx", "xxx", "to", "of", "and", "be", "one", "other",
+             "prev", "ref", "note", "noted", "ok"]
 
 
-def role_stripped(ref):
-    """Normalised name with role / job-title words removed (what is left must still be a name)."""
-    x = ref
-    for w in ROLE_WORDS:
-        x = f'SUBSTITUTE({x},"{w}","")'
-    return x
+def name_letters(spaced_cell, lst="L_Role"):
+    """Letters left in a spaced ' word word ' cell after removing every whole word found in a Settings list."""
+    removed = (f"SUMPRODUCT((LEN({spaced_cell})-LEN(SUBSTITUTE({spaced_cell},\" \"&{lst}&\" \",\" \")))"
+               f"/(LEN({lst})+1)*LEN({lst}))")
+    return f"LEN(SUBSTITUTE({spaced_cell},\" \",\"\"))-{removed}"
+
+
+def same_person(sp_a, sp_b, n_a, n_b):
+    """Same name in another order ('Aisyah Rahman' / 'Rahman, Aisyah'): equal letters and every word of A in B."""
+    words = [f"TRIM(MID(SUBSTITUTE(TRIM({sp_a}),\" \",REPT(\" \",60)),{k * 60 + 1},60))" for k in range(3)]
+    found = ",".join(f"OR({w}=\"\",ISNUMBER(SEARCH(\" \"&{w}&\" \",{sp_b})))" for w in words)
+    return f"AND(LEN({n_a})>0,LEN({n_a})=LEN({n_b}),{found})"
 
 
 def spaced(ref):
@@ -574,42 +612,104 @@ EVIDENCE_TYPES = ["Form / checklist", "Sensory panel sheet", "Load / uplift shee
 LINK_EXT = ("{\"http\",\"www.\",\"\\\\\",\":\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
             "\".msg\",\".eml\",\".ppt\",\".txt\",\".zip\"}")
 JOINED = '{\"a0\",\"a-0\",\"a_0\",\"a/0\",\"a.0\",\"a#0\",\"0a\",\"0-a\",\"0_a\",\"0/a\"}'
-BAD_SHAPES = ('{\"0000a\",\"000a\",\"00a\",\"0000aa\",\"000aa\",\"00.00.0000\",\"00/00/0000\",\"00-00-0000\",'
-              '\"0000-00-00\",\"00.00.00\",\"00/00/00\",\"00-00-00\",\"0.00.0000\",\"0/00/0000\",\"0-00-0000\"}')
-STRIP = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "hrs", "hr", "lt", "utc",
-         "am", "pm", "rev", "ver"]
+BAD_SHAPES = ('{\"0000a\",\"000a\",\"00a\",\"0000aa\",\"000aa\",\"00aa\",\"0aa\",\"0000aaa\",\"000aaa\",\"00a00\",'
+              '\"0a00\",\"0000-0000\",\"00:00\",\"a00\",\"a0\",\"00.00.0000\",\"00/00/0000\",\"00-00-0000\",'
+              '\"0000-00-00\",\"0000/00/00\",\"0000.00.00\",\"00.00.00\",\"00/00/00\",\"00-00-00\",\"0.00.0000\",'
+              '\"0/00/0000\",\"0-00-0000\"}')
+# month / time-zone / revision words: letters that do not make a token an ID (9OCT26, 1415MYT)
+STRIP = ["revision", "version", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+         "utc", "gmt", "myt", "bst", "rev", "ver"]
+# leading words that mark a token as something other than a record ID (flight, revision, aircraft, seat, time)
+NOT_ID_PREFIX = ["mh", "rev", "revision", "ver", "version", "v", "r", "a", "b", "seat", "tray", "row", "gate", "bay",
+                 "stand", "page", "pg", "item", "line", "no", "cart", "galley", "flight", "flt", "table", "box", "bag",
+                 "oven", "etd", "eta", "std", "sta", "atd", "ata", "qty", "pax", "x", "time", "tel", "ph",
+                 "mob", "day", "wk", "week", "utc", "gmt", "myt", "lt"]
+DUMMY_LETTERS = ["x", "xx", "xxx", "xxxx", "xxxxx", "abc", "abcd", "nil", "na", "nan", "test", "tbc", "tba", "tbd",
+                 "dummy", "sample", "example", "eg", "zz", "zzz", "none", "null", "xyz", "qwe", "asd", "id", "ref"]
+DUMMY_DIGITS = ["123", "1234", "12345", "123456", "1234567", "12345678", "0123", "01234", "012345", "98765",
+                "987654", "54321"]
+SEPS = ["-", "_", "/", ".", "#", "\\\\", ":", " ", "(", ")"]
+
+
+def _arr(items):
+    return "{" + ",".join('\"' + w + '\"' for w in items) + "}"
 
 
 def stripped(ref):
-    """Lower-case, digit-mapped text with month / time-unit / revision words removed (so 9OCT26, 1400hrs, Rev3
-    no longer look like letter+digit IDs)."""
+    """Digit-mapped text with month / time-zone / revision words removed (9OCT26, 1415MYT, Rev3 lose their letters)."""
     x = ref
     for w in STRIP:
         x = f"SUBSTITUTE({x},\"{w}\",\"\")"
     return x
 
 
-def id_shape_ok(raw, amap, typ, flight):
-    """Evidence ID is ONE token that is structurally an ID: letters joined to 2+ digits (SF-2210, IMG_2231,
-    CO/26/331, DN88213) or a 5+ digit number; for 'Link / file path' a real link, path or file name.
-    Rejected: text with spaces, flight numbers (MH0727), dates, times, revisions and years."""
+def digits_only(ref):
+    """The digits of a cell, in order (letters and separators removed)."""
+    x = f"LOWER({ref}&\"\")"
+    for ch in "abcdefghijklmnopqrstuvwxyz":
+        x = f"SUBSTITUTE({x},\"{ch}\",\"\")"
+    for ch in SEPS:
+        x = f"SUBSTITUTE({x},\"{ch}\",\"\")"
+    return x
+
+
+def letters_only(dmap):
+    """The letters of a digit-mapped cell (digits are '0' there), separators removed."""
+    x = f"SUBSTITUTE({dmap},\"0\",\"\")"
+    for ch in SEPS:
+        x = f"SUBSTITUTE({x},\"{ch}\",\"\")"
+    return x
+
+
+def alpha_prefix(dmap):
+    """Letters before the first digit (separators removed): 'rev', 'mh', 'seat', 'sf' ..."""
+    x = f"LEFT({dmap},FIND(\"0\",{dmap}&\"0\")-1)"
+    for ch in SEPS:
+        x = f"SUBSTITUTE({x},\"{ch}\",\"\")"
+    return x
+
+
+def _count(amap, ch):
+    return f"(LEN({amap})-LEN(SUBSTITUTE({amap},\"{ch}\",\"\")))"
+
+
+def _dummy_or_date(dig, let):
+    """Placeholder numbers (00000, 11111, 12345, SF-00), placeholder letters (XX, ABC, NA) and 8-digit dates."""
+    return (f"OR(AND({dig}<>\"\",SUBSTITUTE({dig},\"0\",\"\")=\"\"),"
+            f"AND(LEN({dig})>=4,{dig}=REPT(LEFT({dig}),LEN({dig}))),"
+            f"ISNUMBER(MATCH({dig},{_arr(DUMMY_DIGITS)},0)),ISNUMBER(MATCH({let},{_arr(DUMMY_LETTERS)},0)),"
+            f"AND(LEN({dig})=8,{let}=\"\",OR(LEFT({dig},3)=\"202\",ISNUMBER(MATCH(RIGHT({dig},4),{{\"2025\",\"2026\",\"2027\"}},0)))))")
+
+
+def id_shape_ok(raw, full, strp, prefix, dig, let, typ, flight):
+    """Evidence ID is ONE token that is structurally a record ID: letters (other than month / zone / revision words)
+    joined to 2+ digits (SF-2210, IMG_2231, LS/OCT/0118, DN88213) or a 5+ digit number (seal 1045521).
+    Links, paths and file names only for type 'Link / file path'. Rejected: spaces or several IDs, flight numbers,
+    dates, times, revisions, aircraft types, seat / tray numbers and placeholder values (00000, XX-0000, 12345)."""
     t = f"TRIM({raw})"
-    letters = f"(LEN({amap})-LEN(SUBSTITUTE({amap},\"a\",\"\")))"
-    digits = f"(LEN({amap})-LEN(SUBSTITUTE({amap},\"0\",\"\")))"
-    joined = f"SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0"
     link = f"SUMPRODUCT(--ISNUMBER(SEARCH({LINK_EXT},{raw})))>0"
-    flight_like = f"OR(LOWER({t})=LOWER({flight}),AND(LEFT(LOWER({t}),2)=\"mh\",{letters}<=2))"
-    bad_shape = f"ISNUMBER(MATCH(LEFT({amap},255),{BAD_SHAPES},0))"
-    token = (f"AND(ISERROR(FIND(\" \",{t})),NOT({flight_like}),NOT({bad_shape}),"
-             f"OR(AND({letters}>=1,{digits}>=2,{joined}),AND({letters}=0,{digits}>=5)))")
+    multi = (f"OR(SUMPRODUCT(--ISNUMBER(FIND({{\",\",\";\",\"&\",\"+\"}},{raw})))>0,"
+             f"SUMPRODUCT(--ISNUMBER(SEARCH({{\"0/aa\",\"0\\\\aa\"}},{full})))>0)")
+    flight_like = f"LOWER({t})=LOWER({flight})"
+    bad_shape = (f"OR(ISNUMBER(MATCH(LEFT({full},255),{BAD_SHAPES},0)),"
+                 f"ISNUMBER(MATCH(LEFT({strp},255),{BAD_SHAPES},0)))")
+    joined = f"SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{full})))>0"
+    token = (f"AND(ISERROR(FIND(\" \",{t})),NOT({multi}),NOT({link}),NOT({flight_like}),"
+             f"ISNA(MATCH({prefix},{_arr(NOT_ID_PREFIX)},0)),NOT({bad_shape}),NOT({_dummy_or_date(dig, let)}),"
+             f"OR(AND({_count(strp, 'a')}>=1,{_count(full, '0')}>=2,{joined}),"
+             f"AND({_count(full, 'a')}=0,{_count(full, '0')}>=5)))")
     return f"IF(TRIM({typ})=\"Link / file path\",AND(LEN({t})>=5,{link}),{token})"
 
 
-def batch_shape_ok(raw, amap, flight):
-    """Batch ID: letters joined to digits (PASB-261008-BC-017, LOT-2410-B7) or a 6+ digit production code
-    (261008-017); not a flight number."""
-    return (f"AND(ISERROR(SEARCH(\" mh\",\" \"&LOWER({raw}))),ISNA(MATCH(LEFT(TRIM({amap}),255),{BAD_SHAPES},0)),"
-            f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{amap})))>0,ISNUMBER(SEARCH(\"000000\",{amap}))))")
+def batch_shape_ok(raw, full, strp, dig, flight):
+    """Batch ID: letters (not month words) joined to digits (PASB-261008-BC-017, LOT-2410-B7) or a 6+ digit
+    production code (261008-017); at least 3 digits; not a flight number, date or placeholder."""
+    return (f"AND(ISERROR(SEARCH(\" mh\",\" \"&LOWER({raw}))),ISNA(MATCH(LEFT(TRIM({full}),255),{BAD_SHAPES},0)),"
+            f"ISNA(MATCH(LEFT(TRIM({strp}),255),{BAD_SHAPES},0)),LEN({dig})>=3,"
+            f"NOT(OR(SUBSTITUTE({dig},\"0\",\"\")=\"\",AND(LEN({dig})>=4,{dig}=REPT(LEFT({dig}),LEN({dig}))),"
+            f"ISNUMBER(MATCH({dig},{_arr(DUMMY_DIGITS)},0)),AND(LEN({dig})=8,LEFT({dig},3)=\"202\"))),"
+            f"OR(AND({_count(strp, 'a')}>=1,SUMPRODUCT(--ISNUMBER(SEARCH({JOINED},{full})))>0),"
+            f"ISNUMBER(SEARCH(\"000000\",{full}))))")
 
 
 def has_ref(ref):
@@ -714,8 +814,12 @@ def build_checks(wb, data):
         helper = {"T": "AU", "V": "AV", "Z": "AW", "AE": "AX", "W": "AY", "AC": "AZ", "AA": "BA"}
         for src, hcol in helper.items():
             vals[hcol] = "=" + norm(f"{src}{r}")
-        vals["BR"] = f"=LEN({role_stripped(f'AU{r}')})"  # PIC: letters left after role words
-        vals["BS"] = f"=LEN({role_stripped(f'AX{r}')})"  # verifier: letters left after role words
+        vals["CC"] = "=" + spaced(f"T{r}")
+        vals["CD"] = "=" + spaced(f"AE{r}")
+        vals["BR"] = f"=IFERROR({name_letters(f'CC{r}')},0)"  # PIC: letters left after role / title words
+        vals["BS"] = f"=IFERROR({name_letters(f'CD{r}')},0)"  # verifier: letters left after role / title words
+        vals["CE"] = f"=IFERROR(IF({same_person(f'CC{r}', f'CD{r}', f'AU{r}', f'AX{r}')},1,0),0)"
+        vals["CG"] = f"=IFERROR({name_letters(f'BF{r}', 'L_NAFiller')},0)"  # N/A justification: letters beyond filler
         sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
         for src, hcol in sp.items():
             vals[hcol] = "=" + spaced(f"{src}{r}")
@@ -730,13 +834,19 @@ def build_checks(wb, data):
                       if not prep_row else "=0")
         # structural evidence ID: shape checked against the chosen evidence type (column S)
         vals["BM"] = "=" + digitmap(f"Z{r}")
-        vals["BN"] = "=" + alphamap(stripped(f"BM{r}"))
+        vals["BN"] = "=" + alphamap(f"BM{r}")                 # full shape: letters a, digits 0
+        vals["BT"] = "=" + alphamap(stripped(f"BM{r}"))       # shape without month / zone / revision words
+        vals["BU"] = "=" + alpha_prefix(f"BM{r}")             # letters before the first digit
+        vals["BW"] = "=" + digits_only(f"Z{r}")               # digits only
+        vals["BX"] = "=" + letters_only(f"BM{r}")             # letters only
         vals["BO"] = "=" + digitmap(f"W{r}")
         vals["BP"] = "=" + alphamap(f"BO{r}")
-        vals["BZ"] = f"=IFERROR(IF({id_shape_ok(f'Z{r}', f'BN{r}', f'S{r}', f'Flights!$F${fr}')},1,0),0)"
+        vals["CA"] = "=" + alphamap(stripped(f"BO{r}"))
+        vals["CB"] = "=" + digits_only(f"W{r}")
+        vals["BZ"] = (f"=IFERROR(IF({id_shape_ok(f'Z{r}', f'BN{r}', f'BT{r}', f'BU{r}', f'BW{r}', f'BX{r}', f'S{r}', f'Flights!$F${fr}')},1,0),0)")
         vals["BL"] = f"=IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),0,BZ{r})"
-        vals["BQ"] = f"=IFERROR(IF({batch_shape_ok(f'W{r}', f'BP{r}', f'Flights!$F${fr}')},1,0),0)"
-        # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
+        vals["BQ"] = f"=IFERROR(IF({batch_shape_ok(f'W{r}', f'BP{r}', f'CA{r}', f'CB{r}', f'Flights!$F${fr}')},1,0),0)"
+        # a plain Pass whose result wording describes a problem is not a Pass (blocks READY; negated forms cancel)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
                       f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
 
@@ -760,7 +870,7 @@ def build_checks(wb, data):
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>={cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\")&IF(BG{r}=1,\" {ND} CHECK WORDING\",\"\"))))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
         link_chk, link_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -773,23 +883,26 @@ def build_checks(wb, data):
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
             f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')},BI{r}=1),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
             f"IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),\"INVALID {ND} choose the evidence type from the list (column S)\","
-            f"IF(BL{r}=0,\"INVALID {ND} evidence ID must be the record's ID only (e.g. SF-2210, IMG_2231, 1045521), or a link / path for links\","
+            f"IF(BL{r}=0,\"INVALID {ND} evidence ID must be the record's own ID only (e.g. SF-2210, IMG_2231, 1045521); a link / file name needs type 'Link / file path'\","
             f"IF(OR({bad('AE', 2)},BS{r}<3),\"INVALID {ND} verifier missing or not a named person (a role such as QA / CSM is not a name)\","
-            f"IF(OR(AX{r}=AU{r},AND(LEN(AU{r})>=4,ISNUMBER(SEARCH(AU{r},AX{r}))),AND(LEN(AX{r})>=4,ISNUMBER(SEARCH(AX{r},AU{r})))),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
+            f"IF(OR(AX{r}=AU{r},CE{r}=1,AND(LEN(AU{r})>=4,ISNUMBER(SEARCH(AU{r},AX{r}))),AND(LEN(AX{r})>=4,ISNUMBER(SEARCH(AX{r},AU{r})))),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
+            f"IF(BG{r}=1,\"INVALID {ND} result describes a problem: record Fail, then Pass after CA (or reword if it is not a problem)\","
             f"IF(BV{r}=1,\"INVALID {ND} wording says not on board: an on-board confirmation needs the item loaded\","
             f"IF(AND(AQ{r}=1,OR({bad('W', 3)},BJ{r}=1,BQ{r}=0)),\"INVALID {ND} batch ID missing, placeholder or not an ID (e.g. PASB-261008-BC-017)\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
-            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close})))))))))))))")
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))))")
         vals["BB"] = "=" + msg
         state = (
-            f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
+            f"=IF(N{r}=\"N/A {ND} rule\",IF(OR({U}=\"\",{U}=\"N/A\",{U}=\"Not started\"),\"N/A {ND} RULE\","
+            f"\"INVALID {ND} this check does not apply to this aircraft: clear the status (or correct the fleet on Flights)\"),"
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
             f"IF(AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action still open\","
-            f"IF(AND(NOT({bad('AC', 15)}),BK{r}=0,NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
-            f"\"INVALID {ND} N/A needs a real, settled justification (15+ chars, not awaiting/TBC), PIC and a different verifier\"))),"
+            f"IF(AND(NOT({bad('AC', 15)}),BK{r}=0,CG{r}>=8,NOT({bad('T', 2)}),BR{r}>=3,NOT({bad('AE', 2)}),BS{r}>=3,"
+            f"TRIM(AE{r})<>TRIM(T{r}),AX{r}<>AU{r},CE{r}=0),\"N/A {ND} JUSTIFIED\","
+            f"\"INVALID {ND} N/A needs a real, settled reason (not 'not applicable' / 'as above' / TBC), a named PIC and a different named verifier\"))),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
@@ -885,7 +998,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV", "BW", "BX", "BY", "BZ"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV", "BW", "BX", "BY", "BZ", "CA", "CB", "CC", "CD", "CE", "CG"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -916,7 +1029,9 @@ def build_documents(wb, data):
         ws[f"E{r}"] = f"=Flights!L{fr}"
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
-            return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
+            docno = (f"AND(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{no}{r})))>0,"
+                     f"LOWER(TRIM({no}{r}))<>LOWER(Flights!$F${fr}),NOT(AND(LEFT(LOWER(TRIM({no}{r})),2)=\"mh\",ISNUMBER(--MID(TRIM({no}{r}),3,6)))))")
+            return (f"=IFERROR(IF(AND({ok(no, 3)},{docno},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
                     f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},NOT({pending(('X' if att == 'I' else 'Y') + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"X{r}"] = "=" + spaced(f"I{r}")
         ws[f"Y{r}"] = "=" + spaced(f"N{r}")
@@ -1099,9 +1214,9 @@ INSTR = [
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
     ("b", "Sheets are protected without a password so formulas cannot be overtyped by accident; yellow input cells stay editable and filtering, row sizing and inserting pictures still work. Do not sort the Checks sheet – the P-sheets read fixed rows; use the filters instead. Review > Unprotect Sheet if a structural change is needed."),
-    ("b", "Evidence is recorded in two fields: choose the Evidence type in column S, then enter ONLY the record's ID in column Z (describe the record in Result, not here). An ID is one token with letters joined to at least two digits (SF-2210, IMG_2231, CO/26/331, DN88213, PCS-0727) or a number of 5+ digits (seal 1045521); for 'Link / file path' enter a link, network path or file name. A flight number, date, time, revision ('Rev3') or free text is not an ID. Batch IDs likewise (PASB-261008-BC-017 or 261008-017). Document attachment locations on the Documents sheet need a path, link or file name. The verifier must be a named person other than the PIC – not a role such as 'QA' or 'CSM'."),
-    ("b", "Write results and evidence with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK', 'Attached' or 'Self' are rejected. If a result describes a problem, record Fail and then 'Pass after CA' with the corrective action. As a safety net, a plain Pass whose wording seems to mention a problem ('3 trays missing') is shown as 'COMPLETE – CHECK WORDING' for the verifier to review (Flights BB counts them); negated or zero counts ('no defects found', '0 discrepancies') are not flagged. The flag is advisory and does not block READY – the Status and the expected/actual quantities are what decide. Settings K–O hold the word lists."),
-    ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real justification of at least 15 characters and is only permitted on clarification items and on printed menu cards for refreshment-only flights."),
+    ("b", "Evidence is recorded in two fields: choose the Evidence type in column S, then enter ONLY the record's own ID in column Z (describe the record in Result, not here). An ID is one token with letters joined to at least two digits (SF-2210, IMG_2231, LS/OCT/0118, DN88213, PCS-0727) or a number of 5+ digits (seal 1045521). Links, network paths and file names (…\\SF-2210.pdf, https://…) only with type 'Link / file path'. Rejected: flight numbers, dates, times, revisions ('Rev3'), aircraft types, seat or tray numbers, several IDs in one cell (give the main one) and dummy values (00000, 12345, XX-0000). Batch IDs likewise (PASB-261008-BC-017 or 261008-017). Document numbers on the Documents sheet need digits and must not be the flight number. PIC and verifier must be named people – a role or title alone ('QA', 'PASB supervisor', 'Station Manager KUL') is rejected; Settings V lists the role words."),
+    ("b", "Write results with detail: one-word entries such as 'Good', 'Confirmed', 'Checked OK' or 'Self' are rejected. A plain Pass whose result describes a problem ('3 trays missing', 'menu cards not delivered', '2 meals short') is INVALID and blocks READY: record Fail, then 'Pass after CA' with the corrective action. Negated or zero counts ('no defects found', '0 discrepancies', 'nothing missing') are fine; if a genuine pass is flagged (e.g. a dish name), reword it. Settings M–N hold the word lists."),
+    ("b", "Placeholder text (e.g. '-', '?', 'TBC', 'n/a', 'pending' – list on Settings K) never counts as evidence, PIC, verifier, result or batch ID. N/A needs a real reason (15+ characters that say why – 'not applicable for this flight', 'as above' or 'same as previous' are rejected; Settings W), a named PIC and a different named verifier, and is only permitted on clarification items and on printed menu cards for refreshment-only flights. A status entered on a check that does not apply to the aircraft (grey 'N/A – RULE' row) is flagged INVALID – clear it."),
     ("b", "Preparation checks must be completed before the catering is loaded: before the first on-board confirmation for the flight, or for KUL-loaded items before the carrying flight leaves KUL. On-board checks at an outstation are only valid once the carrying flight could have arrived."),
     ("b", "Quantity lines: after a corrective action, update Actual to the corrected quantity; 'Pass after CA' requires Actual = Expected."),
     ("b", "PIC and verifier must be different people. Every Pass needs a result/assessment. T-7D evidence older than the Settings B10 window is rejected as stale."),
@@ -1113,7 +1228,7 @@ INSTR = [
     ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at the KUL loading deadline on Flights AY (carrying flight's KUL departure in AX minus the uplift window)."),
     ("h2", "Outstanding inputs at issue"),
     ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet, Dashboard and each P-sheet cover). Record doc no, revision, revision date and file location on Documents; in Excel you may also insert the image in the area after each P-sheet's checklist."),
-    ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights."),
+    ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights (9M-MAB … 9M-MAH). An A350 flight cannot be READY until its tail is entered (counted as an open clarification)."),
     ("b", "Caterer per station, ISOP revision numbers and expected meal/equipment quantities come from the caterer/MAGCS documents – not invented here."),
     ("h2", "Illustrative entry (example only – not recorded anywhere in this workbook)"),
     ("p", "Check F02-T24-01 · PIC: A. Rahman · Status: Pass · Result: Panel score 4.5/5, texture & temperature OK · Batch ID: PASB-261008-BC-017 · "

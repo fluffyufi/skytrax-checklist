@@ -6348,7 +6348,7 @@
    "expected": "KUL-sourced items (Toiletry kits) travel on the inbound KUL-NRT sector",
    "src": "STD UPLIFT INFORMATION.xlsx > item uplift stn columns (see Requirements)",
    "applic": "Clarification required",
-   "note": "Cannot be passed until Flights AX holds the carrying flight's KUL departure (agenda candidate MH0088 10-Oct (F04)). Until then the prep and KUL-loading dues assume the agenda candidate's KUL departure, or if none, the latest possible one (STD minus the shortest agenda KUL-NRT block).",
+   "note": "Cannot be passed until Flights AX holds the carrying flight's KUL departure (no KUL-NRT flight before this leg in the agenda). Until then the prep and KUL-loading dues assume the agenda candidate's KUL departure, or if none, the latest possible one (STD minus the shortest agenda KUL-NRT block).",
    "station": "KUL",
    "req_batch": 0,
    "req_doc": 0,
