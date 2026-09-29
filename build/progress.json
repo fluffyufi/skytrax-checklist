@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 5,
-   "note": "Round-5 logic critic re-launched on the delivered build (identical copy)"
+   "round": 6,
+   "note": "Round 5 (rerun): FAIL on pending-evidence phrases; fixed with 42 regression cases passing; round-6 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -93,6 +93,11 @@
    "piece": "2. Core formulas",
    "round": 4,
    "gap": "Placeholder text ('TBC', '-', 'pending') in the Documents sheet counted as the GLD/menu checklist being ON FILE, unlocking READY without a real document."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 5,
+   "gap": "Evidence like 'photo to follow', 'TBC \u2013 will upload' or 'Done' still counted, because placeholders were matched only as whole words."
   }
  ],
  "log": [
@@ -219,6 +224,10 @@
   [
    "29 Sep",
    "Container restarted; environment intact. Round-5 logic critic re-run started on the delivered build"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 5: FAIL (evidence phrases); fixed, new build frozen, round 6 launched"
   ]
  ]
 }
