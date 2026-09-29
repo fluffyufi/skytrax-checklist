@@ -162,7 +162,9 @@ def build_settings(wb, data):
                    "nothing to be sent", "nothing to be uploaded", "not awaiting", "no longer awaiting", "no longer pending",
                    "not yet effective", "not yet introduced", "not yet applicable", "not yet in service",
                    "yet to be launched", "yet to be introduced", "or to follow", "or pending", "nothing awaited",
-                   "no pending", "no pending items", "nothing outstanding or to follow"})
+                   "no pending", "no pending items", "nothing outstanding or to follow", "awaiting pax",
+                   "awaiting pax boarding", "awaiting boarding", "awaiting passengers", "pending nil", "pending none",
+                   "pending items nil", "pending items none", "pending 0", "pending items 0"})
     # preparation-stage wording: cancels 'pending' ONLY on Preparation rows (T-12H PREP is before loading by design)
     pprep = sorted({"awaiting loading", "awaiting uplift", "awaiting dispatch", "awaiting transport", "pending loading",
                    "pending uplift", "pending dispatch", "not yet loaded", "not yet uplifted", "not yet dispatched",
@@ -175,7 +177,16 @@ def build_settings(wb, data):
     # on-board rows: wording that says the item is NOT on board blocks a physical-uplift confirmation
     notload = ["not loaded", "not on board", "not onboard", "not uplifted", "not yet loaded", "not yet uplifted",
                "not yet on board", "yet to be loaded", "yet to be uplifted", "awaiting loading", "awaiting uplift",
-               "pending loading", "pending uplift", "not delivered", "left behind", "offloaded", "off loaded"]
+               "pending loading", "pending uplift", "not delivered", "left behind", "offloaded", "off loaded",
+               "to be loaded", "will be loaded", "to be uplifted", "will be uplifted", "ready for loading",
+               "ready for uplift", "loading in progress", "being loaded", "still loading", "loading after",
+               "delivered to aircraft side", "at aircraft side", "at the bay", "at bay"]
+    # ...cancelled when negated ("nothing left behind", "0 offloaded", "none offloaded")
+    nl_neg = sorted({f"{p} {w}" for w in ("left behind", "offloaded", "off loaded", "not loaded", "not on board",
+                                             "not uplifted", "not delivered")
+                     for p in ("no", "nothing", "none", "0", "zero", "nil", "no items", "no meals")} |
+                    {f"{w} {q}" for w in ("offloaded", "left behind", "not loaded", "not on board")
+                     for q in ("0", "nil", "none")})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
     strict = pend + ["awaited", "to be forwarded", "will be forwarded", "to be scanned", "will be scanned", "to be filed",
                      "will be filed", "to be shared", "will be shared", "will share", "will forward", "not sent",
@@ -187,7 +198,7 @@ def build_settings(wb, data):
     ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above", "by phone",
           "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call",
           "telephone", "telephoned", "phoned", "called", "via phone", "phone confirmation", "rang", "orally",
-          "oral confirmation", "tel call", "tel"]
+          "oral confirmation", "tel call", "tel", "on call", "on a call", "via call", "call"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -209,6 +220,7 @@ def build_settings(wb, data):
                                   ("P", "…cancelled when negated (per occurrence)", pneg),
                                   ("R", "…also cancelled on Preparation rows only (prep-stage wording)", pprep),
                                   ("S", "Blocks an on-board (physical uplift) confirmation", notload),
+                                  ("T", "…cancelled when negated", nl_neg),
                                   ("Q", "Strict 'not on file yet' words – evidence, N/A justification, attachments", strict)):
         ws[f"{col}3"] = title_txt
         ws[f"{col}3"].font = f(9, True, NAVY)
@@ -224,6 +236,7 @@ def build_settings(wb, data):
     name(wb, "L_PendNeg", f"Settings!$P$4:$P${3 + len(pneg)}")
     name(wb, "L_PendPrep", f"Settings!$R$4:$R${3 + len(pprep)}")
     name(wb, "L_NotLoaded", f"Settings!$S$4:$S${3 + len(notload)}")
+    name(wb, "L_NotLoadedNeg", f"Settings!$T$4:$T${3 + len(nl_neg)}")
     name(wb, "L_PendStrict", f"Settings!$Q$4:$Q${3 + len(strict)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
@@ -480,7 +493,8 @@ def alphamap(ref):
     return x
 
 
-REF_WORDS = ["ref", "no", "nos", "#", "seal", "seals", "receipt", "note", "dn", "invoice", "po", "voucher", "checklist",
+REF_WORDS = ["ref", "no", "nos", "#", "number", "numbers", "photo", "photos", "picture", "pictures", "pic", "image",
+             "seal", "seals", "receipt", "note", "dn", "invoice", "po", "voucher", "checklist",
              "scan", "manifest", "binder", "folder", "file", "email", "memo", "form", "sheet", "log", "doc", "report",
              "img", "ack", "batch", "lot", "job", "record", "fax", "letter", "ticket", "case", "order", "id"]
 # words that precede numbers that are NOT record references (times, dates, places) – masked before the ID test
@@ -489,7 +503,10 @@ MASK_WORDS_1 = ["at", "by", "on", "to", "from", "until", "till", "before", "afte
                 "sept", "oct"]
 MASK_WORDS_2 = ["nov", "dec", "mon", "tue", "wed", "thu", "fri", "sat", "sun", "gate", "bay", "stand", "position",
                 "galley", "flight", "flt", "day", "date", "dated", "the", "and", "of", "in", "for", "with", "pax",
-                "etd", "eta", "std", "sta", "atd", "ata", "lt", "utc", "local"]
+                "etd", "eta", "std", "sta", "atd", "ata", "lt", "utc", "local", "ok", "done", "seen", "chk", "chkd",
+                "checked", "rcvd", "recd", "dep", "arr", "qty", "all", "ttl", "total", "via", "per", "call", "inbound",
+                "outbound", "approx"]
+MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 
 
 def masked(spaced_cell, flight_no_cell, stage):
@@ -498,9 +515,14 @@ def masked(spaced_cell, flight_no_cell, stage):
     if stage == 1:
         x = f"SUBSTITUTE(SUBSTITUTE({spaced_cell},\" \"&LOWER({flight_no_cell})&\" \",\" ~ \"),\" mh\",\" ~\")"
         words = MASK_WORDS_1
+    elif stage == 2:
+        x = spaced_cell
+        for m in MONTHS:  # dates written without spaces, e.g. 09oct2026
+            x = f"SUBSTITUTE({x},\"{m}\",\"~\")"
+        words = MASK_WORDS_2[:25]
     else:
         x = spaced_cell
-        words = MASK_WORDS_2
+        words = MASK_WORDS_2[25:]
     for w in words:
         x = f"SUBSTITUTE({x},\" {w} \",\" ~ \")"
     return x
@@ -510,8 +532,8 @@ def ref_ok(raw, dmap, amap, batch=False):
     """Traceable reference: 2+ letters, optional separator, 3+ digits (SF-2210, IMG_2231, DN 88213), a reference
     keyword followed by a number (seal no 88213, email 4471), a file name, link or path. Times, dates, flight
     numbers and galley positions are masked out first, so 'Checked at 1400' or 'Checked 09-Oct-26' do not count."""
-    alnum = '{\"aa000\",\" aa 000\",\" aaa 000\",\" aaaa 000\"}'
-    kw = "{" + ",".join(f'\" {w} 0\"' for w in REF_WORDS) + "," + ",".join(f'\" {w}0\"' for w in REF_WORDS) + "}"
+    alnum = '{\"aa000\",\" aa 000\",\" aaa 000\",\" aaaa 000\",\" a 0000\",\" a000 000\",\" aa 00 000\",\" aaa 00 000\"}'
+    kw = "{" + ",".join(f'\" {w} 00\"' for w in REF_WORDS) + "," + ",".join(f'\" {w}00\"' for w in REF_WORDS) + "}"
     ext = ("{\"http\",\"www.\",\"\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
            "\".msg\",\".eml\"}")
     extra = f",ISNUMBER(SEARCH(\"0000\",{dmap}))" if batch else ""
@@ -557,10 +579,10 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag",
            "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref",
            "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID", "m1 Evidence", "m1 Batch",
-           "m2 Evidence", "m2 Batch", "Not on board"]
+           "m2 Evidence", "m2 Batch", "Not on board", "m3 Evidence", "m3 Batch"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8, 10, 10, 10, 10, 8]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8, 10, 10, 10, 10, 8, 10, 10]
 
 
 def build_checks(wb, data):
@@ -633,15 +655,18 @@ def build_checks(wb, data):
             extra = f"+{occurrences('L_PendPrep', f'{sc}{r}')}" if (prep_row and src in ("V", "W")) else ""
             vals[hcol] = (f"=IFERROR(IF({occurrences(lst, f'{sc}{r}')}>{occurrences('L_PendNeg', f'{sc}{r}')}{extra},1,0),1)")
         # on-board rows: result or evidence saying the item is not on board blocks the confirmation
-        vals["BV"] = (f"=IFERROR(IF(OR({has('L_NotLoaded', f'BC{r}')},{has('L_NotLoaded', f'BD{r}')}),1,0),0)"
+        vals["BV"] = (f"=IFERROR(IF(OR({occurrences('L_NotLoaded', f'BC{r}')}>{occurrences('L_NotLoadedNeg', f'BC{r}')},"
+                      f"{occurrences('L_NotLoaded', f'BD{r}')}>{occurrences('L_NotLoadedNeg', f'BD{r}')}),1,0),0)"
                       if not prep_row else "=0")
         vals["BR"] = "=" + masked(f"BD{r}", f"Flights!$F${fr}", 1)
         vals["BS"] = "=" + masked(f"BE{r}", f"Flights!$F${fr}", 1)
         vals["BT"] = "=" + masked(f"BR{r}", f"Flights!$F${fr}", 2)
         vals["BU"] = "=" + masked(f"BS{r}", f"Flights!$F${fr}", 2)
-        vals["BM"] = "=" + digitmap(f"BT{r}")
+        vals["BW"] = "=" + masked(f"BT{r}", f"Flights!$F${fr}", 3)
+        vals["BX"] = "=" + masked(f"BU{r}", f"Flights!$F${fr}", 3)
+        vals["BM"] = "=" + digitmap(f"BW{r}")
         vals["BN"] = "=" + alphamap(f"BM{r}")
-        vals["BO"] = "=" + digitmap(f"BU{r}")
+        vals["BO"] = "=" + digitmap(f"BX{r}")
         vals["BP"] = "=" + alphamap(f"BO{r}")
         vals["BL"] = f"=IFERROR(IF({ref_ok(f'Z{r}', f'BM{r}', f'BN{r}')},1,0),0)"
         vals["BQ"] = f"=IFERROR(IF({ref_ok(f'W{r}', f'BO{r}', f'BP{r}', batch=True)},1,0),0)"
@@ -786,7 +811,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BU", "BV", "BW", "BX"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -825,9 +850,11 @@ def build_documents(wb, data):
         ws[f"W{r}"] = "=" + masked(f"Y{r}", f"Flights!$F${fr}", 1)
         ws[f"Z{r}"] = "=" + masked(f"V{r}", f"Flights!$F${fr}", 2)
         ws[f"AA{r}"] = "=" + masked(f"W{r}", f"Flights!$F${fr}", 2)
-        ws[f"R{r}"] = "=" + digitmap(f"Z{r}")
+        ws[f"AB{r}"] = "=" + masked(f"Z{r}", f"Flights!$F${fr}", 3)
+        ws[f"AC{r}"] = "=" + masked(f"AA{r}", f"Flights!$F${fr}", 3)
+        ws[f"R{r}"] = "=" + digitmap(f"AB{r}")
         ws[f"S{r}"] = "=" + alphamap(f"R{r}")
-        ws[f"T{r}"] = "=" + digitmap(f"AA{r}")
+        ws[f"T{r}"] = "=" + digitmap(f"AC{r}")
         ws[f"U{r}"] = "=" + alphamap(f"T{r}")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
@@ -863,7 +890,7 @@ def build_documents(wb, data):
     ws.freeze_panes = "C5"
     ws.print_title_cols = "A:B"
     ws.print_title_rows = "4:4"
-    for col in ("R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA"):
+    for col in ("R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC"):
         ws.column_dimensions[col].hidden = True
     ws.print_area = "A1:Q26"
     fit_pages(ws, "A", "Q", title_cols_w=16)
