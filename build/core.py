@@ -165,9 +165,12 @@ def build_settings(wb, data):
                    "pending uplift", "pending dispatch", "not yet loaded", "not yet uplifted", "not yet dispatched",
                    "yet to be loaded", "yet to be uplifted", "yet to be dispatched", "waiting in", "waiting for loading",
                    "waiting for uplift", "waiting for dispatch",
-                   # strict-list words used legitimately
-                   "not to be", "is to be", "are to be", "was to be", "will load", "will be loaded", "to be loaded",
-                   "to be uplifted", "being loaded", "being uplifted"})
+                   "awaiting delivery", "awaiting collection", "awaiting truck", "awaiting pickup", "awaiting pick up",
+                   "awaiting aircraft", "awaiting boarding", "pending transport", "pending delivery", "pending aircraft",
+                   "pending collection", "waiting at", "waiting for truck", "waiting for collection",
+                   "not yet effective", "not yet boarded", "not yet introduced", "not yet applicable", "not yet arrived",
+                   "not yet in service", "yet to be launched", "yet to be introduced", "or to follow", "or pending",
+                   "nothing awaited", "no pending", "no pending items", "nothing outstanding or to follow"})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
     strict = pend + ["awaited", "to be forwarded", "will be forwarded", "to be scanned", "will be scanned", "to be filed",
                      "will be filed", "to be shared", "will be shared", "will share", "will forward", "not sent",
@@ -178,7 +181,8 @@ def build_settings(wb, data):
     # extra phrases rejected only as evidence / attachment (the record itself is not on file)
     ev = ["as above", "see above", "ditto", "verbal", "verbally", "refer above", "same as above", "by phone",
           "phone call", "on the phone", "over the phone", "told", "told by", "call with", "whatsapp call", "by call",
-          "phone", "telephone", "telephoned", "phoned", "called", "via phone", "phone confirmation"]
+          "telephone", "telephoned", "phoned", "called", "via phone", "phone confirmation", "rang", "orally",
+          "oral confirmation", "tel call", "tel"]
     # whole words meaning a result is not a plain pass
     rb = ["reject", "rejected", "rejects", "fail", "failed", "fails", "failure", "not ok", "nok", "unsatisfactory",
           "not acceptable", "unacceptable", "not satisfactory", "below standard", "shortfall", "shortage", "short by",
@@ -467,24 +471,35 @@ def alphamap(ref):
     return x
 
 
-REF_WORDS = ["ref", "ref no", "ref.", "ref:", "no.", "no:", "#", "rev", "email", "memo", "form", "sheet", "log", "doc",
-             "report", "photo", "photos", "img", "file", "ack", "batch", "lot", "job", "record", "fax", "letter"]
+REF_WORDS = ["ref", "no", "nos", "#", "seal", "seals", "receipt", "note", "dn", "invoice", "po", "voucher", "checklist",
+             "scan", "manifest", "binder", "folder", "file", "email", "memo", "form", "sheet", "log", "doc", "report",
+             "img", "ack", "batch", "lot", "job", "record", "fax", "letter", "ticket", "case", "order", "id"]
+# words that precede numbers that are NOT record references (times, dates, places) – masked before the ID test
+MASK_WORDS = ["at", "by", "on", "to", "from", "until", "till", "before", "after", "around", "approx", "about", "since",
+              "hrs", "hr", "hours", "time", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept",
+              "oct", "nov", "dec", "mon", "tue", "wed", "thu", "fri", "sat", "sun", "gate", "bay", "stand",
+              "position", "galley", "flight", "flt", "day", "date", "dated", "the", "and", "of", "in", "for", "with"]
 
 
-def ref_ok(raw, dmap, amap):
-    """Traceable reference: an ID with letters then digits (SF-2210, IMG_2231), a keyword + number (ref 4471,
-    email 4471), a file name, link or path. A bare time or date does not count."""
-    alnum = "{" + ",".join(f'\"{p}\"' for p in ("a0", "a-0", "a_0", "a/0", "a.0")) + "}"
-    kw = "{" + ",".join(f'\"{w} 0\"' for w in REF_WORDS) + "," + ",".join(f'\"{w}0\"' for w in ("ref", "#", "no.", "no:")) + "}"
+def masked(spaced_cell, flight_no_cell):
+    """Spaced text with time/date/place words and this flight's own number replaced by '~'."""
+    x = f"SUBSTITUTE({spaced_cell},\" \"&LOWER({flight_no_cell})&\" \",\" ~ \")"
+    for w in MASK_WORDS:
+        x = f"SUBSTITUTE({x},\" {w} \",\" ~ \")"
+    return x
+
+
+def ref_ok(raw, dmap, amap, batch=False):
+    """Traceable reference: 2+ letters, optional separator, 3+ digits (SF-2210, IMG_2231, DN 88213), a reference
+    keyword followed by a number (seal no 88213, email 4471), a file name, link or path. Times, dates, flight
+    numbers and galley positions are masked out first, so 'Checked at 1400' or 'Checked 09-Oct-26' do not count."""
+    alnum = '{\"aa000\",\"aa 000\"}'
+    kw = "{" + ",".join(f'\" {w} 0\"' for w in REF_WORDS) + "," + ",".join(f'\" {w}0\"' for w in REF_WORDS) + "}"
     ext = ("{\"http\",\"www.\",\"\\\",\".pdf\",\".jpg\",\".jpeg\",\".png\",\".heic\",\".xls\",\".doc\","
            "\".msg\",\".eml\"}")
-    loose = "{" + ",".join(f'\" {w} \"' for w in ("ref", "email", "memo", "form", "sheet", "report", "ack", "letter",
-                                                        "record", "log", "doc", "file", "batch", "lot", "job", "fax",
-                                                        "rev", "ticket", "case", "order")) + "}"
-    sp = f"(\" \"&SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({dmap},\":\",\" \"),\".\",\" \"),\",\",\" \")&\" \")"
+    extra = f",ISNUMBER(SEARCH(\"0000\",{dmap}))" if batch else ""
     return (f"OR(SUMPRODUCT(--ISNUMBER(SEARCH({alnum},{amap})))>0,SUMPRODUCT(--ISNUMBER(SEARCH({kw},{dmap})))>0,"
-            f"AND(SUMPRODUCT(--ISNUMBER(SEARCH({loose},{sp})))>0,ISNUMBER(SEARCH(\"000\",SUBSTITUTE({dmap},\":\",\" \")))),"
-            f"SUMPRODUCT(--ISNUMBER(SEARCH({ext},{raw})))>0)")
+            f"SUMPRODUCT(--ISNUMBER(SEARCH({ext},{raw})))>0{extra})")
 
 
 def has_ref(ref):
@@ -521,10 +536,10 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
            "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just.", "Wording flag",
            "Pending: result", "Pending: evidence", "Pending: batch", "Pending: N/A just.", "Evidence has ref",
-           "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID"]
+           "d Evidence", "a Evidence", "d Batch", "a Batch", "Batch has ID", "m Evidence", "m Batch"]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12, 8, 8, 8, 8, 8, 8, 10, 10, 10, 10, 8, 10, 10]
 
 
 def build_checks(wb, data):
@@ -594,12 +609,14 @@ def build_checks(wb, data):
         for src, sc, hcol, lst in (("V", "BC", "BH", "L_Pending"), ("Z", "BD", "BI", "L_PendStrict"),
                                    ("W", "BE", "BJ", "L_Pending"), ("AC", "BF", "BK", "L_PendStrict")):
             vals[hcol] = f"=IFERROR(IF({pending(f'{sc}{r}', lst)},1,0),1)"
-        vals["BM"] = "=" + digitmap(f"Z{r}")
+        vals["BR"] = "=" + masked(f"BD{r}", f"Flights!$F${fr}")
+        vals["BS"] = "=" + masked(f"BE{r}", f"Flights!$F${fr}")
+        vals["BM"] = "=" + digitmap(f"BR{r}")
         vals["BN"] = "=" + alphamap(f"BM{r}")
-        vals["BO"] = "=" + digitmap(f"W{r}")
+        vals["BO"] = "=" + digitmap(f"BS{r}")
         vals["BP"] = "=" + alphamap(f"BO{r}")
         vals["BL"] = f"=IFERROR(IF({ref_ok(f'Z{r}', f'BM{r}', f'BN{r}')},1,0),0)"
-        vals["BQ"] = f"=IFERROR(IF({ref_ok(f'W{r}', f'BO{r}', f'BP{r}')},1,0),0)"
+        vals["BQ"] = f"=IFERROR(IF({ref_ok(f'W{r}', f'BO{r}', f'BP{r}', batch=True)},1,0),0)"
         # advisory only: a plain Pass whose result wording mentions a problem (verifier to review; does not block READY)
         vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
                       f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
@@ -740,7 +757,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BK", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -773,9 +790,11 @@ def build_documents(wb, data):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
             return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
                     f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},{ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},NOT({pending(spaced(att + str(r)), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
-        ws[f"R{r}"] = "=" + digitmap(f"I{r}")
+        ws[f"V{r}"] = "=" + masked(spaced(f"I{r}"), f"Flights!$F${fr}")
+        ws[f"W{r}"] = "=" + masked(spaced(f"N{r}"), f"Flights!$F${fr}")
+        ws[f"R{r}"] = "=" + digitmap(f"V{r}")
         ws[f"S{r}"] = "=" + alphamap(f"R{r}")
-        ws[f"T{r}"] = "=" + digitmap(f"N{r}")
+        ws[f"T{r}"] = "=" + digitmap(f"W{r}")
         ws[f"U{r}"] = "=" + alphamap(f"T{r}")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
@@ -811,7 +830,7 @@ def build_documents(wb, data):
     ws.freeze_panes = "C5"
     ws.print_title_cols = "A:B"
     ws.print_title_rows = "4:4"
-    for col in "RSTU":
+    for col in "RSTUVW":
         ws.column_dimensions[col].hidden = True
     ws.print_area = "A1:Q26"
     fit_pages(ws, "A", "Q", title_cols_w=16)

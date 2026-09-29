@@ -20,7 +20,7 @@ def fill(ws, docs, fid="F02"):
              "T-12H PREP": STD - timedelta(hours=13), "UPLIFT": STD - timedelta(hours=2)}[cp]
         ws[f"T{r}"] = "A. Rahman"
         ws[f"V{r}"] = "Checked against menu checklist, all to spec"
-        ws[f"Z{r}"] = f"EV-{cid}"
+        ws[f"Z{r}"] = f"QA form QF-{1000 + r}"
         ws[f"AE{r}"] = "N. Ismail"
         ws[f"AD{r}"] = t
         if ws[f"AQ{r}"].value == 1:

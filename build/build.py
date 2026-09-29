@@ -39,6 +39,30 @@ def protect(wb):
         p.selectUnlockedCells = False
 
 
+def dedupe_print_titles(path):
+    """LibreOffice's resave writes each sheet's Print_Titles twice; keep the first so Excel opens without repair."""
+    import re, shutil, tempfile, zipfile
+    tmp = tempfile.mktemp(suffix=".xlsx")
+    with zipfile.ZipFile(path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "xl/workbook.xml":
+                s = data.decode("utf-8")
+                seen = set()
+
+                def keep(m):
+                    key = re.search(r'localSheetId="(\d+)"', m.group(0))
+                    k = key.group(1) if key else None
+                    if k in seen:
+                        return ""
+                    seen.add(k)
+                    return m.group(0)
+                s = re.sub(r'<definedName[^>]*name="_xlnm.Print_Titles"[^>]*>[^<]*</definedName>', keep, s)
+                data = s.encode("utf-8")
+            zout.writestr(item, data)
+    shutil.move(tmp, path)
+
+
 def main():
     data = json.load(open(os.path.join(HERE, "data.json")))
     wb = openpyxl.Workbook()
@@ -60,6 +84,7 @@ def main():
     if "--no-recalc" not in sys.argv:
         res = subprocess.run([sys.executable, RECALC, OUT, "900"], capture_output=True, text=True)
         print(res.stdout[-3000:], res.stderr[-2000:])
+        dedupe_print_titles(OUT)
     print(OUT)
 
 
