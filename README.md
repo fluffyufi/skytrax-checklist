@@ -21,7 +21,7 @@ It covers all 22 legs of the *Skytrax Agenda 2026*, across 3 itineraries. Requir
 
 ## Rules built in
 - **Due times.** T-7D, T-24H and T-12H are measured back from STD in UTC and shown in local time at the check station. This handles the LHR switch from BST to GMT on 25 Oct and Adelaide's summer time (ACDT) from 4 Oct.
-- **What never counts:** a blank check, a placeholder ('-', 'TBC', 'n/a', …), a completion time in the future, before its valid window, after loading or after departure, or a Pass with an unresolved quantity variance or an open corrective action.
+- **What never counts:** a blank check, a placeholder or "not yet on file" phrase ('-', 'TBC', 'photo to follow', 'done', …), a completion time in the future, before its valid window, after loading or after departure, or a Pass with an unresolved quantity variance or an open corrective action.
 - **T-12H is split in two.** The preparation check at the caterer (T-12H PREP) never confirms loading. The physical uplift check (UPLIFT) is valid only inside the uplift window before STD, and only after any carrying flight could have arrived.
 - **N/A.** Allowed only on clarification items, and on printed menu cards for refreshment-only flights. It needs a real justification and a verifier. A justified N/A is removed from both the numerator and the denominator of the completion rate.
 - **READY** requires every in-scope check to be complete, including the physical uplift. It also needs zero discrepancies, zero invalid entries, both documents on file and every clarification resolved.

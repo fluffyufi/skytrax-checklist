@@ -97,3 +97,16 @@ def round4():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
     round4()
+
+
+def round5():
+    run("evidence_photo_to_follow", cell("F11-UPL-01", "Z", "TBC - photo to follow"))
+    run("evidence_done", cell("F11-UPL-01", "Z", "Done"))
+    run("evidence_real_uploaded", cell("F11-UPL-01", "Z", "Photo uploaded to SharePoint F11/UPL-01"))
+    run("result_discrepancy_pass", cell("F11-T12-03", "V", "Discrepancy found - 3 dirty inserts replaced"))
+    run("result_shortbread_ok", cell("F11-T24-01", "V", "Shortbread texture and taste good, temp 4C"))
+    run("doc_rev_2023", lambda wb, rows: wb["Documents"].__setitem__("H15", datetime(2023, 8, 1)))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r5":
+    round5()

@@ -135,11 +135,30 @@ def build_settings(wb, data):
     ws["K3"] = "Placeholder words rejected (compared after removing spaces & punctuation, any case)"
     ws["K3"].font = f(9, True, NAVY)
     ph = ["na", "tbc", "tba", "tbd", "tbconfirmed", "tobeconfirmed", "tobeadvised", "pending", "awaiting", "none",
-          "nil", "null", "same", "later", "unknown", "x", "xx", "xxx", "0", "test", "dummy", "notapplicable"]
+          "nil", "null", "same", "later", "unknown", "x", "xx", "xxx", "0", "test", "dummy", "notapplicable",
+          "done", "yes", "checked", "ok", "okay", "visual", "verbal", "naverbal", "photo", "email", "seen", "fine"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
     ws.column_dimensions["K"].width = 22
     name(wb, "L_Placeholder", f"Settings!$K$4:$K${3 + len(ph)}")
+    # phrases that mean the evidence is not actually on file (matched anywhere in the normalised text)
+    ev = ["tbc", "tbd", "pending", "tofollow", "willfollow", "willupload", "tobeupload", "uploadlater",
+          "sendlater", "awaiting", "notyet", "nophoto", "noevidence", "notavailable", "notattached", "asabove",
+          "seeabove", "ditto", "tobeprovided", "willsend"]
+    # words that mean the result is not a pass (matched anywhere in the normalised result, Status = Pass only)
+    rb = ["reject", "fail", "discrepan", "notok", "unsatisf", "notaccept", "unaccept", "notsatisf", "belowstandard",
+          "shortfall", "nonconform", "notcompliant", "noncompliant", "defect"]
+    for col, title_txt, items in (("L", "Evidence phrases rejected (anywhere in text)", ev),
+                                  ("M", "Result words that cannot be a plain Pass", rb)):
+        ws[f"{col}3"] = title_txt
+        ws[f"{col}3"].font = f(9, True, NAVY)
+        ws[f"{col}3"].alignment = WRAP
+        ws.column_dimensions[col].width = 22
+        for i, v in enumerate(items):
+            ws.cell(4 + i, ord(col) - 64, v).font = f(9)
+    ws.row_dimensions[3].height = 36
+    name(wb, "L_EvidencePhrase", f"Settings!$L$4:$L${3 + len(ev)}")
+    name(wb, "L_ResultBad", f"Settings!$M$4:$M${3 + len(rb)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
                               ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
@@ -481,10 +500,10 @@ def build_checks(wb, data):
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
-            f"IF({bad('Z', 3)},\"INVALID {ND} evidence missing or placeholder\","
+            f"IF(OR({bad('Z', 3)},SUMPRODUCT(--ISNUMBER(SEARCH(L_EvidencePhrase,AW{r})))>0),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
-            f"IF(OR(ISNUMBER(SEARCH(\"reject\",V{r})),ISNUMBER(SEARCH(\"fail\",V{r}))),\"INVALID {ND} result says rejected/failed: use Fail\","
+            f"IF(AND({U}=\"Pass\",SUMPRODUCT(--ISNUMBER(SEARCH(L_ResultBad,AV{r})))>0),\"INVALID {ND} result describes a problem: use Fail, then Pass after CA\","
             f"IF(AND(AQ{r}=1,{bad('W', 3)}),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
@@ -527,6 +546,8 @@ def build_checks(wb, data):
                 c.fill = F_CALC
             elif j >= 11 and j <= 15:
                 c.fill = F_REF
+        if exp_qty is not None:
+            ws[f"X{r}"].fill = F_REF  # reference quantity: locked (not yellow) so it cannot be lowered
         if isinstance(exp_qty, str):
             ws[f"X{r}"].font = f(9, color="0000FF")
             ws[f"X{r}"].comment = Comment("Follows the tail on Flights N: 9M-MAH = 280 pcs, other A350 (A359) = 260 pcs "
@@ -593,7 +614,7 @@ def build_checks(wb, data):
 def build_documents(wb, data):
     ws = wb.create_sheet("Documents")
     title(ws, "Documents",
-          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. A row is ON FILE only with a real doc no, revision, a revision date between 2024 and the flight date, and an attachment location. Enter doc no, revision, "
+          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. A row is ON FILE only with a real doc no, revision, a revision date between 2020 and the flight date, and an attachment location. Enter doc no, revision, "
           "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.",
           "C2:I2", 99)
     labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date",
@@ -613,7 +634,7 @@ def build_documents(wb, data):
         ws[f"E{r}"] = f"=Flights!L{fr}"
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},ISNA(MATCH({norm(x + str(r))},L_Placeholder,0)))"
-            return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2024,1,1),"
+            return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
                     f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)}),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
@@ -641,8 +662,8 @@ def build_documents(wb, data):
                                       fill=PatternFill("solid", fgColor="FFC7CE"), font=Font(name=FONT, color="9C0006", bold=True)))
         ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"ON FILE"'],
                                       fill=PatternFill("solid", fgColor="C6EFCE"), font=Font(name=FONT, color="006100", bold=True)))
-    dvd = DataValidation(type="date", operator="between", formula1="45658", formula2="46387", allow_blank=True,
-                         showErrorMessage=True, error="Enter the revision date (2025–2026).")
+    dvd = DataValidation(type="date", operator="between", formula1="43831", formula2="46387", allow_blank=True,
+                         showErrorMessage=True, error="Enter the revision date (2020–2026).")
     dvd.add("H5:H26")
     dvd.add("M5:M26")
     ws.add_data_validation(dvd)
