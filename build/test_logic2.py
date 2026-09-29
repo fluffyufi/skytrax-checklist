@@ -17,7 +17,7 @@ def fill_f11(wb):
             continue
         cid = ck[f"A{r}"].value
         if cid == "F11-T7-10":  # carrying flight clarification: must be Pass (N/A not allowed)
-            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = None
+            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"
         if cid == "F11-UPL-03":  # KUL loading line: before MH1140 dep 11:45 KUL
             ck[f"AD{r}"] = datetime(2026, 10, 12, 10, 0)
         if ck[f"G{r}"].value in ("T-24H", "T-12H PREP"):  # capped by loading (AY = 12-Oct 05:45 KUL)
@@ -142,7 +142,7 @@ def round7():
     for i, (cid, txt) in enumerate(ok.items()):
         run(f"r7_ok_result_{i}", cell(cid, "V", txt))
     run("r7_ok_na_not_available", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
-        wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Printed menu card not available on refreshment service per MAGCS policy")])
+        wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Refreshment service – no printed menu card")])
     run("r7_bad_missing_no_spares", cell("F11-T12-03", "V", "2 BC meals missing, no spares available"))
     run("r7_bad_evidence_visual", cell("F11-T7-01", "Z", "Visually checked"))
     run("r7_bad_verifier_self", cell("F11-T7-01", "AE", "Self"))
@@ -169,3 +169,35 @@ def round17():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r17":
     round17()
+
+
+def round18():
+    C = lambda cid, kv: (lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows[cid]}", v) for k, v in kv])
+    # clarification lines need the structured outcome
+    run("r18_bad_clar_query_raised", C("F11-T12-08", [("U", "Pass"), ("AC", None), ("V", "Query raised with MAGCS planning on 20 Oct")]))
+    run("r18_ok_clar_confirmed", C("F11-T12-08", [("U", "Pass"), ("AC", "Confirmed – applies / carried as listed"),
+                                                 ("V", "MAGCS planning confirmed slippers carried from KUL")]))
+    run("r18_bad_na_wrong_outcome", C("F11-T12-08", [("AC", "Refreshment service – no printed menu card")]))
+    run("r18_bad_na_no_evidence", C("F11-T12-08", [("Z", None)]))
+    run("r18_bad_pass_with_na_outcome", C("F11-T7-01", [("AC", "Confirmed – not carried on this sector")]))
+    # wording safety net
+    for i, txt in enumerate(["Partially loaded", "Loading not complete", "Only 40 of 44 slippers on board",
+                             "Juice out of date", "None missing except 2 meals", "Hot meals uplifted but no cutlery"]):
+        run(f"r18_bad_wording_{i}", cell("F11-UPL-01", "V", txt))
+    for i, txt in enumerate(["Com tam (broken rice) to spec, panel of 3", "Dirty linen bags positioned at G2 per GLD",
+                             "Late-night supper service items all to spec"]):
+        run(f"r18_ok_wording_{i}", cell("F11-T24-01", "V", txt))
+    for i, txt in enumerate(["Pass", "All good", "As per menu", "Conforms"]):
+        run(f"r18_bad_brief_{i}", cell("F11-T7-01", "V", txt))
+    run("r18_bad_verifier_fa", cell("F11-T7-01", "AE", "Flight attendant"))
+    run("r18_bad_verifier_csm1", cell("F11-T7-01", "AE", "CSM1"))
+    run("r18_bad_same_initial", cell("F11-T7-01", "AE", "A. Rahman") if False else
+        (lambda wb, rows: [wb["Checks"].__setitem__(f"T{rows['F11-T7-01']}", "Aisyah Rahman"),
+                           wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", "A. Rahman")]))
+    run("r18_ok_patronymic", lambda wb, rows: [wb["Checks"].__setitem__(f"T{rows['F11-T7-01']}", "Ahmad bin Ali"),
+                                               wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", "Ali bin Ahmad")])
+    run("r18_ok_doc_binder", lambda wb, rows: wb["Documents"].__setitem__("I15", "Filed in GLD binder, PEN catering office"))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r18":
+    round18()

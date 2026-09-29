@@ -32,7 +32,7 @@ def fill(ws, docs, fid="F02"):
             ws[f"Y{r}"] = 12
         if ws[f"N{r}"].value == "Clarification required":
             ws[f"U{r}"] = "N/A"
-            ws[f"AC{r}"] = "Confirmed with MAGCS planning: not carried on this sector (email ref TEST)"
+            ws[f"AC{r}"] = "Confirmed – not carried on this sector"
         else:
             ws[f"U{r}"] = "Pass"
     d = docs

@@ -53,7 +53,7 @@ J Check item · K Requirement / expected · L Source reference · M Item uplift 
 (`Required`, `Clarification required`, `N/A – rule`) · O Rule note / clarification · P Check station ·
 Q Due UTC · R Due local @ check station · S Evidence type (INPUT, dropdown L_EvidenceType) ·
 INPUTS: T PIC · U Status · V Result / assessment · W Batch ID · X Expected qty · Y Actual qty ·
-Z Evidence ID / reference · AA Corrective action · AB CA status · AC N/A justification · AD Completion time
+Z Evidence ID / reference · AA Corrective action · AB CA status · AC Outcome (INPUT, dropdown L_Outcome: clarification resolution / N/A reason) · AD Completion time
 (local @ check station) · AE Verifier ·
 COMPUTED: AF Qty variance · AG Completion UTC · AH Record state (text) · AI In scope (1/0) ·
 AJ Complete (1/0) · AK Overdue (1/0) · AL Open discrepancy (1/0) · AM Invalid (1/0) ·
@@ -79,6 +79,6 @@ Evidence ID helpers: BM digit map of Z, BN full shape (letters a / digits 0), BT
 words, BU letters before the first digit, BW digits only, BX letters only, BZ = ID ok for its type.
 Batch helpers: BO/BP digit map / shape of W, CA shape without month words, CB digits only, BQ = batch ok.
 People: CC / CD spaced PIC / verifier, BR / BS = name letters left after whole-word role list L_Role (Settings V; < 3 = role
-only → INVALID), CE = same person in another word order. CG = N/A justification letters beyond filler list L_NAFiller
-(Settings W; must be ≥ 8). BG = plain Pass whose result describes a problem (blocking).
+only → INVALID), CE = same person in another word order. AT = N/A permitted (0 no, 1 clarification line,
+2 refreshment menu card); N/A needs the matching Outcome (Settings X, L_Outcome). BG = plain Pass whose result describes a problem (blocking).
 Flights AS also counts an A350 leg without a valid tail (9M-MAB..MAH); READY requires AS = 0.

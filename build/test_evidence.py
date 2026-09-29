@@ -46,7 +46,19 @@ BAD3 = [("Photo", "IMG_2231.jpg"), ("Photo", "https://magcs.sharepoint.com/qa/SF
         ("Form / checklist", "XX-0000"), ("Form / checklist", "ABC-123"), ("Form / checklist", "NA-12345"),
         ("Form / checklist", "11111"), ("Form / checklist", "SF-00"), ("Form / checklist", "10OCT26-1415")]
 
+GOOD3 = [("Form / checklist", "SF-2222"), ("Form / checklist", "2210A"), ("Form / checklist", "B12345"),
+         ("Form / checklist", "No.45213"), ("Link / file path", "https://magcs.sharepoint.com/qa/F11/SF-2210"),
+         ("Link / file path", "S:\\QA\\F11\\SF-2210.pdf"), ("Seal no.", "1045521"), ("Photo", "IMG_4410"),
+         ("Email", "EM-26-0441"), ("System record", "QP-5521"), ("Form / checklist", "QF-44"), ("Photo", "DSC04410")]
+BAD4 = [("Form / checklist", "2026-10-08T10:15"), ("Form / checklist", "8.10.26"), ("Form / checklist", "081026"),
+        ("Form / checklist", "261008"), ("Form / checklist", "20261008101530"), ("Form / checklist", "20261008-017"),
+        ("Form / checklist", "Q4-2026"), ("Form / checklist", "SF-2210/2211"), ("Link / file path", "www.google.com"),
+        ("Link / file path", "\\\\fs01\\QA\\F11"), ("Link / file path", "C:\\Users\\ali\\Desktop\\photo.jpg"),
+        ("Form / checklist", "A350")]
+
 if __name__ == "__main__":
+    run("good3", GOOD3, "PASB-261008-BC-017")
+    run("bad4", BAD4, "261009")
     run("good", GOOD, "261008-017")
     run("bad", BAD, "Morning batch 0600")
     run("good2", GOOD2, "PASB-261008-BC-017")

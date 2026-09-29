@@ -499,9 +499,12 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                 f'={C("N")}&CHAR(10)&{_t(C("R"))}&" "&{C("P")}',
                 (f'=IF(TRIM({C("U")})<>"",{C("U")}&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")}),'
                  f'IF({rna},"","[ ] Pass"&CHAR(10)&"[ ] Pass after CA"&CHAR(10)&"[ ] Fail"'
-                 f'&IF({C("AT")}=1,CHAR(10)&"[ ] N/A","")&CHAR(10)&"CA: Open / Closed"))'),
+                 f'&IF({C("AT")}>=1,CHAR(10)&"[ ] N/A","")&CHAR(10)&"CA: Open / Closed"))'),
                 (f'=IF({C("V")}="","",{C("V")})'
-                 f'&IF({C("AC")}="","",IF({C("V")}="","",CHAR(10))&"N/A just.: "&{C("AC")})'
+                 f'&IF({C("AC")}="",IF(OR({rna},AND({C("N")}<>"Clarification required",{C("AT")}=0)),"",'
+                 f'IF({C("V")}="","",CHAR(10))&IF({C("AT")}=2,"Outcome if N/A: [ ] refreshment – no menu card",'
+                 f'"Outcome: [ ] as listed  [ ] not carried  [ ] n/a to aircraft")),'
+                 f'IF({C("V")}="","",CHAR(10))&"Outcome: "&{C("AC")})'
                  f'&IF(OR({C("W")}<>"",AND({C("AQ")}=1,NOT({rna}))),CHAR(10)&"Batch: "&IF({C("W")}="","{W_BLANK}",{C("W")}),"")'
                  f'&IF(OR({C("X")}<>"",{C("Y")}<>"",AND({C("AR")}=1,NOT({rna}))),CHAR(10)&"Exp: "'
                  f'&IF({C("X")}="","{Q_BLANK}",{C("X")})&"  /  Act: "&IF({C("Y")}="","{Q_BLANK}",{C("Y")}),"")'),
