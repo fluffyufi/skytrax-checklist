@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 14,
-   "note": "Round 13: Excel nesting limit breach fixed (max 35 of 64), time/count/flight-number references masked, prep-stage wording confined to prep rows; round-14 critic running"
+   "round": 15,
+   "note": "Round 14: short time/count words, future loading wording and some real references mis-handled; fixed (nesting 37/64); round-15 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -138,6 +138,11 @@
    "piece": "2. Core formulas",
    "round": 13,
    "gap": "Documents helper formulas nested ~80 levels (over Excel's 64, which would trigger a repair and strip them); 'Checked 1400 hrs' and 'MH 0727' still counted as references; 'Not yet loaded' passed on on-board rows."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 14,
+   "gap": "'Chkd 1400 hrs', 'Qty 180' and 'on call 1400' still counted as references; 'to be loaded' passed on on-board rows; 'seal numbers 88213-88220' and 'QA form F-2210' were rejected."
   }
  ],
  "log": [
@@ -300,6 +305,10 @@
   [
    "29 Sep",
    "Logic critic round 13: FAIL (nesting limit + references + uplift wording); fixed; round 14 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 14: FAIL (text references); fixed; round 15 launched"
   ]
  ]
 }
