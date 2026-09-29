@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 13,
-   "note": "Round 12: reference detector too lexical; tightened (letters+3 digits / keyword+number, time-date-place words and own flight number masked); round-13 critic running"
+   "round": 14,
+   "note": "Round 13: Excel nesting limit breach fixed (max 35 of 64), time/count/flight-number references masked, prep-stage wording confined to prep rows; round-14 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -133,6 +133,11 @@
    "piece": "2. Core formulas",
    "round": 12,
    "gap": "Any letter-then-digit counted as a reference, so flight numbers, galley codes and dates passed ('Checked onboard MH0727'), while real IDs with a space ('DN 88213', 'seal no 88213') failed."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 13,
+   "gap": "Documents helper formulas nested ~80 levels (over Excel's 64, which would trigger a repair and strip them); 'Checked 1400 hrs' and 'MH 0727' still counted as references; 'Not yet loaded' passed on on-board rows."
   }
  ],
  "log": [
@@ -291,6 +296,10 @@
   [
    "29 Sep",
    "Logic critic round 12: FAIL (reference detector); tightened rule + Print_Titles de-dup; round 13 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 13: FAIL (nesting limit + references + uplift wording); fixed; round 14 launched"
   ]
  ]
 }
