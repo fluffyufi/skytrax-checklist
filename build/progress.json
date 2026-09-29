@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 22:40",
+ "updated": "30 Sep 00:10",
  "checks": 744,
  "pieces": [
   {
@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 19,
-   "note": "Round 18 FAIL: free-text keyword checks let 'query raised', 'N/A \u2013 unknown' and 'partially loaded' close lines. User chose structured outcomes: new Outcome dropdown (Checks AC) + written-confirmation evidence for clarification lines and N/A; wording checks kept as a safety net. All regression suites green; round-19 logic critic running"
+   "round": 20,
+   "note": "Round 19 FAIL (narrow): prep 'carried' + on-board N/A 'not carried' gave READY with no on-board check. Fixed: paired lines must agree; clarifications need written confirmation (email / memo / document / system record / link). All regression suites green; round-20 logic critic running"
   },
   {
    "name": "3. Dashboard",
@@ -22,9 +22,9 @@
   },
   {
    "name": "4. Printable flight checklists P01\u2013P22",
-   "state": "run",
+   "state": "pass",
    "round": 9,
-   "note": "Round 8 PASS; its biggest gap (Done/verifier/PIC write-in room) fixed. Outcome prompts added for clarification / N/A lines; round-9 render critic checking"
+   "note": "PASS (round 9): all 22 covers on page 1, prompts for status, evidence type/ID, Outcome, batch, qty, time/verifier/PIC; its biggest gap (no place to write the carrying flight) fixed afterwards"
   },
   {
    "name": "5. Instructions & delivery",
@@ -173,6 +173,16 @@
    "piece": "2. Core sheets",
    "round": 18,
    "gap": "Whether a clarification or N/A line counted was decided by keyword lists on free text, so 'query raised' or 'N/A \u2013 unknown at this time' could make a flight READY."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 19,
+   "gap": "A preparation line confirmed 'carried' while its on-board line was N/A 'not carried', so a flight went READY without the item ever being checked on board."
+  },
+  {
+   "piece": "4. Printable checklists",
+   "round": 9,
+   "gap": "KUL-sourced packs gave the PIC nowhere to write the carrying flight and its KUL departure, which the workbook needs before those lines can pass."
   }
  ],
  "log": [
@@ -355,6 +365,10 @@
   [
    "22:40",
    "User chose structured outcomes; Outcome dropdown + confirmation evidence built, all regression suites green on r26; logic critic 19 and render critic 9 launched"
+  ],
+  [
+   "00:10",
+   "Round-19 fixes built and green; container restart lost logic critic 20 \u2013 relaunched on frozen build r28"
   ]
  ]
 }
