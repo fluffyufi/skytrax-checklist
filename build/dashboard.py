@@ -204,7 +204,7 @@ def build(wb, data):
         ("H", "I", "Overdue actions", f'=SUM({ck("AK")})', "0", "past due, not complete", True),
         ("J", "K", "Open discrepancies", f'=SUM({ck("AL")})', "0", "fail, qty variance or CA open", True),
         ("L", "M", "Docs outstanding", f'=SUM({fl("AR")})', "0", "GLD + menu checklist", True),
-        ("N", "O", "Clarifications open", f'=SUM({ck("AN")})', "0", "awaiting reference answer", True),
+        ("N", "O", "Clarifications open", f'=SUM({fl("AS")})', "0", "awaiting reference answer", True),
         ("P", "R", "Invalid entries", f'=SUM({ck("AM")})', "0", "entries failing validation rules", True),
     ]
     lab_lines = sub_lines = 1

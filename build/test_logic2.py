@@ -110,3 +110,26 @@ def round5():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r5":
     round5()
+
+
+def round6():
+    ok_results = ["No defects found", "No discrepancies", "Failsafe seal intact", "Nil discrepancy", "no stains or defects",
+                  "Shortbread and dessert to spec", "Defect-free, temps 4C"]
+    for i, (cid, txt) in enumerate(zip(["F11-T7-01", "F11-T7-02", "F11-T7-04", "F11-T7-05", "F11-T7-06", "F11-T24-01", "F11-T12-01"], ok_results)):
+        run(f"ok_result_{i}", cell(cid, "V", txt))
+    for i, txt in enumerate(["Sensory report BC-017", "Photo at BC galley G2", "OCT BD sheet 12", "Log no. photo 17",
+                             "Email from PASB 08-Oct ref 4471"]):
+        run(f"ok_evidence_{i}", cell("F11-T7-01", "Z", txt))
+    run("bad_result_awaiting", cell("F11-T24-01", "V", "Awaiting panel score"))
+    run("bad_result_short", cell("F11-T12-03", "V", "Short 3 trays, replaced"))
+    run("bad_batch_tbc", cell("F11-T24-01", "W", "Batch TBC"))
+    run("bad_evidence_verbal", cell("F11-T7-01", "Z", "Verbally confirmed with PASB supervisor"))
+    run("bad_doc_to_follow", lambda wb, rows: wb["Documents"].__setitem__("I15", "to follow from PASB"))
+    run("load_change_ca", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in
+                                            (("X", 14), ("Y", 14), ("U", "Pass after CA"),
+                                             ("AA", "Final load +2 pax: 2 extra refreshments uplifted"), ("AB", "Closed"))])
+    run("doc_rev_zero", lambda wb, rows: wb["Documents"].__setitem__("G15", "0"))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r6":
+    round6()

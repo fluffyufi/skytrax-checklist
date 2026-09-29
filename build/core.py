@@ -135,30 +135,35 @@ def build_settings(wb, data):
     ws["K3"] = "Placeholder words rejected (compared after removing spaces & punctuation, any case)"
     ws["K3"].font = f(9, True, NAVY)
     ph = ["na", "tbc", "tba", "tbd", "tbconfirmed", "tobeconfirmed", "tobeadvised", "pending", "awaiting", "none",
-          "nil", "null", "same", "later", "unknown", "x", "xx", "xxx", "0", "test", "dummy", "notapplicable",
+          "nil", "null", "same", "later", "unknown", "x", "xx", "xxx", "test", "dummy", "notapplicable", "nophoto", "noevidence",
           "done", "yes", "checked", "ok", "okay", "visual", "verbal", "naverbal", "photo", "email", "seen", "fine"]
     for i, v in enumerate(ph):
         ws.cell(4 + i, 11, v).font = f(9)
     ws.column_dimensions["K"].width = 22
     name(wb, "L_Placeholder", f"Settings!$K$4:$K${3 + len(ph)}")
-    # phrases that mean the evidence is not actually on file (matched anywhere in the normalised text)
-    ev = ["tbc", "tbd", "pending", "tofollow", "willfollow", "willupload", "tobeupload", "uploadlater",
-          "sendlater", "awaiting", "notyet", "nophoto", "noevidence", "notavailable", "notattached", "asabove",
-          "seeabove", "ditto", "tobeprovided", "willsend"]
-    # words that mean the result is not a pass (matched anywhere in the normalised result, Status = Pass only)
-    rb = ["reject", "fail", "discrepan", "notok", "unsatisf", "notaccept", "unaccept", "notsatisf", "belowstandard",
-          "shortfall", "nonconform", "notcompliant", "noncompliant", "defect"]
-    for col, title_txt, items in (("L", "Evidence phrases rejected (anywhere in text)", ev),
-                                  ("M", "Result words that cannot be a plain Pass", rb)):
+    # whole words / phrases (matched on word boundaries) meaning the item is not actually on file or answered
+    ev = ["tbc", "tbd", "tba", "pending", "to follow", "will follow", "will upload", "to be uploaded", "upload later",
+          "send later", "awaiting", "not yet", "not available", "not attached", "as above",
+          "see above", "ditto", "to be provided", "will send", "to be confirmed", "to be advised", "verbal", "verbally",
+          "not received", "not confirmed"]
+    # whole words meaning the result is not a pass (ignored when the text also says no / nil / zero / none / without / free)
+    rb = ["reject", "rejected", "fail", "failed", "fails", "not ok", "nok", "unsatisfactory", "not acceptable",
+          "unacceptable", "not satisfactory", "below standard", "short", "shortfall", "discrepancy", "discrepancies",
+          "defect", "defective", "defects", "dirty", "damaged", "missing", "non conforming", "nonconforming", "not to spec"]
+    neg = ["no", "nil", "zero", "none", "without", "free", "not found"]
+    for col, title_txt, items in (("L", "'Not yet on file' phrases (whole words, any free-text field)", ev),
+                                  ("M", "Result words that cannot be a plain Pass (whole words)", rb),
+                                  ("N", "…unless the result also says", neg)):
         ws[f"{col}3"] = title_txt
         ws[f"{col}3"].font = f(9, True, NAVY)
         ws[f"{col}3"].alignment = WRAP
         ws.column_dimensions[col].width = 22
         for i, v in enumerate(items):
             ws.cell(4 + i, ord(col) - 64, v).font = f(9)
-    ws.row_dimensions[3].height = 36
+    ws.row_dimensions[3].height = 48
     name(wb, "L_EvidencePhrase", f"Settings!$L$4:$L${3 + len(ev)}")
     name(wb, "L_ResultBad", f"Settings!$M$4:$M${3 + len(rb)}")
+    name(wb, "L_Negation", f"Settings!$N$4:$N${3 + len(neg)}")
     for addr, lo, hi, msg in (("B5", "-12", "14", "UTC offset in hours, -12 to 14"),
                               ("B7", "1", "10", "Hours, 1 to 10 (must stay below the 12 h preparation check)"), ("B8", "1", "72", "Hours, 1 to 72"),
                               ("B9", "1", "48", "Hours, 1 to 48"), ("B10", "1", "60", "Days, 1 to 60")):
@@ -380,6 +385,19 @@ def norm(ref):
     return x
 
 
+def spaced(ref):
+    """' word word ' form: lower case, punctuation turned into single spaces, padded (whole-word SEARCH)."""
+    x = f"LOWER({ref}&\"\")"
+    for ch in ('CHAR(160)', '"."', '","', '"-"', '"/"', '"("', '")"', '":"', '";"', '"_"', '"–"', '"?"', '"!"',
+               '"*"', '"["', '"]"', '"\'"', '"#"', '"+"', '"&"'):
+        x = f"SUBSTITUTE({x},{ch},\" \")"
+    return f"\" \"&TRIM({x})&\" \""
+
+
+def has(listname, spaced_cell):
+    return f"SUMPRODUCT(--ISNUMBER(SEARCH(\" \"&{listname}&\" \",{spaced_cell})))>0"
+
+
 def due_formula(ck, cp, fr, code_due):
     rule = ck.get("due_rule", "")
     if rule == "CARRY" and cp == "UPLIFT":
@@ -401,10 +419,10 @@ CK_HEAD = ["Check ID", "Flight ID", "Flight No", "Date", "Sector", "Class", "Che
            "Qty variance", "Completion (UTC)", "RECORD STATE", "In scope", "Complete", "Overdue",
            "Open discrepancy", "Invalid", "Clarification open", "Overdue seq", "Discrepancy seq",
            "Req batch", "Req qty", "Req doc", "N/A permitted", "n PIC", "n Result", "n Evidence", "n Verifier",
-           "n Batch", "n N/A just.", "n CA", "CA / qty messages"]
+           "n Batch", "n N/A just.", "n CA", "CA / qty messages", "s Result", "s Evidence", "s Batch", "s N/A just."]
 CK_W = [14, 6, 9, 10, 9, 6, 11, 11, 12, 38, 38, 30, 9, 13, 40, 8, 15, 15, 15,
         14, 13, 40, 16, 9, 9, 22, 40, 9, 26, 17, 18,
-        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20]
+        9, 15, 34, 6, 7, 7, 9, 7, 9, 8, 9, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 20, 12, 12, 12, 12]
 
 
 def build_checks(wb, data):
@@ -468,6 +486,9 @@ def build_checks(wb, data):
         helper = {"T": "AU", "V": "AV", "Z": "AW", "AE": "AX", "W": "AY", "AC": "AZ", "AA": "BA"}
         for src, hcol in helper.items():
             vals[hcol] = "=" + norm(f"{src}{r}")
+        sp = {"V": "BC", "Z": "BD", "W": "BE", "AC": "BF"}
+        for src, hcol in sp.items():
+            vals[hcol] = "=" + spaced(f"{src}{r}")
 
         def bad(x, minlen):
             n = f"{helper[x]}{r}"
@@ -494,28 +515,29 @@ def build_checks(wb, data):
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
             link_chk = (f"IF(AH{pr}=\"N/A {ND} JUSTIFIED\",\"INVALID {ND} preparation row {ck['prep_link']} is N/A\","
-                        f"IF(AND(AR{r}=1,ISNUMBER(X{pr}),X{r}<>X{pr}),\"INVALID {ND} expected qty differs from preparation check {ck['prep_link']}\",")
+                        f"IF(AND(AR{r}=1,ISNUMBER(X{pr}),X{r}<>X{pr},TRIM(U{r})<>\"Pass after CA\"),\"INVALID {ND} expected qty differs from preparation check {ck['prep_link']}: record the load change as a corrective action (Pass after CA)\",")
             link_close = "))"
         valid = (
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing\","
             f"IF({bad('T', 2)},\"INVALID {ND} PIC missing\","
             f"IF({bad('V', 2)},\"INVALID {ND} result / assessment missing\","
-            f"IF(OR({bad('Z', 3)},SUMPRODUCT(--ISNUMBER(SEARCH(L_EvidencePhrase,AW{r})))>0),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
+            f"IF(OR({bad('Z', 3)},{has('L_EvidencePhrase', f'BD{r}')}),\"INVALID {ND} evidence missing, placeholder or not yet on file\","
             f"IF({bad('AE', 2)},\"INVALID {ND} verifier missing\","
             f"IF(AX{r}=AU{r},\"INVALID {ND} verifier must be someone other than the PIC\","
-            f"IF(AND({U}=\"Pass\",SUMPRODUCT(--ISNUMBER(SEARCH(L_ResultBad,AV{r})))>0),\"INVALID {ND} result describes a problem: use Fail, then Pass after CA\","
-            f"IF(AND(AQ{r}=1,{bad('W', 3)}),\"INVALID {ND} batch ID missing or placeholder\","
+            f"IF({has('L_EvidencePhrase', f'BC{r}')},\"INVALID {ND} result not yet available (awaiting / TBC)\","
+            f"IF(AND({U}=\"Pass\",{has('L_ResultBad', f'BC{r}')},NOT({has('L_Negation', f'BC{r}')})),\"INVALID {ND} result describes a problem: use Fail, then Pass after CA\","
+            f"IF(AND(AQ{r}=1,OR({bad('W', 3)},{has('L_EvidencePhrase', f'BE{r}')})),\"INVALID {ND} batch ID missing or placeholder\","
             f"IF(AND(AR{r}=1,OR(NOT(ISNUMBER(X{r})),NOT(ISNUMBER(Y{r})))),\"INVALID {ND} expected/actual qty missing\","
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
-            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))")
+            f"IF(BB{r}<>\"\",BB{r},{rest}){link_close})))))))))))")
         vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",\"N/A {ND} RULE\","
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
             f"IF(AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action still open\","
-            f"IF(AND(NOT({bad('AC', 15)}),NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
-            f"\"INVALID {ND} N/A needs a real justification (15+ chars), PIC and a different verifier\"))),"
+            f"IF(AND(NOT({bad('AC', 15)}),NOT({has('L_EvidencePhrase', f'BF{r}')}),NOT({bad('T', 2)}),NOT({bad('AE', 2)}),TRIM(AE{r})<>TRIM(T{r})),\"N/A {ND} JUSTIFIED\","
+            f"\"INVALID {ND} N/A needs a real, settled justification (15+ chars, not awaiting/TBC), PIC and a different verifier\"))),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
@@ -603,7 +625,7 @@ def build_checks(wb, data):
     ws.print_area = f"A1:AH{last}"
     ws.print_title_cols = "A:C"
     ws.sheet_view.zoomScale = 85
-    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB"):
+    for col in ("AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD", "BE", "BF"):
         ws.column_dimensions[col].hidden = True
     fit_pages(ws, "A", "AH", title_cols_w=29)
     ws.print_title_rows = "4:4"
@@ -635,7 +657,7 @@ def build_documents(wb, data):
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},ISNA(MATCH({norm(x + str(r))},L_Placeholder,0)))"
             return (f"=IFERROR(IF(AND({ok(no, 3)},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)}),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},NOT({has('L_EvidencePhrase', spaced(att + str(r)))})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"J{r}"] = docok("F", "G", "H", "I")
         ws[f"O{r}"] = docok("K", "L", "M", "N")
         ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
