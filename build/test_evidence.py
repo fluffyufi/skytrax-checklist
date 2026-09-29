@@ -46,7 +46,7 @@ BAD3 = [("Photo", "IMG_2231.jpg"), ("Photo", "https://magcs.sharepoint.com/qa/SF
         ("Form / checklist", "XX-0000"), ("Form / checklist", "ABC-123"), ("Form / checklist", "NA-12345"),
         ("Form / checklist", "11111"), ("Form / checklist", "SF-00"), ("Form / checklist", "10OCT26-1415")]
 
-GOOD3 = [("Form / checklist", "SF-2222"), ("Form / checklist", "2210A"), ("Form / checklist", "B12345"),
+GOOD3 = [("Form / checklist", "SF-2222"), ("Form / checklist", "2210A"), ("Form / checklist", "B45213"),
          ("Form / checklist", "No.45213"), ("Link / file path", "https://magcs.sharepoint.com/qa/F11/SF-2210"),
          ("Link / file path", "S:\\QA\\F11\\SF-2210.pdf"), ("Seal no.", "1045521"), ("Photo", "IMG_4410"),
          ("Email", "EM-26-0441"), ("System record", "QP-5521"), ("Form / checklist", "QF-44"), ("Photo", "DSC04410")]

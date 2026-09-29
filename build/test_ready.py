@@ -77,3 +77,9 @@ if __name__ == "__main__":
   run("qty_variance", m([("F02-T12-02", "Y", 11)]))
   run("uplift_blank_not_due", m([("F02-UPL-01", "U", None)]))
   run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("N6", None))
+  run("na_clar_no_outcome", m([("F02-T12-12", "AC", None)]))
+  run("na_clar_no_confirmation", m([("F02-T12-12", "Z", None)]))
+  run("pass_clar_query_raised", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", None),
+                                   ("F02-T12-12", "V", "Query raised with MAGCS planning on 20 Oct")]))
+  run("pass_clar_confirmed", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
+                                ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))

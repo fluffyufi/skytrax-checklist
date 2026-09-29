@@ -694,7 +694,7 @@ def _count(amap, ch):
 
 def _date6(dig):
     """Six digits that read as a 2025-27 date: yymmdd (261008) or ddmmyy (081026)."""
-    mm = f"--MID({dig},3,2)"
+    mm = f"IFERROR(--MID({dig},3,2),0)"
     yrs = '{\"25\",\"26\",\"27\"}'
     return (f"AND(LEN({dig})=6,{mm}>=1,{mm}<=12,OR(ISNUMBER(MATCH(LEFT({dig},2),{yrs},0)),"
             f"ISNUMBER(MATCH(RIGHT({dig},2),{yrs},0))))")
