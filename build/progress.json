@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 12,
-   "note": "Round 11: digit-as-reference too weak and word list too broad; replaced by a structural reference test (ID / keyword+number / file / link / path); round-12 critic running"
+   "round": 13,
+   "note": "Round 12: reference detector too lexical; tightened (letters+3 digits / keyword+number, time-date-place words and own flight number masked); round-13 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -128,6 +128,11 @@
    "piece": "2. Core formulas",
    "round": 11,
    "gap": "'Contains a digit' stood in for 'traceable': 'Checked 14:00' and phone calls passed, while referenced records saying 'expected 24 / actual 24' or 'will not be carried' were blocked."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 12,
+   "gap": "Any letter-then-digit counted as a reference, so flight numbers, galley codes and dates passed ('Checked onboard MH0727'), while real IDs with a space ('DN 88213', 'seal no 88213') failed."
   }
  ],
  "log": [
@@ -282,6 +287,10 @@
   [
    "29 Sep",
    "Logic critic round 11: FAIL; structural evidence-reference test replaces digit rule; round 12 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 12: FAIL (reference detector); tightened rule + Print_Titles de-dup; round 13 launched"
   ]
  ]
 }
