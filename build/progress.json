@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 8,
-   "note": "Round 7: negation handled per word, weak evidence/verifier rejected, prep strictly before loading; ~75 regression cases pass; round-8 critic running"
+   "round": 9,
+   "note": "Round 8: keyword rule oscillating; problem wording now an advisory CHECK WORDING flag, structure (Status, CA, qty) decides; round-9 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -108,6 +108,11 @@
    "piece": "2. Core formulas",
    "round": 7,
    "gap": "Negation counted anywhere in the text: '0 discrepancies' and 'fail-safe' were rejected while 'missing, no spares' passed; 'Visually checked' and verifier 'Self' were accepted."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 8,
+   "gap": "The problem-word rule rejected about a third of natural 'all good' phrasings ('No visible defects', 'No quantity discrepancy') yet passed tallies like 'Missing: 0, Dirty: 2'."
   }
  ],
  "log": [
@@ -246,6 +251,10 @@
   [
    "29 Sep",
    "Logic critic round 7: FAIL (text negation); per-word negation counting added; round 8 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 8: FAIL (keyword rule); made advisory, line breaks normalised; round 9 launched"
   ]
  ]
 }
