@@ -1,5 +1,5 @@
 {
- "updated": "29 Sep 15:40",
+ "updated": "29 Sep 22:40",
  "checks": 744,
  "pieces": [
   {
@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 18,
-   "note": "Round 17 FAIL: ID validator both too loose (dates, times, dummy IDs, links under Photo) and too strict (LS/OCT/0118, HR-2210, names like Toby); a Pass saying 'not delivered' reached READY. Fixed with helper-column shape tests, whole-word role list, blocking problem wording, N/A filler check, A350 tail rule. All 90+ regression cases pass; round-18 logic critic running"
+   "round": 19,
+   "note": "Round 18 FAIL: free-text keyword checks let 'query raised', 'N/A \u2013 unknown' and 'partially loaded' close lines. User chose structured outcomes: new Outcome dropdown (Checks AC) + written-confirmation evidence for clarification lines and N/A; wording checks kept as a safety net. All regression suites green; round-19 logic critic running"
   },
   {
    "name": "3. Dashboard",
@@ -23,8 +23,8 @@
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "run",
-   "round": 8,
-   "note": "Round 7 FAIL: 6 carry/round-trip covers spilled onto page 2. Fixed (covers now \u2264507pt, verified in PDF on all 22 packs); added status / batch / qty / time / verifier prompts and plain-language notes; round-8 render critic running"
+   "round": 9,
+   "note": "Round 8 PASS; its biggest gap (Done/verifier/PIC write-in room) fixed. Outcome prompts added for clarification / N/A lines; round-9 render critic checking"
   },
   {
    "name": "5. Instructions & delivery",
@@ -168,6 +168,11 @@
    "piece": "2. Core sheets",
    "round": 17,
    "gap": "A plain Pass whose own result said 'menu cards not delivered' counted as complete and the flight went READY; the evidence-ID check was also easy to fool and rejected genuine IDs."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 18,
+   "gap": "Whether a clarification or N/A line counted was decided by keyword lists on free text, so 'query raised' or 'N/A \u2013 unknown at this time' could make a flight READY."
   }
  ],
  "log": [
@@ -346,6 +351,10 @@
   [
    "15:40",
    "Render 7 and logic 17 fixes built and pushed (0 formula errors, nesting 45/64); full regression suite green; logic critic 18 and render critic 8 launched on frozen build r24"
+  ],
+  [
+   "22:40",
+   "User chose structured outcomes; Outcome dropdown + confirmation evidence built, all regression suites green on r26; logic critic 19 and render critic 9 launched"
   ]
  ]
 }
