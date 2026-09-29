@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 11,
-   "note": "Round 10: narrow FAIL (unlisted not-yet phrases); strict list + prep-stage negations added; round-11 critic running"
+   "round": 12,
+   "note": "Round 11: digit-as-reference too weak and word list too broad; replaced by a structural reference test (ID / keyword+number / file / link / path); round-12 critic running"
   },
   {
    "name": "3. Dashboard",
@@ -123,6 +123,11 @@
    "piece": "2. Core formulas",
    "round": 10,
    "gap": "Evidence with a reference number plus unlisted not-yet wording ('SF-2210 awaited', 'will be forwarded', 'outstanding') still counted; prep-stage results like 'awaiting loading' were rejected."
+  },
+  {
+   "piece": "2. Core formulas",
+   "round": 11,
+   "gap": "'Contains a digit' stood in for 'traceable': 'Checked 14:00' and phone calls passed, while referenced records saying 'expected 24 / actual 24' or 'will not be carried' were blocked."
   }
  ],
  "log": [
@@ -273,6 +278,10 @@
   [
    "29 Sep",
    "Logic critic round 10: narrow FAIL; strict not-yet list, prep-stage negations, Nil CA fix; round 11 launched"
+  ],
+  [
+   "29 Sep",
+   "Logic critic round 11: FAIL; structural evidence-reference test replaces digit rule; round 12 launched"
   ]
  ]
 }
