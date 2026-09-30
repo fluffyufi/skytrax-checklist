@@ -193,6 +193,7 @@ def build_settings(wb, data):
                     {f"{w} {q}" for w in ("offloaded", "left behind", "not loaded", "not on board")
                      for q in ("0", "nil", "none")} |
                     {"aircraft side and loaded", "aircraft side and uplifted", "aircraft side then loaded",
+                     "aircraft side then stowed", "aircraft side and stowed",
                      "at aircraft side and loaded"})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
     strict = pend + ["awaited", "to be forwarded", "will be forwarded", "to be scanned", "will be scanned", "to be filed",
@@ -223,7 +224,8 @@ def build_settings(wb, data):
           "too dry", "too sweet", "too spicy", "overcooked", "undercooked", "re cook", "recook", "redo",
           "re do", "fewer", "fewer than", "not sealed", "unsealed", "below required", "below count", "sent back",
           "rework", "cold on arrival", "missing from", "superseded", "previous cycle", "old cycle", "doors closed",
-          "exceeds", "exceeded", "out of spec", "outside spec", "outside limits", "above limit", "over limit"] + \
+          "exceeds", "exceeded", "out of spec", "outside spec", "outside limits", "above limit", "over limit",
+          "instead of", "in place of", "substituted with", "replaced with"] + \
          [f"only {n}" for n in range(1, 100)] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
@@ -854,6 +856,7 @@ def build_checks(wb, data):
             "R": f"=Q{r}+({off(f'P{r}', f'Q{r}')})/24",
             "BY": (f"=IF(ISNUMBER(Flights!$AZ${fr}),MAX(Q{r}-UpliftWindowH/24,Flights!$AZ${fr}),"
                   f"Q{r}-UpliftWindowH/24)" if cp == "UPLIFT" and ck.get("due_rule") != "CARRY"
+                  else "" if (cp == "T-7D" and ck["applic"] == "Clarification required")
                   else f"=Q{r}-{early[cp]}/24"),
             "X": exp_qty,
             "AF": f"=IF(AND(ISNUMBER(X{r}),ISNUMBER(Y{r})),Y{r}-X{r},\"\")",
@@ -991,10 +994,10 @@ def build_checks(wb, data):
         vals["BB"] = "=" + msg
         if ck.get("prep_link"):
             pq = rowmap[ck["prep_link"]]
-            clar_q = (f"AND(N{r}=\"Clarification required\",LEFT(AH{pq},8)<>\"COMPLETE\","
-                      f"AH{pq}<>\"N/A {ND} JUSTIFIED\")")
+            clar_q = (f"AND(N{r}=\"Clarification required\",TRIM(AC{r})=\"\",TRIM(AC{pq})=\"\","
+                      f"LEFT(AH{pq},8)<>\"COMPLETE\",AH{pq}<>\"N/A {ND} JUSTIFIED\")")
         else:
-            clar_q = f"N{r}=\"Clarification required\""
+            clar_q = f"AND(N{r}=\"Clarification required\",TRIM(AC{r})=\"\")"
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",IF(OR({U}=\"\",{U}=\"N/A\",{U}=\"Not started\"),\"N/A {ND} RULE\","
             f"\"INVALID {ND} this check does not apply to this aircraft: clear the status (or correct the fleet on Flights)\"),"
@@ -1129,9 +1132,9 @@ def build_documents(wb, data):
           "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. A row is ON FILE only with a real doc no, revision, a revision date between 2020 and the flight date, and an attachment location. Enter doc no, revision, "
           "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.",
           "C2:I2", 99)
-    labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date",
+    labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date (issued or received, whichever later)",
               "GLD attachment (link / location)", "GLD status", "Menu checklist doc no", "Menu checklist revision",
-              "Menu checklist rev date", "Menu checklist attachment (link / location)", "Menu checklist status",
+              "Menu checklist rev date (issued or received, whichever later)", "Menu checklist attachment (link / location)", "Menu checklist status",
               "Outstanding", "Notes"]
     widths = [7, 9, 10, 9, 9, 16, 10, 11, 34, 14, 16, 10, 11, 34, 14, 10, 40]
     header(ws, 4, labels, widths, height=42)
@@ -1327,7 +1330,7 @@ INSTR = [
     ("b", "Completion % = complete ÷ in-scope checks; justified and rule-based N/A are removed from both, so they neither raise nor lower the rate."),
     ("b", "Preparation checks (T-12H PREP, at the caterer) never confirm loading. Physical uplift rows (UPLIFT) are only accepted when the completion time is inside the uplift window before STD (Settings B7) – an earlier entry shows 'INVALID – before uplift window'."),
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),
-    ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present)."),
+    ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present). The revision date is the date the revision was issued or received at the station, whichever is later: every line checked 'vs GLD' or 'vs menu checklist' before that date is INVALID and must be re-checked against the current revision."),
     ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS (GLD / menu checklist not on file), – CLARIFICATION (reference question open), then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
