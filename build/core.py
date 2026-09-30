@@ -222,7 +222,8 @@ def build_settings(wb, data):
           "not acknowledged", "unacknowledged", "outstanding", "still at", "cracked", "unusable", "too salty",
           "too dry", "too sweet", "too spicy", "overcooked", "undercooked", "re cook", "recook", "redo",
           "re do", "fewer", "fewer than", "not sealed", "unsealed", "below required", "below count", "sent back",
-          "rework", "cold on arrival", "missing from"] + \
+          "rework", "cold on arrival", "missing from", "superseded", "previous cycle", "old cycle", "doors closed",
+          "exceeds", "exceeded", "out of spec", "outside spec", "outside limits", "above limit", "over limit"] + \
          [f"only {n}" for n in range(1, 100)] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
@@ -443,7 +444,10 @@ def build_flights(wb, data, n_checks):
                 default = f"AA{r}-MIN({mb})/24"
             ws[f"AY{r}"] = f"=ROUND((IF(ISNUMBER(AX{r}),AX{r},{default})-UpliftWindowH/24)*1440,0)/1440"
             mb2 = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
-            ws[f"AZ{r}"] = f"=ROUND((AY{r}+UpliftWindowH/24+MIN({mb2})/24)*1440,0)/1440"
+            az = f"ROUND((AY{r}+UpliftWindowH/24+MIN({mb2})/24)*1440,0)/1440"
+            # without an agenda candidate the 'latest possible' carrier only caps preparation dues; it is not used to
+            # reject on-board checks (the carrying-flight line itself must still be resolved before READY)
+            ws[f"AZ{r}"] = f"={az}" if prior else f"=IF(ISNUMBER(AX{r}),{az},\"\")"
             ws[f"AX{r}"].comment = Comment(
                 "Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
                 "loading deadline assumes the latest possible departure (STD minus shortest agenda block).", "MAGCS")
@@ -913,7 +917,13 @@ def build_checks(wb, data):
             n = f"{helper[x]}{r}"
             return f"OR(LEN({n})<{minlen},ISNUMBER(MATCH({n},L_Placeholder,0)))"
         if ck.get("due_rule") == "CARRY":
-            cutoff, cut_msg = f"Flights!$AY${fr}+UpliftWindowH/24", "completed after the carrying flight left KUL"
+            kl = next((rowmap[x["check_id"]] for x in data["checks"] if x["flight_id"] == ck["flight_id"]
+                       and x.get("due_rule") == "CARRY" and x["check_type"] == "Physical uplift" and not x["uplift_stn"]), None)
+            cutoff = f"Flights!$AY${fr}+UpliftWindowH/24"
+            if kl:
+                cutoff = (f"MIN({cutoff},IF(AND(OR(TRIM(U{kl})=\"Pass\",TRIM(U{kl})=\"Pass after CA\"),ISNUMBER(AG{kl})),"
+                          f"AG{kl},9E+99))")
+            cut_msg = "completed after the items were loaded at KUL / the carrying flight left KUL"
         else:
             cutoff = f"IF(ISNUMBER(Flights!$BA${fr}),MIN(Flights!$BA${fr},Flights!$AA${fr}),Flights!$AA${fr})"
             cut_msg = "completed after loading / departure (cannot establish readiness)"
@@ -923,7 +933,7 @@ def build_checks(wb, data):
                f"IF(AND(LEN(BA{r})>=2,ISNA(MATCH(LEFT(BA{r},255),L_Placeholder,0)),TRIM(AB{r})=\"\"),\"INVALID {ND} CA status missing for the recorded corrective action\",\"\")&"
                f"IF(AND({U}=\"Pass after CA\",OR({bad('AA', 5)},TRIM(AB{r})<>\"Closed\")),\"INVALID {ND} corrective action not recorded/closed\",\"\")")
         rest = (f"{doc_chk}"
-                f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
+                f"IF(AG{r}>AsOfUTC,IF(Settings!$B$4<>\"\",IF(AsOfUTC>Q{r},\"OVERDUE\",\"OPEN\"),\"INVALID {ND} completion time is in the future\"),"
                 f"IF(AND(ISNUMBER(BY{r}),AG{r}<BY{r}),IF(H{r}=\"Physical uplift\",\"INVALID {ND} before uplift window (cannot confirm loading)\","
                 f"\"INVALID {ND} before valid window\"),"
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
@@ -941,6 +951,7 @@ def build_checks(wb, data):
         carry_follow = bool(ck.get("req_carry")) or (ck.get("due_rule") == "CARRY" and not ck["uplift_stn"])
         kul_all_na = (("AND(" + ",".join(f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows) + ")")
                       if (kul_rows and carry_follow) else "FALSE")  # only on the follow-on rows (no self-reference)
+        written_q = "FALSE" if ck.get("prep_link") else f"N{r}=\"Clarification required\""
         na_link, na_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -958,7 +969,7 @@ def build_checks(wb, data):
             f"IF(OR(AX{r}=AU{r},CE{r}=1),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
             f"IF(BG{r}=1,\"INVALID {ND} result describes a problem: record Fail, then Pass after CA (or reword if it is not a problem)\","
-            f"IF(AND(N{r}=\"Clarification required\",ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0))),\"INVALID {ND} a clarification is resolved only by a written confirmation: evidence type Email, Memo / letter, Document, System record or Link\","
+            f"IF(AND({written_q},ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0))),\"INVALID {ND} a clarification is resolved only by a written confirmation: evidence type Email, Memo / letter, Document, System record or Link\","
             f"IF(AND(N{r}=\"Clarification required\",TRIM(AC{r})<>INDEX(L_Outcome,1)),\"INVALID {ND} clarification not resolved: choose 'Confirmed – applies / carried as listed' in Outcome (AC) and cite the written confirmation as evidence\","
             f"IF(AND(TRIM(AC{r})<>\"\",TRIM(AC{r})<>INDEX(L_Outcome,1)),\"INVALID {ND} Outcome (AC) says not carried / N/A but the status is Pass\","
             f"IF(OR(LEN(AV{r})<8,LEN(TRIM(BC{r}))-LEN(SUBSTITUTE(TRIM(BC{r}),\" \",\"\"))<1),\"INVALID {ND} result too brief: say what was checked and found (e.g. 'Panel of 3, all 4 dishes to spec')\","
@@ -968,6 +979,11 @@ def build_checks(wb, data):
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
             f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))))))))")
+        itm = ck["item"].lower()
+        for key, dcol, dname in (("gld", "H", "GLD"), ("menu checklist", "M", "menu checklist")):
+            if key in itm and not ck["req_doc"]:
+                msg += (f"&IF(AND(ISNUMBER(Documents!${dcol}${fr}),Documents!${dcol}${fr}>AG{r}),\"INVALID {ND} {dname} "
+                        f"revised after this check (Documents rev date): re-check against the current revision\",\"\")")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
@@ -991,7 +1007,7 @@ def build_checks(wb, data):
             f"IF(AND(AT{r}<>2,OR(BL{r}=0,ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0)))),\"INVALID {ND} N/A on a clarification needs the written confirmation as evidence (Email, Memo / letter, Document, System record or Link, with its ID)\","
             f"IF(AND(AT{r}=3,NOT({kul_all_na})),\"INVALID {ND} N/A here only once every KUL-sourced item of this flight is confirmed not carried (N/A)\","
             f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing (when the N/A was confirmed)\","
-            f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
+            f"IF(AG{r}>AsOfUTC,IF(Settings!$B$4<>\"\",IF(AsOfUTC>Q{r},\"OVERDUE\",\"OPEN\"),\"INVALID {ND} completion time is in the future\"),"
             f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} N/A confirmed after departure (cannot establish readiness)\","
             f"{na_link}"
             f"IF(AND(NOT({bad('T', 2)}),BR{r}>=3,NOT({bad('AE', 2)}),BS{r}>=3,"
@@ -1134,7 +1150,7 @@ def build_documents(wb, data):
                      f"ISNA(MATCH(TRIM({no}{r}),{{\"12345\",\"123456\",\"00000\",\"000000\",\"11111\",\"99999\"}},0)),"
                      f"LOWER(TRIM({no}{r}))<>LOWER(Flights!$F${fr}),NOT(AND(LEFT(LOWER(TRIM({no}{r})),2)=\"mh\",ISNUMBER(--MID(TRIM({no}{r}),3,6)))))")
             return (f"=IFERROR(IF(AND({ok(no, 3)},{docno},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},OR({ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},SUMPRODUCT(--ISNUMBER(SEARCH({{\"binder\",\"cabinet\",\"shelf\",\"filed in\",\"file room\",\"lever arch\"}},{att}{r})))>0),NOT({pending(('X' if att == 'I' else 'Y') + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+                    f"{dt}{r}<=Flights!$I${fr},{ok(att, 5)},OR({ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},SUMPRODUCT(--ISNUMBER(SEARCH({{\"binder\",\"cabinet\",\"shelf\",\"filed in\",\"file room\",\"lever arch\"}},{att}{r})))>0),NOT({pending(('X' if att == 'I' else 'Y') + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
         ws[f"X{r}"] = "=" + spaced(f"I{r}")
         ws[f"Y{r}"] = "=" + spaced(f"N{r}")
         ws[f"V{r}"] = "=" + masked(f"X{r}", f"Flights!$F${fr}", 1)

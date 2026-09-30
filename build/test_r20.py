@@ -55,7 +55,49 @@ def tailqty(tail, x):
     return prep
 
 
-if __name__ == "__main__":
+def r22_gld_revised(wb, ck, rows):
+    T.STD = datetime(2026, 10, 9, 21, 50); T.fill(ck, wb["Documents"])
+    wb["Documents"]["H6"] = datetime(2026, 10, 9)
+    return ["F02-T12-03", "F02-T12-07", "F02-UPL-02"]
+
+
+def r22_kul_prep_after_loading(wb, ck, rows):
+    import test_logic2 as L
+    L.fill_f11(wb)
+    ck[f"AD{rows['F11-T12-01']}"] = datetime(2026, 10, 12, 10, 30)  # KUL, after the KUL loading line (10:00)
+    return ["F11-T12-01", "F11-UPL-03"]
+
+
+def r22_f05_not_carried_no_ax(wb, ck, rows):
+    T.STD = wb["Flights"]["I9"].value; T.fill(ck, wb["Documents"], fid="F05")
+    r = rows["F05-UPL-03"]
+    na(ck, r, T.STD - timedelta(days=2))
+    return ["F05-T7-10", "F05-UPL-03", "F05-UPL-01", "F05-UPL-02"]
+
+
+def r22_onboard_clar_photo(wb, ck, rows):
+    T.STD = datetime(2026, 10, 9, 21, 50); T.fill(ck, wb["Documents"])
+    for c in ("F02-T12-12", "F02-UPL-07"):
+        r = rows[c]; ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"
+        ck[f"V{r}"] = "Table cloth confirmed and counted"
+    r = rows["F02-UPL-07"]; ck[f"S{r}"] = "Photo"; ck[f"Z{r}"] = "IMG_2231"
+    return ["F02-T12-12", "F02-UPL-07"]
+
+
+def r22_asof_review(wb, ck, rows):
+    T.STD = datetime(2026, 10, 9, 21, 50); T.fill(ck, wb["Documents"])
+    wb["Settings"]["B4"] = datetime(2026, 10, 9, 5, 0)  # before the T-12H prep (08-Oct 20:50 local = 12:50Z) ... and uplift
+    return ["F02-T12-01", "F02-UPL-01"]
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r22":
+    states("r22_gld_revised", r22_gld_revised)
+    states("r22_kul_prep_after_loading", r22_kul_prep_after_loading)
+    states("r22_f05_not_carried_no_ax", r22_f05_not_carried_no_ax)
+    states("r22_onboard_clar_photo", r22_onboard_clar_photo)
+    states("r22_asof_review", r22_asof_review)
+
+if __name__ == "__main__" and len(sys.argv) == 1:
     states("carry_na_all_items_na", f05(True))
     states("carry_na_item_open", f05(False))
     states("na_after_departure", timing(lambda std: std + timedelta(days=2)))
