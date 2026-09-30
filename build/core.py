@@ -216,7 +216,10 @@ def build_settings(wb, data):
           "incomplete", "not complete", "not completed", "except", "but no", "but not", "out of date", "mouldy",
           "moldy", "mould", "mold", "inoperative", "not working", "unserviceable", "spilled", "spilt", "spillage",
           "leak", "leaked", "not all", "not prepared", "too high", "too low", "too warm", "too cold", "left at",
-          "missed", "not boarded", "after departure", "arrived late", "not ready", "unfit"] + \
+          "missed", "not boarded", "after departure", "arrived late", "not ready", "unfit", "not assigned",
+          "not acknowledged", "unacknowledged", "outstanding", "still at", "cracked", "unusable", "too salty",
+          "too dry", "too sweet", "too spicy", "overcooked", "undercooked", "re cook", "recook", "redo",
+          "re do"] + \
          [f"only {n}" for n in range(1, 100)] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
@@ -652,7 +655,7 @@ NOT_ID_PREFIX = ["mh", "rev", "revision", "ver", "version", "v", "r", "q", "fy",
                  "mob", "day", "wk", "week", "utc", "gmt", "myt", "lt"]
 DUMMY_LETTERS = ["x", "xx", "xxx", "xxxx", "xxxxx", "abc", "abcd", "nil", "na", "nan", "test", "tbc", "tba", "tbd",
                  "dummy", "sample", "example", "eg", "zz", "zzz", "none", "null", "xyz", "qwe", "asd", "id", "ref"]
-DUMMY_DIGITS = ["123", "1234", "12345", "123456", "1234567", "12345678", "0123", "01234", "012345", "98765",
+DUMMY_DIGITS = ["12345", "123456", "1234567", "12345678", "01234", "012345", "98765",
                 "987654", "54321"]
 SEPS = ["-", "_", "/", ".", "#", "\\\\", ":", " ", "(", ")"]
 
@@ -920,6 +923,9 @@ def build_checks(wb, data):
             link_chk = (f"IF(AH{pr}=\"N/A {ND} JUSTIFIED\",\"INVALID {ND} preparation row {ck['prep_link']} is N/A\","
                         f"IF(AND(AR{r}=1,ISNUMBER(X{pr}),X{r}<>X{pr},TRIM(U{r})<>\"Pass after CA\"),\"INVALID {ND} expected qty differs from preparation check {ck['prep_link']}: record the load change as a corrective action (Pass after CA)\",")
             link_close = "))"
+        kul_rows = [rowmap[x["check_id"]] for x in data["checks"]
+                     if x["flight_id"] == ck["flight_id"] and x["uplift_stn"] == "KUL" and not x.get("req_carry")]
+        kul_all_na = ("AND(" + ",".join(f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows) + ")") if kul_rows else "FALSE"
         na_link, na_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -947,27 +953,37 @@ def build_checks(wb, data):
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
             f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))))))))")
+        if "Qty per tail: A350 280 pcs, A359 260 pcs" in (ck["note"] or ""):
+            tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
+            msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
+                    f"tail: 280 for 9M-MAH, 260 for an A359 (check Tail/Reg on Flights)\",\"\")")
         vals["BB"] = "=" + msg
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",IF(OR({U}=\"\",{U}=\"N/A\",{U}=\"Not started\"),\"N/A {ND} RULE\","
             f"\"INVALID {ND} this check does not apply to this aircraft: clear the status (or correct the fleet on Flights)\"),"
             f"IF({U}=\"N/A\",IF(AT{r}=0,\"INVALID {ND} N/A not permitted for this check\","
             f"IF(AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action still open\","
-            f"IF(OR(AND(AT{r}=1,TRIM(AC{r})<>INDEX(L_Outcome,2),TRIM(AC{r})<>INDEX(L_Outcome,3)),"
+            f"IF(OR(AND(AT{r}<>2,TRIM(AC{r})<>INDEX(L_Outcome,2),TRIM(AC{r})<>INDEX(L_Outcome,3)),"
             f"AND(AT{r}=2,TRIM(AC{r})<>INDEX(L_Outcome,4))),"
             f"\"INVALID {ND} N/A needs its reason chosen in Outcome (AC): \"&IF(AT{r}=2,\"'Refreshment service – no printed menu card'\","
             f"\"'Confirmed – not carried on this sector' or '… not applicable to this aircraft / tail'\"),"
-            f"IF(AND(AT{r}=1,OR(BL{r}=0,ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0)))),\"INVALID {ND} N/A on a clarification needs the written confirmation as evidence (Email, Memo / letter, Document, System record or Link, with its ID)\","
+            f"IF(AND(AT{r}<>2,OR(BL{r}=0,ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0)))),\"INVALID {ND} N/A on a clarification needs the written confirmation as evidence (Email, Memo / letter, Document, System record or Link, with its ID)\","
+            f"IF(AND(AT{r}=3,NOT({kul_all_na})),\"INVALID {ND} N/A here only once every KUL-sourced item of this flight is confirmed not carried (N/A)\","
+            f"IF(NOT(ISNUMBER(AD{r})),\"INVALID {ND} completion time missing (when the N/A was confirmed)\","
+            f"IF(AG{r}>AsOfUTC,\"INVALID {ND} completion time is in the future\","
+            f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} N/A confirmed after departure (cannot establish readiness)\","
             f"{na_link}"
             f"IF(AND(NOT({bad('T', 2)}),BR{r}>=3,NOT({bad('AE', 2)}),BS{r}>=3,"
             f"TRIM(AE{r})<>TRIM(T{r}),AX{r}<>AU{r},CE{r}=0),\"N/A {ND} JUSTIFIED\","
-            f"\"INVALID {ND} N/A needs a named PIC and a different named verifier\")))){na_close}),"
+            f"\"INVALID {ND} N/A needs a named PIC and a different named verifier\")))))))){na_close}),"
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
             f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
         refresh_menu = ck["category"] == "Menu" and "Refreshment service" in ck["note"]
-        na_ok = 2 if refresh_menu else int(ck["applic"] == "Clarification required" and not ck.get("req_carry"))
+        carry_follow = bool(ck.get("req_carry")) or (ck.get("due_rule") == "CARRY" and not ck["uplift_stn"])
+        na_ok = (2 if refresh_menu else 3 if carry_follow
+                 else int(ck["applic"] == "Clarification required"))
         vals["AT"] = na_ok
         vals["AH"] = f"=IFERROR({state[1:]},\"INVALID {ND} error value in an input cell\")"
         vals["AI"] = f"=IF(OR(AH{r}=\"N/A {ND} RULE\",AH{r}=\"N/A {ND} JUSTIFIED\"),0,1)"
@@ -1095,6 +1111,7 @@ def build_documents(wb, data):
         def docok(no, rev, dt, att):
             ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
             docno = (f"AND(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{no}{r})))>0,"
+                     f"ISNA(MATCH(TRIM({no}{r}),{{\"12345\",\"123456\",\"00000\",\"000000\",\"11111\",\"99999\"}},0)),"
                      f"LOWER(TRIM({no}{r}))<>LOWER(Flights!$F${fr}),NOT(AND(LEFT(LOWER(TRIM({no}{r})),2)=\"mh\",ISNUMBER(--MID(TRIM({no}{r}),3,6)))))")
             return (f"=IFERROR(IF(AND({ok(no, 3)},{docno},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
                     f"{dt}{r}<=Flights!$D${fr},{ok(att, 5)},OR({ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},SUMPRODUCT(--ISNUMBER(SEARCH({{\"binder\",\"cabinet\",\"shelf\",\"filed in\",\"file room\",\"lever arch\"}},{att}{r})))>0),NOT({pending(('X' if att == 'I' else 'Y') + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
