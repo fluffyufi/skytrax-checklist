@@ -91,6 +91,33 @@ def name(wb, nm, ref):
 
 
 # ------------------------------------------------------------------ Settings
+SQ_FIRST_ROW = 27  # Settings: station-confirmation table data rows start here (header on 26)
+
+
+def station_questions(data):
+    """Open 'where is it loaded' questions: prep line + on-board line whose uplift station the reference leaves open.
+    Returns one dict per question with its Settings row, the two possible stations and the shortest agenda block
+    from the alternative station to the departure station (for the carrying flight's arrival)."""
+    fl = {f["id"]: f for f in data["flights"]}
+    out = []
+    for ck in data["checks"]:
+        f = fl[ck["flight_id"]]
+        if ck["check_type"] != "Preparation" or ck["applic"] != "Clarification required":
+            continue
+        if ck["item"].startswith("Toiletry kits") and ck["uplift_stn"] == "LHR or KUL - confirm":
+            alt = "LHR"
+        elif ck["item"].startswith("Sales cart") and f["dep"] != "KUL" and ck["uplift_stn"] == "Not stated in reference":
+            alt = "KUL"
+        else:
+            continue
+        upl = next(x["check_id"] for x in data["checks"] if x.get("prep_link") == ck["check_id"])
+        blocks = [g["block_h"] for g in data["flights"] if g["dep"] == alt and g["arr"] == f["dep"]]
+        out.append(dict(qid=f"SQ{len(out) + 1}", flight=f["id"], flt=f["flt"], item=ck["item"].replace(" - prepared", ""),
+                        prep=ck["check_id"], upl=upl, dep=f["dep"], default=ck["station"], alt=alt,
+                        block=min(blocks), row=SQ_FIRST_ROW + len(out)))
+    return out
+
+
 def build_settings(wb, data):
     ws = wb.create_sheet("Settings")
     title(ws, "Settings & reference tables", "Yellow cells are editable. Everything else is referenced by formulas.")
@@ -274,6 +301,40 @@ def build_settings(wb, data):
     for i, v in enumerate(EVIDENCE_TYPES):
         ws.cell(4 + i, 21, v).font = f(9)
     name(wb, "L_EvidenceType", f"Settings!$U$4:$U${3 + len(EVIDENCE_TYPES)}")
+    # ---------------- station confirmations: where an item with an open uplift station is actually loaded
+    sq = station_questions(data)
+    hdr = SQ_FIRST_ROW - 1
+    ws.cell(hdr - 1, 1, "STATION CONFIRMATIONS – where is the item loaded? (answer from MAGCS / caterer; yellow = input)").font = f(10, True, NAVY)
+    for c, h in enumerate(["Question / flight", "Item", "Lines", "Departure stn", "Other possible stn",
+                           "CONFIRMED uplift stn", "Carrying flight departs that stn (UTC)", "Shortest block (h)",
+                           "Carrier arrives (UTC)", "Status"], 1):
+        cell = ws.cell(hdr, c, h)
+        cell.font = f(9, True, "FFFFFF"); cell.fill = PatternFill("solid", fgColor=NAVY); cell.alignment = WRAP; cell.border = BORDER
+    ws.row_dimensions[hdr].height = 40
+    for q in sq:
+        r = q["row"]
+        vals = [f"{q['qid']}  {q['flight']} {q['flt']}", q["item"], f"{q['prep']} / {q['upl']}", q["dep"], q["alt"], None, None,
+                round(q["block"], 2), f"=IF(ISNUMBER(G{r}),G{r}+H{r}/24,\"\")",
+                (f"=IF(TRIM(F{r})=\"\",\"OPEN – confirm the uplift stn (reference default: {q['default']})\","
+                 f"IF(TRIM(F{r})=D{r},\"Loaded at departure stn\",IF(ISNUMBER(G{r}),\"Loaded at \"&F{r}&\" – carried on the inbound flight\","
+                 f"\"Enter the carrying flight's departure from \"&F{r}&\" (UTC)\")))")]
+        for c, v in enumerate(vals, 1):
+            cell = ws.cell(r, c, v)
+            cell.font = f(9); cell.border = BORDER; cell.alignment = WRAP
+        for c in (6, 7):
+            ws.cell(r, c).fill = F_INPUT
+        ws.cell(r, 7).number_format = DT
+        ws.cell(r, 9).number_format = DT
+        dvs = DataValidation(type="list", formula1=f'"{q["dep"]},{q["alt"]}"', allow_blank=True, showErrorMessage=True,
+                             errorTitle="Uplift station", error=f"Choose {q['dep']} or {q['alt']}.")
+        dvs.add(f"F{r}")
+        ws.add_data_validation(dvs)
+        dvg = DataValidation(type="decimal", operator="between", formula1="46204", formula2="46419", allow_blank=True,
+                             showErrorMessage=True, error="Enter the carrying flight's departure as a UTC date-time.")
+        dvg.add(f"G{r}")
+        ws.add_data_validation(dvg)
+        ws.row_dimensions[r].height = 30
+
     for col, title_txt, items, nm in (("X", "Outcome (Checks AC) – clarification lines and N/A", OUTCOMES, "L_Outcome"),
                                       ("V", "Role / title words – not a person's name (PIC, verifier)", ROLE_WORDS, "L_Role"),):
         ws[f"{col}3"] = title_txt
@@ -830,6 +891,10 @@ def build_checks(wb, data):
     n = len(data["checks"])
     last = 4 + n
     rowmap = {ck["check_id"]: 5 + i for i, ck in enumerate(data["checks"])}
+    sqmap = {}
+    for q in station_questions(data):
+        sqmap[q["prep"]] = q
+        sqmap[q["upl"]] = q
     for i, ck in enumerate(data["checks"]):
         r = 5 + i
         fr = 5 + fidx[ck["flight_id"]]
@@ -863,6 +928,17 @@ def build_checks(wb, data):
             "AG": f"=IF(ISNUMBER(AD{r}),AD{r}-({off('P' + str(r), '(AD' + str(r) + '-' + stdoff('P' + str(r)) + '/24)')})/24,\"\")",
             "AQ": ck["req_batch"], "AR": ck["req_qty"], "AS": ck["req_doc"] if ck["req_doc"] else 0,
         }
+        sq = sqmap.get(ck["check_id"])
+        if sq:  # uplift station confirmed on Settings (station confirmations) – the line follows the answer
+            sr = sq["row"]
+            conf, carr, arr = f"TRIM(Settings!$F${sr})", f"Settings!$G${sr}", f"Settings!$I${sr}"
+            moved = f"AND({conf}<>\"\",{conf}<>\"{sq['dep']}\")"
+            if ck["check_type"] == "Preparation":
+                vals["P"] = f"=IF({conf}=\"\",\"{sq['default']}\",{conf})"
+                base = vals["Q"][1:]
+                vals["Q"] = f"=IF(AND({moved},ISNUMBER({carr})),MIN({base},{carr}-UpliftWindowH/24),{base})"
+            else:
+                vals["BY"] = f"=MAX({vals['BY'][1:]},IF(AND({moved},ISNUMBER({arr})),{arr},0))"
         # doc linkage: T7 GLD row = req_doc 1, menu checklist row = 2
         if ck["req_doc"]:
             vals["AS"] = 1 if "GLD" in ck["item"] else 2
@@ -930,6 +1006,9 @@ def build_checks(wb, data):
         else:
             cutoff = f"IF(ISNUMBER(Flights!$BA${fr}),MIN(Flights!$BA${fr},Flights!$AA${fr}),Flights!$AA${fr})"
             cut_msg = "completed after loading / departure (cannot establish readiness)"
+        if sq and ck["check_type"] == "Preparation":
+            cutoff = f"IF({moved},IF(ISNUMBER({carr}),{carr},Flights!$AA${fr}),{cutoff})"
+            cut_msg = "completed after loading (at the departure stn, or after the carrying flight left the confirmed stn)"
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass after CA\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} after the corrective action the actual qty must equal expected (update Actual)\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass\",TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),\"INVALID {ND} corrective action not closed: use Fail, then Pass after CA\",\"\")&"
@@ -987,6 +1066,10 @@ def build_checks(wb, data):
             if key in itm and not ck["req_doc"]:
                 msg += (f"&IF(AND(ISNUMBER(Documents!${dcol}${fr}),Documents!${dcol}${fr}>AD{r}),\"INVALID {ND} {dname} "
                         f"revised after this check (Documents rev date): re-check against the current revision\",\"\")")
+        if sq and ck["check_type"] == "Preparation":
+            msg += (f"&IF({conf}=\"\",\"INVALID {ND} confirm where this item is loaded (Settings, station confirmations {sq['qid']})\","
+                    f"IF(AND({moved},NOT(ISNUMBER({carr}))),\"INVALID {ND} enter the carrying flight's departure from the confirmed stn (Settings {sq['qid']})\","
+                    f"IF(AND({moved},OR({arr}>Flights!$AA${fr},{carr}<Flights!$AA${fr}-3)),\"INVALID {ND} carrying flight ({sq['qid']}) must arrive before STD and leave within 3 days of it\",\"\")))")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
@@ -1350,6 +1433,7 @@ INSTR = [
     ("h2", "Outstanding inputs at issue"),
     ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet, Dashboard and each P-sheet cover). Record doc no, revision, revision date and file location on Documents; in Excel you may also insert the image in the area after each P-sheet's checklist."),
     ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights (9M-MAB … 9M-MAH). An A350 flight cannot be READY until its tail is entered (counted as an open clarification)."),
+    ("b", "Open uplift-station questions (A350 toiletry kits on KUL-LHR legs, sales carts on return legs – 7 in all) are answered on Settings, 'Station confirmations' (row 26 onward): choose the CONFIRMED uplift stn, and if it is not the departure station enter the carrying flight's departure from that station (UTC). The preparation line then uses that station's time zone, due time and loading cap (it must be done before the carrying flight leaves), and the on-board line cannot be confirmed before the carrier arrives. Until answered, the preparation line cannot be passed."),
     ("b", "Caterer per station, ISOP revision numbers and expected meal/equipment quantities come from the caterer/MAGCS documents – not invented here."),
     ("h2", "Illustrative entry (example only – not recorded anywhere in this workbook)"),
     ("p", "Check F02-T24-01 · PIC: A. Rahman · Status: Pass · Result: Panel score 4.5/5, texture & temperature OK · Batch ID: PASB-261008-BC-017 · "

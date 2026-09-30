@@ -90,6 +90,38 @@ def r22_asof_review(wb, ck, rows):
     return ["F02-T12-01", "F02-UPL-01"]
 
 
+def passline(ck, r, when, result="Confirmed with MAGCS, item prepared and counted"):
+    for k, v in (("U", "Pass"), ("AC", "Confirmed – applies / carried as listed"), ("S", "Email"), ("Z", f"EM-26-{1000 + r}"),
+                 ("T", "A. Rahman"), ("AE", "N. Ismail"), ("V", result), ("AD", when)):
+        ck[f"{k}{r}"] = v
+
+
+def sq_case(conf, carrier, prep_local, upl_local=None, flight="F06"):
+    def prep(wb, ck, rows):
+        st = wb["Settings"]
+        r = next(r for r in range(27, 40) if str(st[f"A{r}"].value or "").split("  ")[-1].startswith(flight))
+        st[f"F{r}"] = conf; st[f"G{r}"] = carrier
+        pid = f"{flight}-T12-08" if flight == "F06" else f"{flight}-T12-10"
+        uid = f"{flight}-UPL-03" if flight == "F06" else f"{flight}-UPL-05"
+        passline(ck, rows[pid], prep_local)
+        ids = [pid]
+        if upl_local:
+            passline(ck, rows[uid], upl_local, "Toiletry kits counted on board, all to GLD"); ids.append(uid)
+        return ids
+    return prep
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r23":
+    states("sq_unanswered", sq_case(None, None, datetime(2026, 10, 15, 10, 20)))
+    states("sq_kul_dep_stn", sq_case("KUL", None, datetime(2026, 10, 15, 10, 20)))
+    states("sq_lhr_prep_before_carrier", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 14, 12, 0),
+                                                 datetime(2026, 10, 15, 20, 0)))
+    states("sq_lhr_prep_after_carrier", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 15, 1, 0)))
+    states("sq_lhr_onboard_before_arrival", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 14, 12, 0),
+                                                    datetime(2026, 10, 15, 18, 0)))
+    states("sq_lhr_no_carrier", sq_case("LHR", None, datetime(2026, 10, 14, 12, 0)))
+    states("sq_f19_kul_no_carrier", sq_case("KUL", None, datetime(2026, 10, 28, 20, 0), flight="F19"))
+
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r22":
     states("r22_gld_revised", r22_gld_revised)
     states("r22_kul_prep_after_loading", r22_kul_prep_after_loading)
