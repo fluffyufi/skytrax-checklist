@@ -9,7 +9,7 @@ It covers all 22 legs of the *Skytrax Agenda 2026*, across 3 itineraries. Requir
 2. **Flights.** For each leg, enter the tail/registration (N), caterer (X) and flight PIC (Y).
    - The tail matters for A350 legs: 9M-MAH and the A359s differ in blanket quantity and sales-cart position. An A350 leg cannot be READY until its tail is entered.
    - Six legs carry items loaded at KUL: F05, F07, F11, F13, F17 and F21. For these, enter the carrying flight's KUL departure time in UTC in column AX. Until you do, the workbook assumes the agenda's candidate flight.
-3. **Documents.** For each flight, record the galley loading diagram and menu checklist: document number, revision, revision date and file location.
+3. **Documents.** For each flight, record the galley loading diagram and menu checklist: document number, revision, revision date and file location. The revision date is the date the revision was issued or received at the station, whichever is later. Any line checked "vs GLD" or "vs menu checklist" before that date is rejected and must be re-checked.
    - None were supplied, so all 44 start as **OUTSTANDING**.
    - A flight cannot be READY while any of them is outstanding.
 4. **Checks.** This is the only place to record results; use the yellow columns T–AE.
@@ -27,7 +27,7 @@ It covers all 22 legs of the *Skytrax Agenda 2026*, across 3 itineraries. Requir
 - **Due times.** T-7D, T-24H and T-12H are measured back from STD in UTC and shown in local time at the check station. This handles the LHR switch from BST to GMT on 25 Oct and Adelaide's summer time (ACDT) from 4 Oct.
 - **What never counts:** a blank check, a placeholder or "not yet on file" phrase ('-', 'TBC', 'photo to follow', 'done', …), a completion time in the future, before its valid window, after loading or after departure, or a Pass with an unresolved quantity variance or an open corrective action.
 - **T-12H is split in two.** The preparation check at the caterer (T-12H PREP) never confirms loading. The physical uplift check (UPLIFT) is valid only inside the uplift window before STD, and only after any carrying flight could have arrived.
-- **Clarifications and N/A use the Outcome dropdown (Checks column AC).** A clarification line is resolved only by choosing "Confirmed – applies / carried as listed" (status Pass) or "Confirmed – not carried on this sector" / "… not applicable to this aircraft / tail" (status N/A), with the written confirmation cited as evidence type + ID. Printed menu cards on refreshment-only flights may be N/A with "Refreshment service – no printed menu card". N/A is allowed nowhere else and needs a named PIC and a different named verifier.
+- **Clarifications and N/A use the Outcome dropdown (Checks column AC).** A clarification line is resolved only by choosing "Confirmed – applies / carried as listed" (status Pass) or "Confirmed – not carried on this sector" / "… not applicable to this aircraft / tail" (status N/A), with the written confirmation cited as evidence type + ID (Email, Memo / letter, Document, System record or Link). The matching on-board line takes ordinary loading evidence, and must agree with the preparation line (both N/A with the same Outcome, or both carried). Printed menu cards on refreshment-only flights may be N/A with "Refreshment service – no printed menu card". N/A is allowed nowhere else and needs a named PIC and a different named verifier.
 - **Where an item is loaded.** Seven questions ask *where* an item is uplifted: A350 toiletry kits on KUL→LHR legs, and sales carts on return legs. Answer them on Settings under "Station confirmations". Choose the confirmed station, and if it is not the departure station, enter the carrying flight's departure from it in UTC. The check line then follows that station's time zone, due time and loading cap.
 - **Results** need at least two words saying what was checked and found; stock phrases ("All good", "As per menu") are rejected. A justified N/A is removed from both the numerator and the denominator of the completion rate.
 - **READY** requires every in-scope check to be complete, including the physical uplift. It also needs zero discrepancies, zero invalid entries, both documents on file and every clarification resolved.
@@ -46,5 +46,7 @@ These 44 check lines (preparation and on-board lines counted separately) are mar
 ```
 python build/data.py      # derive data.json from the schedule + reference workbook
 python build/build.py     # build + recalculate output/…xlsx (LibreOffice)
-python build/test_evidence.py; python build/test_ready.py; python build/test_logic2.py; python build/test_logic2.py more   # regression tests
+python build/test_evidence.py; python build/test_ready.py                      # evidence IDs / people; F02 readiness cases
+python build/test_logic2.py; for r in more r6 r7 r17 r18 r19 r24; do python build/test_logic2.py $r; done
+python build/test_r20.py; python build/test_r20.py r22; python build/test_r20.py r23   # N/A timing, KUL lines, station confirmations
 ```

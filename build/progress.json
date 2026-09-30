@@ -1,5 +1,5 @@
 {
- "updated": "30 Sep 02:30",
+ "updated": "30 Sep 07:30",
  "checks": 744,
  "pieces": [
   {
@@ -10,9 +10,9 @@
   },
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
-   "state": "run",
-   "round": 22,
-   "note": "Rounds 20\u201321 FAIL on narrow structured gaps (N/A timing; KUL follow-on N/A; A350 tail quantity; loading time taken from N/A / invalid on-board rows). All fixed; 88 logic cases + evidence / people suites green on r31; round-22 logic critic running"
+   "state": "pass",
+   "round": 24,
+   "note": "PASS (round 24): every structured control held under realistic mutation \u2013 clarification / N/A outcomes and timing, prep vs on-board pairing, loading-order caps, station confirmations, documents, tails, time zones; Dashboard / P-sheets match. Follow-up wording fixes regression-tested (96 logic, 20 readiness, 60 ID, 12 people, 36 station/KUL cases)"
   },
   {
    "name": "3. Dashboard",
@@ -23,14 +23,14 @@
   {
    "name": "4. Printable flight checklists P01\u2013P22",
    "state": "pass",
-   "round": 9,
-   "note": "PASS (round 9): all 22 covers on page 1, prompts for status, evidence type/ID, Outcome, batch, qty, time/verifier/PIC; its biggest gap (no place to write the carrying flight) fixed afterwards"
+   "round": 10,
+   "note": "PASS (round 10): all 22 covers on page 1, prompts for status, evidence, Outcome, station answers, carrying flight, time / verifier / PIC; follow-up (station tick boxes) verified in the rendered PDF"
   },
   {
    "name": "5. Instructions & delivery",
-   "state": "run",
+   "state": "pass",
    "round": 1,
-   "note": "Workbook + README delivered; awaiting final logic sign-off"
+   "note": "Instructions sheet and README updated for the final rules; workbook delivered"
   }
  ],
  "gaps": [
@@ -193,6 +193,11 @@
    "piece": "2. Core sheets",
    "round": 21,
    "gap": "The loading time that caps preparation lines was taken from any on-board row, so a correctly confirmed 'not carried' clarification made the whole flight's preparation invalid."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 23,
+   "gap": "An answer that moves an item's uplift station (e.g. toiletry kits loaded at LHR, sales cart at KUL) could not be recorded, so the check station, due time and loading cap could not follow it \u2013 solved with the Settings station-confirmation table (user's choice)."
   }
  ],
  "log": [
@@ -383,6 +388,10 @@
   [
    "02:30",
    "Rounds 20\u201321 fixes built, pushed and green (88/88 logic cases); logic critic 22 launched on frozen build r31"
+  ],
+  [
+   "07:30",
+   "Logic critic 24 PASS and render critic 10 PASS; follow-ups regression-tested; final workbook delivered"
   ]
  ]
 }
