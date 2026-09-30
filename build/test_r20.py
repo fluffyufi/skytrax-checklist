@@ -57,7 +57,7 @@ def tailqty(tail, x):
 
 def r22_gld_revised(wb, ck, rows):
     T.STD = datetime(2026, 10, 9, 21, 50); T.fill(ck, wb["Documents"])
-    wb["Documents"]["H6"] = datetime(2026, 10, 9)
+    wb["Documents"]["H6"] = datetime(2026, 10, 9, 12, 0)  # revised after the T-12H prep checks, before STD
     return ["F02-T12-03", "F02-T12-07", "F02-UPL-02"]
 
 

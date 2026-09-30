@@ -866,8 +866,8 @@ def build_checks(wb, data):
         if ck.get("req_carry"):
             vals["AS"] = 3
         doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
-                   f"IF(AND(AS{r}=1,ISNUMBER(Documents!$H${fr}),Documents!$H${fr}>AG{r}),\"INVALID {ND} GLD revised after this check (Documents rev date): re-check against the current revision\","
-                   f"IF(AND(AS{r}=2,ISNUMBER(Documents!$M${fr}),Documents!$M${fr}>AG{r}),\"INVALID {ND} menu checklist revised after this check (Documents rev date): re-check against the current revision\","
+                   f"IF(AND(AS{r}=1,ISNUMBER(Documents!$H${fr}),Documents!$H${fr}>AD{r}),\"INVALID {ND} GLD revised after this check (Documents rev date): re-check against the current revision\","
+                   f"IF(AND(AS{r}=2,ISNUMBER(Documents!$M${fr}),Documents!$M${fr}>AD{r}),\"INVALID {ND} menu checklist revised after this check (Documents rev date): re-check against the current revision\","
                    f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\","
                    f"IF(AND(AS{r}=3,OR(Flights!$AZ${fr}>Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
@@ -982,7 +982,7 @@ def build_checks(wb, data):
         itm = ck["item"].lower()
         for key, dcol, dname in (("gld", "H", "GLD"), ("menu checklist", "M", "menu checklist")):
             if key in itm and not ck["req_doc"]:
-                msg += (f"&IF(AND(ISNUMBER(Documents!${dcol}${fr}),Documents!${dcol}${fr}>AG{r}),\"INVALID {ND} {dname} "
+                msg += (f"&IF(AND(ISNUMBER(Documents!${dcol}${fr}),Documents!${dcol}${fr}>AD{r}),\"INVALID {ND} {dname} "
                         f"revised after this check (Documents rev date): re-check against the current revision\",\"\")")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
