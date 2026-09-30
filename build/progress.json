@@ -1,5 +1,5 @@
 {
- "updated": "30 Sep 00:10",
+ "updated": "30 Sep 02:30",
  "checks": 744,
  "pieces": [
   {
@@ -11,8 +11,8 @@
   {
    "name": "2. Core sheets: Flights, Checks, Documents, Settings (deadlines + readiness formulas)",
    "state": "run",
-   "round": 20,
-   "note": "Round 19 FAIL (narrow): prep 'carried' + on-board N/A 'not carried' gave READY with no on-board check. Fixed: paired lines must agree; clarifications need written confirmation (email / memo / document / system record / link). All regression suites green; round-20 logic critic running"
+   "round": 22,
+   "note": "Rounds 20\u201321 FAIL on narrow structured gaps (N/A timing; KUL follow-on N/A; A350 tail quantity; loading time taken from N/A / invalid on-board rows). All fixed; 88 logic cases + evidence / people suites green on r31; round-22 logic critic running"
   },
   {
    "name": "3. Dashboard",
@@ -183,6 +183,16 @@
    "piece": "4. Printable checklists",
    "round": 9,
    "gap": "KUL-sourced packs gave the PIC nowhere to write the carrying flight and its KUL departure, which the workbook needs before those lines can pass."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 20,
+   "gap": "An N/A counted whatever its time \u2013 even recorded after departure or with no time at all."
+  },
+  {
+   "piece": "2. Core sheets",
+   "round": 21,
+   "gap": "The loading time that caps preparation lines was taken from any on-board row, so a correctly confirmed 'not carried' clarification made the whole flight's preparation invalid."
   }
  ],
  "log": [
@@ -369,6 +379,10 @@
   [
    "00:10",
    "Round-19 fixes built and green; container restart lost logic critic 20 \u2013 relaunched on frozen build r28"
+  ],
+  [
+   "02:30",
+   "Rounds 20\u201321 fixes built, pushed and green (88/88 logic cases); logic critic 22 launched on frozen build r31"
   ]
  ]
 }
