@@ -219,3 +219,15 @@ def round19():
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r19":
     round19()
+
+
+def round24():
+    for i, txt in enumerate(["None on board", "Nothing loaded", "Toiletry kits absent", "Cart not seen on board"]):
+        run(f"r24_bad_onboard_{i}", cell("F11-UPL-01", "V", txt))
+    for i, txt in enumerate(["No item shortfall found", "Not a single defect found",
+                             "Special meals loaded after late pax update, all on board", "Wet towels loaded, stains absent"]):
+        run(f"r24_ok_wording_{i}", cell("F11-UPL-01", "V", txt))
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r24":
+    round24()

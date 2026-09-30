@@ -212,14 +212,18 @@ def build_settings(wb, data):
                "pending loading", "pending uplift", "not delivered", "left behind", "offloaded", "off loaded",
                "to be loaded", "will be loaded", "to be uplifted", "will be uplifted", "ready for loading",
                "ready for uplift", "loading in progress", "being loaded", "still loading", "loading after",
-               "delivered to aircraft side", "at aircraft side"]
+               "delivered to aircraft side", "at aircraft side", "none on board", "nothing on board", "nothing loaded",
+               "nil on board", "nil loaded", "nil uplifted", "zero on board", "0 on board", "none loaded", "none uplifted",
+               "absent", "not found on board", "not seen on board", "missing on board"]
     # ...cancelled when negated ("nothing left behind", "0 offloaded", "none offloaded")
     nl_neg = sorted({f"{p} {w}" for w in ("left behind", "offloaded", "off loaded", "not loaded", "not on board",
                                              "not uplifted", "not delivered")
                      for p in ("no", "nothing", "none", "0", "zero", "nil", "no items", "no meals")} |
                     {f"{w} {q}" for w in ("offloaded", "left behind", "not loaded", "not on board")
                      for q in ("0", "nil", "none")} |
-                    {"aircraft side and loaded", "aircraft side and uplifted", "aircraft side then loaded",
+                    {"defects absent", "stains absent", "damage absent", "odour absent", "odor absent", "pests absent",
+                     "spills absent", "discrepancies absent",
+                     "aircraft side and loaded", "aircraft side and uplifted", "aircraft side then loaded",
                      "aircraft side then stowed", "aircraft side and stowed",
                      "at aircraft side and loaded"})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
@@ -252,13 +256,15 @@ def build_settings(wb, data):
           "re do", "fewer", "fewer than", "not sealed", "unsealed", "below required", "below count", "sent back",
           "rework", "cold on arrival", "missing from", "superseded", "previous cycle", "old cycle", "doors closed",
           "exceeds", "exceeded", "out of spec", "outside spec", "outside limits", "above limit", "over limit",
-          "instead of", "in place of", "substituted with", "replaced with"] + \
+          "instead of", "in place of", "substituted with", "replaced with", "below expectation", "below expectations",
+          "not labelled", "not labeled", "smelly"] + \
          [f"only {n}" for n in range(1, 100)] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
     pre = ["no", "nil", "zero", "0", "nothing", "not", "without", "none", "free of", "no sign of", "no evidence of",
            "or", "nor",  # 'or'/'nor' carry a negation across a list: "no stains or defects"
            "no visible", "no quality", "no quantity", "no qty", "no meal", "no loading", "no printing", "no equipment",
+           "no item", "not a single", "not one", "no single",
            "no cleanliness", "no presentation", "no obvious", "any", "free from", "no items", "no meals", "no trays"]
     post = ["0", "nil", "none", "zero", "free", "nothing", "not found", "found none", "found 0", "found nil", "noted 0"]
     base = [w for w in rb if not w[0].isdigit() and not w.startswith(("short ", "only "))]
@@ -268,7 +274,8 @@ def build_settings(wb, data):
                    "dirty linen", "dirty trays", "dirty tray", "for dirty", "late night", "late supper",
                    "except none", "mold free", "mould free", "no exceptions", "leak test", "leak check",
                    "leak tested", "damaged cart log", "damage log", "missed nothing", "nothing missed",
-                   "not all required", "none left at"} |
+                   "not all required", "none left at", "late pax", "late passenger", "late passengers", "late booking",
+                   "late update", "late bookings"} |
                   {f"{w} items {q}" for w in base for q in ("none", "nil", "0", "zero")})
     for col, title_txt, items in (("L", "Evidence phrases that point elsewhere instead of to a record", ev),
                                   ("M", "Result words that cannot be a plain Pass (whole words)", rb),
@@ -314,7 +321,7 @@ def build_settings(wb, data):
     for q in sq:
         r = q["row"]
         vals = [f"{q['qid']}  {q['flight']} {q['flt']}", q["item"], f"{q['prep']} / {q['upl']}", q["dep"], q["alt"], None, None,
-                round(q["block"], 2), f"=IF(ISNUMBER(G{r}),G{r}+H{r}/24,\"\")",
+                round(q["block"], 2), f"=IF(ISNUMBER(G{r}),ROUND((G{r}+H{r}/24)*1440,0)/1440,\"\")",
                 (f"=IF(TRIM(F{r})=\"\",\"OPEN – confirm the uplift stn (reference default: {q['default']})\","
                  f"IF(TRIM(F{r})=D{r},\"Loaded at departure stn\",IF(ISNUMBER(G{r}),\"Loaded at \"&F{r}&\" – carried on the inbound flight\","
                  f"\"Enter the carrying flight's departure from \"&F{r}&\" (UTC)\")))")]
@@ -1009,7 +1016,11 @@ def build_checks(wb, data):
             cutoff = f"IF(ISNUMBER(Flights!$BA${fr}),MIN(Flights!$BA${fr},Flights!$AA${fr}),Flights!$AA${fr})"
             cut_msg = "completed after loading / departure (cannot establish readiness)"
         if sq and ck["check_type"] == "Preparation":
-            cutoff = f"IF({moved},IF(ISNUMBER({carr}),{carr},Flights!$AA${fr}),{cutoff})"
+            klr = next((rowmap[x["check_id"]] for x in data["checks"] if x["flight_id"] == ck["flight_id"]
+                        and x.get("due_rule") == "CARRY" and x["check_type"] == "Physical uplift" and not x["uplift_stn"]), None)
+            kcap = (f"IF(AND({conf}=\"KUL\",OR(TRIM(U{klr})=\"Pass\",TRIM(U{klr})=\"Pass after CA\"),ISNUMBER(AG{klr})),"
+                    f"AG{klr},9E+99)") if klr else "9E+99"
+            cutoff = f"IF({moved},MIN(IF(ISNUMBER({carr}),{carr},Flights!$AA${fr}),{kcap}),{cutoff})"
             cut_msg = "completed after loading (at the departure stn, or after the carrying flight left the confirmed stn)"
         msg = (f"IF(AND({U}=\"Pass\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} qty variance: use Fail or Pass after CA\",\"\"),\"\")&"
                f"IF(AND({U}=\"Pass after CA\",ISNUMBER(AF{r})),IF(AF{r}<>0,\"INVALID {ND} after the corrective action the actual qty must equal expected (update Actual)\",\"\"),\"\")&"
@@ -1033,7 +1044,10 @@ def build_checks(wb, data):
         kul_rows = [rowmap[x["check_id"]] for x in data["checks"]
                      if x["flight_id"] == ck["flight_id"] and x["uplift_stn"] == "KUL" and not x.get("req_carry")]
         carry_follow = bool(ck.get("req_carry")) or (ck.get("due_rule") == "CARRY" and not ck["uplift_stn"])
-        kul_all_na = (("AND(" + ",".join(f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows) + ")")
+        sq_kul = [q for q in station_questions(data) if q["flight"] == ck["flight_id"] and q["alt"] == "KUL"]
+        kul_terms = [f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows] + \
+                    [f"OR(TRIM(Settings!$F${q['row']})<>\"KUL\",LEFT(AH{rowmap[q['prep']]},3)=\"N/A\")" for q in sq_kul]
+        kul_all_na = (("AND(" + ",".join(kul_terms) + ")")
                       if (kul_rows and carry_follow) else "FALSE")  # only on the follow-on rows (no self-reference)
         written_q = "FALSE" if ck.get("prep_link") else f"N{r}=\"Clarification required\""
         na_link, na_close = "", ""
@@ -1071,7 +1085,9 @@ def build_checks(wb, data):
         if sq and ck["check_type"] == "Preparation":
             msg += (f"&IF({conf}=\"\",\"INVALID {ND} confirm where this item is loaded (Settings, station confirmations {sq['qid']})\","
                     f"IF(AND({moved},NOT(ISNUMBER({carr}))),\"INVALID {ND} enter the carrying flight's departure from the confirmed stn (Settings {sq['qid']})\","
-                    f"IF(AND({moved},OR({arr}>Flights!$AA${fr},{carr}<Flights!$AA${fr}-3)),\"INVALID {ND} carrying flight ({sq['qid']}) must arrive before STD and leave within 3 days of it\",\"\")))")
+                    f"IF(AND({moved},OR({arr}>Flights!$AA${fr},{carr}<Flights!$AA${fr}-3)),\"INVALID {ND} carrying flight ({sq['qid']}) must arrive before STD and leave within 3 days of it\","
+                    f"IF(AND({conf}=\"KUL\",ISNUMBER(Flights!$AX${fr}),ISNUMBER({carr}),ABS({carr}-Flights!$AX${fr})>1/1440),"
+                    f"\"INVALID {ND} carrying-flight time ({sq['qid']}) differs from the KUL departure on Flights for this leg\",\"\"))))")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "

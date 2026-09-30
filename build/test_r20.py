@@ -122,6 +122,14 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r23":
     states("sq_lhr_no_carrier", sq_case("LHR", None, datetime(2026, 10, 14, 12, 0)))
     states("sq_f19_kul_no_carrier", sq_case("KUL", None, datetime(2026, 10, 28, 20, 0), flight="F19"))
 
+    def f05_cart_at_kul(wb, ck, rows):
+        ids = f05(True)(wb, ck, rows)
+        st = wb["Settings"]
+        r = next(r for r in range(27, 40) if str(st[f"A{r}"].value or "").split("  ")[-1].startswith("F05"))
+        st[f"F{r}"] = "KUL"
+        return ids
+    states("sq_f05_cart_at_kul_blocks_na", f05_cart_at_kul)
+
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r22":
     states("r22_gld_revised", r22_gld_revised)
     states("r22_kul_prep_after_loading", r22_kul_prep_after_loading)
