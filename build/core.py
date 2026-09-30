@@ -185,13 +185,15 @@ def build_settings(wb, data):
                "pending loading", "pending uplift", "not delivered", "left behind", "offloaded", "off loaded",
                "to be loaded", "will be loaded", "to be uplifted", "will be uplifted", "ready for loading",
                "ready for uplift", "loading in progress", "being loaded", "still loading", "loading after",
-               "delivered to aircraft side", "at aircraft side", "at the bay", "at bay"]
+               "delivered to aircraft side", "at aircraft side"]
     # ...cancelled when negated ("nothing left behind", "0 offloaded", "none offloaded")
     nl_neg = sorted({f"{p} {w}" for w in ("left behind", "offloaded", "off loaded", "not loaded", "not on board",
                                              "not uplifted", "not delivered")
                      for p in ("no", "nothing", "none", "0", "zero", "nil", "no items", "no meals")} |
                     {f"{w} {q}" for w in ("offloaded", "left behind", "not loaded", "not on board")
-                     for q in ("0", "nil", "none")})
+                     for q in ("0", "nil", "none")} |
+                    {"aircraft side and loaded", "aircraft side and uplifted", "aircraft side then loaded",
+                     "at aircraft side and loaded"})
     # strict list for evidence, N/A justifications and document attachments: any future / not-yet wording
     strict = pend + ["awaited", "to be forwarded", "will be forwarded", "to be scanned", "will be scanned", "to be filed",
                      "will be filed", "to be shared", "will be shared", "will share", "will forward", "not sent",
@@ -219,7 +221,8 @@ def build_settings(wb, data):
           "missed", "not boarded", "after departure", "arrived late", "not ready", "unfit", "not assigned",
           "not acknowledged", "unacknowledged", "outstanding", "still at", "cracked", "unusable", "too salty",
           "too dry", "too sweet", "too spicy", "overcooked", "undercooked", "re cook", "recook", "redo",
-          "re do"] + \
+          "re do", "fewer", "fewer than", "not sealed", "unsealed", "below required", "below count", "sent back",
+          "rework", "cold on arrival", "missing from"] + \
          [f"only {n}" for n in range(1, 100)] + \
          [f"short {n}" for n in range(1, 31)] + [f"{n} short" for n in range(1, 31)]
     # ...but not when that same word is negated or zero-counted (each phrase below cancels one occurrence)
@@ -448,8 +451,12 @@ def build_flights(wb, data, n_checks):
             ws[f"AX{r}"] = "n/a"
             ws[f"AY{r}"] = "n/a"
             ws[f"AZ{r}"] = "n/a"
-        ws[f"BA{r}"] = (f"=IFERROR(1/(1/_xlfn.MINIFS({rng('AG')},{rng('B')},$A{r},{rng('H')},\"Physical uplift\","
-                        f"{rng('P')},$G{r})),\"\")")
+        start = f"IF(ISNUMBER($AZ{r}),MAX($AA{r}-UpliftWindowH/24,$AZ{r}),$AA{r}-UpliftWindowH/24)"
+        mins = [f"_xlfn.MINIFS({rng('AG')},{rng('B')},$A{r},{rng('H')},\"Physical uplift\",{rng('P')},$G{r},"
+                f"{rng('U')},\"{st}\",{rng('AG')},\">=\"&{start},{rng('AG')},\"<=\"&$AA{r})" for st in ("Pass", "Pass after CA")]
+        first = "MIN(" + ",".join(f"IF({m}>0,{m},9E+99)" for m in mins) + ")"
+        # first valid on-board confirmation: N/A, blank-status and out-of-window rows never count as loading
+        ws[f"BA{r}"] = f"=IFERROR(IF({first}>1E+99,\"\",{first}),\"\")"
         ws[f"BB{r}"] = f"=SUMIFS({rng('BG')},{rng('B')},$A{r})"
         ws[f"AZ{r}"].number_format = DT
         ws[f"BA{r}"].number_format = DT
@@ -546,7 +553,11 @@ def same_person(sp_a, sp_b, n_a, n_b):
     initial = (f"AND(LEN({last(sp_a)})>=3,{last(sp_a)}={last(sp_b)},LEFT(TRIM({sp_a}),1)=LEFT(TRIM({sp_b}),1),"
                f"OR({first(sp_a)}=1,{first(sp_b)}=1),"
                f"NOT({patr}))")
-    return f"OR(AND(LEN({n_a})>0,LEN({n_a})=LEN({n_b}),NOT({patr}),{found}),{initial})"
+    words_b = [f"TRIM(MID(SUBSTITUTE(TRIM({sp_b}),\" \",REPT(\" \",60)),{k * 60 + 1},60))" for k in range(3)]
+    found_ba = ",".join(f"OR({w}=\"\",ISNUMBER(SEARCH(\" \"&{w}&\" \",{sp_a})))" for w in words_b)
+    same_len = f"LEN({n_a})=LEN({n_b})"
+    return (f"OR(AND(LEN({n_a})>=3,{found},NOT(AND({patr},{same_len}))),"
+            f"AND(LEN({n_b})>=3,{found_ba},NOT(AND({patr},{same_len}))),{initial})")
 
 
 def spaced(ref):
@@ -851,6 +862,8 @@ def build_checks(wb, data):
         if ck.get("req_carry"):
             vals["AS"] = 3
         doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
+                   f"IF(AND(AS{r}=1,ISNUMBER(Documents!$H${fr}),Documents!$H${fr}>AG{r}),\"INVALID {ND} GLD revised after this check (Documents rev date): re-check against the current revision\","
+                   f"IF(AND(AS{r}=2,ISNUMBER(Documents!$M${fr}),Documents!$M${fr}>AG{r}),\"INVALID {ND} menu checklist revised after this check (Documents rev date): re-check against the current revision\","
                    f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\","
                    f"IF(AND(AS{r}=3,OR(Flights!$AZ${fr}>Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
@@ -916,7 +929,7 @@ def build_checks(wb, data):
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>={cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))))")
         link_chk, link_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -942,7 +955,7 @@ def build_checks(wb, data):
             f"IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),\"INVALID {ND} choose the evidence type from the list (column S)\","
             f"IF(BL{r}=0,\"INVALID {ND} evidence ID must be the record's own ID only (e.g. SF-2210, IMG_2231, 1045521); a link / file name needs type 'Link / file path'\","
             f"IF(OR({bad('AE', 2)},BS{r}<3),\"INVALID {ND} verifier missing or not a named person (a role such as QA / CSM is not a name)\","
-            f"IF(OR(AX{r}=AU{r},CE{r}=1,AND(LEN(AU{r})>=4,ISNUMBER(SEARCH(AU{r},AX{r}))),AND(LEN(AX{r})>=4,ISNUMBER(SEARCH(AX{r},AU{r})))),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
+            f"IF(OR(AX{r}=AU{r},CE{r}=1),\"INVALID {ND} verifier must be a different, named person (not the PIC or a role)\","
             f"IF(BH{r}=1,\"INVALID {ND} result not yet available (awaiting / TBC)\","
             f"IF(BG{r}=1,\"INVALID {ND} result describes a problem: record Fail, then Pass after CA (or reword if it is not a problem)\","
             f"IF(AND(N{r}=\"Clarification required\",ISNA(MATCH(TRIM(S{r}),{{\"Email\",\"Memo / letter\",\"Document (GLD / menu / ISOP)\",\"System record\",\"Link / file path\"}},0))),\"INVALID {ND} a clarification is resolved only by a written confirmation: evidence type Email, Memo / letter, Document, System record or Link\","
@@ -960,6 +973,12 @@ def build_checks(wb, data):
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
                     f"tail: 280 for 9M-MAH, 260 for an A359 (check Tail/Reg on Flights)\",\"\")")
         vals["BB"] = "=" + msg
+        if ck.get("prep_link"):
+            pq = rowmap[ck["prep_link"]]
+            clar_q = (f"AND(N{r}=\"Clarification required\",LEFT(AH{pq},8)<>\"COMPLETE\","
+                      f"AH{pq}<>\"N/A {ND} JUSTIFIED\")")
+        else:
+            clar_q = f"N{r}=\"Clarification required\""
         state = (
             f"=IF(N{r}=\"N/A {ND} rule\",IF(OR({U}=\"\",{U}=\"N/A\",{U}=\"Not started\"),\"N/A {ND} RULE\","
             f"\"INVALID {ND} this check does not apply to this aircraft: clear the status (or correct the fleet on Flights)\"),"
@@ -981,7 +1000,7 @@ def build_checks(wb, data):
             f"IF(OR({U}=\"Pass\",{U}=\"Pass after CA\"),{valid},"
             f"IF({U}=\"Fail\",\"FAIL {ND} DISCREPANCY\","
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
-            f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
+            f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF({clar_q},\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
         refresh_menu = ck["category"] == "Menu" and "Refreshment service" in ck["note"]
         na_ok = (2 if refresh_menu else 3 if carry_follow
                  else int(ck["applic"] == "Clarification required"))
@@ -992,7 +1011,7 @@ def build_checks(wb, data):
         vals["AK"] = f"=IF(AND(AI{r}=1,AJ{r}=0,AsOfUTC>Q{r}),1,0)"
         vals["AL"] = (f"=IFERROR(IF(AND(AI{r}=1,OR(TRIM(U{r})=\"Fail\",AND(TRIM(AB{r})<>\"\",TRIM(AB{r})<>\"Closed\"),AND(ISNUMBER(AF{r}),AF{r}<>0,TRIM(U{r})<>\"Pass after CA\"))),1,0),1)")
         vals["AM"] = f"=IF(LEFT(AH{r},7)=\"INVALID\",1,0)"
-        vals["AN"] = f"=IF(AND(N{r}=\"Clarification required\",AI{r}=1,AJ{r}=0),1,0)"
+        vals["AN"] = f"=IF(AND({clar_q},AI{r}=1,AJ{r}=0),1,0)"
         vals["AO"] = f"=IF(AK{r}=1,SUM(AK$5:AK{r}),\"\")"
         vals["AP"] = f"=IF(AL{r}=1,SUM(AL$5:AL{r}),\"\")"
         for col, v in vals.items():
@@ -1288,7 +1307,7 @@ INSTR = [
     ("h2", "Rules built into the formulas"),
     ("b", "Blank or 'Not started'/'In progress' never counts as complete. 'Pass' without completion time, PIC, evidence or verifier (blank or spaces) shows INVALID and does not count."),
     ("b", "A check completed after the flight's departure never counts (INVALID – completed after departure). A check completed after its due time but before departure counts as COMPLETE – LATE."),
-    ("b", "N/A is only accepted where it can legitimately apply: printed menu cards, reference-derived uplift items and clarification items. Mandatory checks (sensory tests, catering officer, ISOP, GLD, menu checklist, meal/equipment preparation and physical uplift) cannot be N/A'd."),
+    ("b", "N/A is only accepted where it can legitimately apply: printed menu cards on refreshment-only flights, clarification items confirmed in writing, and KUL-loading lines once every KUL-sourced item is confirmed not carried. Mandatory checks (sensory tests, catering officer, ISOP, GLD, menu checklist, meal/equipment preparation and physical uplift) cannot be N/A'd."),
     ("b", "Completion % = complete ÷ in-scope checks; justified and rule-based N/A are removed from both, so they neither raise nor lower the rate."),
     ("b", "Preparation checks (T-12H PREP, at the caterer) never confirm loading. Physical uplift rows (UPLIFT) are only accepted when the completion time is inside the uplift window before STD (Settings B7) – an earlier entry shows 'INVALID – before uplift window'."),
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),

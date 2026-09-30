@@ -85,6 +85,21 @@ if __name__ == "__main__":
   run("r19_opposite_outcomes", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
                                   ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))
   run("r19_clar_photo_evidence", m([("F02-T12-12", "S", "Photo"), ("F02-T12-12", "Z", "IMG_2231")]))
+  run("r21_na_confirmed_days_before", m([(c, "AD", STD - timedelta(days=3)) for c in
+                                        ("F02-T12-12", "F02-T12-13", "F02-UPL-07", "F02-UPL-08")]))
+  run("r21_one_bad_uplift_time", m([("F02-UPL-02", "AD", STD - timedelta(hours=20))]))
+  run("r21_gld_revised_after_check", lambda wb, rows: wb["Documents"].__setitem__("H6", datetime(2026, 10, 8)))
+
+  def clar_prep_pass_uplift_blank(wb, rows):
+      ck = wb["Checks"]
+      for c in ("F02-T12-12", "F02-T12-13"):
+          ck[f"U{rows[c]}"] = "Pass"; ck[f"AC{rows[c]}"] = "Confirmed – applies / carried as listed"
+          ck[f"V{rows[c]}"] = "MAGCS planning confirmed item is carried"
+      for c, r in rows.items():
+          if c and c.startswith("F02-UPL-"):
+              for k in ("U", "AD", "AC"):
+                  ck[f"{k}{r}"] = None
+  run("r21_label_prep_done_awaiting_uplift", clar_prep_pass_uplift_blank, asof=datetime(2026, 10, 9, 10, 50))
   run("pass_clar_confirmed", m([("F02-UPL-07", "U", "Pass"), ("F02-UPL-07", "AC", "Confirmed – applies / carried as listed"),
                                 ("F02-UPL-07", "V", "Table cloth loaded on board as confirmed"), ("F02-UPL-07", "Y", 12),("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
                                 ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))
