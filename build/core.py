@@ -925,7 +925,9 @@ def build_checks(wb, data):
             link_close = "))"
         kul_rows = [rowmap[x["check_id"]] for x in data["checks"]
                      if x["flight_id"] == ck["flight_id"] and x["uplift_stn"] == "KUL" and not x.get("req_carry")]
-        kul_all_na = ("AND(" + ",".join(f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows) + ")") if kul_rows else "FALSE"
+        carry_follow = bool(ck.get("req_carry")) or (ck.get("due_rule") == "CARRY" and not ck["uplift_stn"])
+        kul_all_na = (("AND(" + ",".join(f"LEFT(AH{k},3)=\"N/A\"" for k in kul_rows) + ")")
+                      if (kul_rows and carry_follow) else "FALSE")  # only on the follow-on rows (no self-reference)
         na_link, na_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -953,7 +955,7 @@ def build_checks(wb, data):
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
             f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))))))))")
-        if "Qty per tail: A350 280 pcs, A359 260 pcs" in (ck["note"] or ""):
+        if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
                     f"tail: 280 for 9M-MAH, 260 for an A359 (check Tail/Reg on Flights)\",\"\")")
@@ -981,7 +983,6 @@ def build_checks(wb, data):
             f"IF(AND({U}<>\"\",{U}<>\"Not started\",{U}<>\"In progress\"),\"INVALID {ND} unrecognised status (use the list)\","
             f"IF(AsOfUTC>Q{r},\"OVERDUE\",IF(N{r}=\"Clarification required\",\"OPEN {ND} CLARIFICATION\",\"OPEN\")))))))")
         refresh_menu = ck["category"] == "Menu" and "Refreshment service" in ck["note"]
-        carry_follow = bool(ck.get("req_carry")) or (ck.get("due_rule") == "CARRY" and not ck["uplift_stn"])
         na_ok = (2 if refresh_menu else 3 if carry_follow
                  else int(ck["applic"] == "Clarification required"))
         vals["AT"] = na_ok
