@@ -989,8 +989,10 @@ def build_checks(wb, data):
         vals["BL"] = f"=IF(ISNA(MATCH(TRIM(S{r}),L_EvidenceType,0)),0,BZ{r})"
         vals["BQ"] = f"=IFERROR(IF({batch_shape_ok(f'W{r}', f'BP{r}', f'CA{r}', f'CB{r}', f'Flights!$F${fr}')},1,0),0)"
         # a plain Pass whose result wording describes a problem is not a Pass (blocks READY; negated forms cancel)
-        vals["BG"] = (f"=IFERROR(IF(AND(TRIM(U{r})=\"Pass\",{occurrences('L_ResultBad', f'BC{r}')}>"
-                      f"{occurrences('L_NegPhrase', f'BC{r}')}),1,0),0)")
+        # lazy: the long negation list is only scanned for a plain Pass whose result contains a problem word
+        bad_n = occurrences('L_ResultBad', f'BC{r}')
+        vals["BG"] = (f"=IFERROR(IF(TRIM(U{r})<>\"Pass\",0,IF({bad_n}=0,0,"
+                      f"IF({bad_n}>{occurrences('L_NegPhrase', f'BC{r}')},1,0))),0)")
 
         def bad(x, minlen):
             n = f"{helper[x]}{r}"
