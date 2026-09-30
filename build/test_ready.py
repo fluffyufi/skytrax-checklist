@@ -4,10 +4,17 @@ from datetime import datetime, timedelta
 import openpyxl
 
 import os
-os.environ.setdefault("SC_NO_THREADED_CALCULATION", "1")  # LibreOffice threaded calc can deadlock on this workbook
 SRC = os.environ.get("TEST_SRC", "/home/user/skytrax-checklist/output/MAGCS_Skytrax_2026_Catering_Readiness.xlsx")
 TMP = "/tmp/claude-0/-home-user-skytrax-checklist/c0ab9c35-2f2c-5eff-909f-a4943aca1b4a/scratchpad/ready_{}.xlsx"
 RECALC = "/root/.claude/skills/synced/dbf11ce3-ba00-4160-a445-f73a3231a942_7e2a8d9e-80e6-4124-9d8d-d105bdc3f685/xlsx/scripts/recalc.py"
+
+# a killed LibreOffice run leaves '.~lock.<file>#' behind; the next recalc of that file then stalls on a read-only prompt
+import glob as _glob
+for _lk in _glob.glob(os.path.join(os.path.dirname(TMP), ".~lock.*#")):
+    try:
+        os.remove(_lk)
+    except OSError:
+        pass
 STD = datetime(2026, 10, 9, 21, 50)  # local KUL
 
 
