@@ -1,4 +1,6 @@
 """Assemble the workbook: python build/build.py"""
+import os
+os.environ.setdefault("SC_NO_THREADED_CALCULATION", "1")  # avoid LibreOffice threaded-calc deadlocks
 import importlib
 import json
 import os
