@@ -1086,7 +1086,7 @@ def build_checks(wb, data):
             msg += (f"&IF({conf}=\"\",\"INVALID {ND} confirm where this item is loaded (Settings, station confirmations {sq['qid']})\","
                     f"IF(AND({moved},NOT(ISNUMBER({carr}))),\"INVALID {ND} enter the carrying flight's departure from the confirmed stn (Settings {sq['qid']})\","
                     f"IF(AND({moved},OR({arr}>Flights!$AA${fr},{carr}<Flights!$AA${fr}-3)),\"INVALID {ND} carrying flight ({sq['qid']}) must arrive before STD and leave within 3 days of it\","
-                    f"IF(AND({conf}=\"KUL\",ISNUMBER(Flights!$AX${fr}),ISNUMBER({carr}),ABS({carr}-Flights!$AX${fr})>1/1440),"
+                    f"IF(AND({conf}=\"KUL\",IFERROR(ABS({carr}-Flights!$AX${fr})>1/1440,FALSE)),"
                     f"\"INVALID {ND} carrying-flight time ({sq['qid']}) differs from the KUL departure on Flights for this leg\",\"\"))))")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
