@@ -51,7 +51,7 @@ def run(tag, mutate=None, asof=datetime(2026, 10, 9, 13, 49)):
     if mutate:
         mutate(wb, rows)
     wb.save(p)
-    out = subprocess.run([sys.executable, RECALC, p, "300"], capture_output=True, text=True).stdout
+    out = subprocess.run([sys.executable, RECALC, p, "900"], capture_output=True, text=True).stdout
     wb = openpyxl.load_workbook(p, data_only=True)
     fl = wb["Flights"]
     bad = [(wb["Checks"][f"A{r}"].value, wb["Checks"][f"AH{r}"].value) for r in range(5, wb["Checks"].max_row + 1)

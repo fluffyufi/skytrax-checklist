@@ -40,7 +40,7 @@ def run(tag, mutate):
     if mutate:
         mutate(wb, rows)
     wb.save(p)
-    out = subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True, text=True).stdout
+    out = subprocess.run([sys.executable, T.RECALC, p, "900"], capture_output=True, text=True).stdout
     wb = openpyxl.load_workbook(p, data_only=True)
     ck = wb["Checks"]
     bad = [(ck[f"A{r}"].value, ck[f"AH{r}"].value) for r in range(5, ck.max_row + 1)

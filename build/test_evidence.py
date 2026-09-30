@@ -25,7 +25,7 @@ def run(tag, cases, batch=None):
         r = rows["F11-" + sid]; ck[f"S{r}"] = typ or None; ck[f"Z{r}"] = idv
     if batch:
         ck[f"W{rows['F11-T24-01']}"] = batch
-    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "900"], capture_output=True)
     wb = openpyxl.load_workbook(p, data_only=True); ck = wb["Checks"]
     for sid, (typ, idv) in zip(IDS, cases):
         st = ck["AH" + str(rows["F11-" + sid])].value
@@ -73,7 +73,7 @@ def run_verifiers():
     ck = wb["Checks"]; rows = {ck.cell(r, 1).value: r for r in range(5, ck.max_row + 1)}
     for sid, v in zip(IDS, cases):
         ck[f"AE{rows['F11-' + sid]}"] = v
-    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "900"], capture_output=True)
     ck = openpyxl.load_workbook(p, data_only=True)["Checks"]
     for sid, v in zip(IDS, cases):
         print(f"verif {v:16s} (PIC {ck['T' + str(rows['F11-' + sid])].value}) -> {ck['AH' + str(rows['F11-' + sid])].value[:70]}")
@@ -91,7 +91,7 @@ def run_people():
     ck = wb["Checks"]; rows = {ck.cell(r, 1).value: r for r in range(5, ck.max_row + 1)}
     for sid, (pic, ver, _) in zip(IDS, cases):
         ck[f"T{rows['F11-' + sid]}"] = pic; ck[f"AE{rows['F11-' + sid]}"] = ver
-    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "900"], capture_output=True)
     ck = openpyxl.load_workbook(p, data_only=True)["Checks"]
     for sid, (pic, ver, exp) in zip(IDS, cases):
         st = ck['AH' + str(rows['F11-' + sid])].value

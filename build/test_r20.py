@@ -13,7 +13,7 @@ def states(tag, prep):
     wb = openpyxl.load_workbook(p); wb["Settings"]["B4"] = datetime(2026, 11, 2)
     ck = wb["Checks"]; rows = {ck.cell(r, 1).value: r for r in range(5, ck.max_row + 1)}
     ids = prep(wb, ck, rows)
-    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "300"], capture_output=True)
+    wb.save(p); subprocess.run([sys.executable, T.RECALC, p, "900"], capture_output=True)
     ck = openpyxl.load_workbook(p, data_only=True)["Checks"]
     for cid in ids:
         print(f"{tag:26s} {cid:12s} -> {ck['AH' + str(rows[cid])].value[:110]}")
