@@ -334,7 +334,7 @@ def build_settings(wb, data):
         dvg.add(f"G{r}")
         ws.add_data_validation(dvg)
         ws.row_dimensions[r].height = 30
-
+    ws.column_dimensions["J"].width = 46  # status text readable in full
     for col, title_txt, items, nm in (("X", "Outcome (Checks AC) – clarification lines and N/A", OUTCOMES, "L_Outcome"),
                                       ("V", "Role / title words – not a person's name (PIC, verifier)", ROLE_WORDS, "L_Role"),):
         ws[f"{col}3"] = title_txt

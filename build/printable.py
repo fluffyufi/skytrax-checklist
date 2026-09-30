@@ -17,7 +17,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
 
-from core import EVIDENCE_TYPES as EV_TYPES_SAMPLE
+from core import EVIDENCE_TYPES as EV_TYPES_SAMPLE, station_questions
 
 NAVY = "1F3864"
 FONT = "Arial"
@@ -72,7 +72,7 @@ AL_CEN = Alignment(wrap_text=True, vertical="center", horizontal="center")
 LINE_PT = {8: 10.0, 8.5: 10.5, 9: 11.0, 10: 13.0, 11: 14.5, 12: 15.5, 13: 17.0}
 LS = 8.5  # label size
 BLANK = "__________________"
-AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED (Flights sheet): its timing is assumed, so on-board (UPLIFT) checks "
+AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED IN THE WORKBOOK: its timing is assumed, so on-board (UPLIFT) checks "
            "before the assumed arrival show INVALID – before uplift window.")
 EV_BLANK = "________________________"
 ID_BLANK = "________________________"
@@ -194,7 +194,8 @@ _PAPER = [
     (r"but [A-Z]{1,2}\d+ excludes", "but the reference excludes"),
     (r" \(Flights A[XY]\)", ""),
     (r"entered on Flights col AX", "recorded in the workbook (Flights sheet)"),
-    (r"until Flights AX holds", "until the workbook (Flights sheet) holds"),
+    (r"until Flights AX holds", "until the workbook holds"),
+    (r" Applicability follows the Fleet cell on Flights\.", ""),
     (r"in Flights AX", "in the workbook (Flights sheet)"),
     (r"^Documents sheet row complete$", "Recorded on the Documents sheet; copy stapled as A1 / A2"),
 ]
@@ -490,12 +491,16 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
             first_data = first_data or r
             k = FIRST_CHECK_ROW + gi
             C = lambda col: f"Checks!${col}${k}"  # noqa: E731
+            sqq = sq_by_line.get(c["check_id"])
             req = _paperify(f'{C("K")}&IF({C("O")}="","",IF({C("K")}="","",CHAR(10))&"Note: "&{C("O")})',
                           (c["expected"], c["note"]))
             rna = f'LEFT({C("AH")},10)="N/A – RULE"'  # rule-N/A rows: nothing to write by hand
             vals = [
                 "=" + _paperify(f'{C("A")}&CHAR(10)&IF({C("I")}="","",{C("I")}&": ")&{C("J")}', (c["item"],)),
-                "=" + req,
+                ("=" + req) if not sqq else
+                (f'=IF(TRIM(Settings!$F${sqq["row"]})="",{req},"CONFIRMED uplift stn: "&TRIM(Settings!$F${sqq["row"]})'
+                 f'&IF(ISNUMBER(Settings!$G${sqq["row"]}),", carried on the flight leaving "&TRIM(Settings!$F${sqq["row"]})&" "'
+                 f'&TEXT(Settings!$G${sqq["row"]},"{TFMT}")&" UTC","")&CHAR(10)&{req})'),
                 f'={C("N")}&CHAR(10)&{_t(C("R"))}&" "&{C("P")}',
                 (f'=IF(TRIM({C("U")})<>"",{C("U")}&IF({C("AB")}="","",CHAR(10)&"CA: "&{C("AB")}),'
                  f'IF({rna},"","[ ] Pass"&CHAR(10)&"[ ] Pass after CA"&CHAR(10)&"[ ] Fail"'
@@ -506,6 +511,8 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'"Outcome: [ ] as listed  [ ] not carried  [ ] n/a to aircraft")),'
                  f'IF({C("V")}="","",CHAR(10))&"Outcome: "&{C("AC")})'
                  f'&IF(OR({C("W")}<>"",AND({C("AQ")}=1,NOT({rna}))),CHAR(10)&"Batch: "&IF({C("W")}="","{W_BLANK}",{C("W")}),"")'
+                 + (f'&IF(TRIM(Settings!$F${sqq["row"]})="",CHAR(10)&"Loaded at: [ ] {sqq["dep"]}  [ ] {sqq["alt"]}'
+                    f'   if {sqq["alt"]}: flight MH____ dep (UTC) ___-___ __:__","")' if sqq and c["check_type"] == "Preparation" else "") +
                  f'&IF({C("AS")}=3,CHAR(10)&"Carrying flight: "&IF(ISNUMBER({FL("AX")}),"KUL dep "&TEXT({FL("AX")},"{TFMT}")&" UTC",'
                  f'"MH______  KUL dep (UTC): ___-___ __:__"),"")'
                  f'&IF(OR({C("X")}<>"",{C("Y")}<>"",AND({C("AR")}=1,NOT({rna}))),CHAR(10)&"Exp: "'
@@ -597,6 +604,11 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
 
 
 def build(wb, data):
+    global sq_by_line
+    sq_by_line = {}
+    for q in station_questions(data):
+        sq_by_line[q["prep"]] = q
+        sq_by_line[q["upl"]] = q
     idx = {}
     carry_ids = {c["flight_id"] for c in data["checks"] if c.get("due_rule") == "CARRY"}
     for gi, c in enumerate(data["checks"]):

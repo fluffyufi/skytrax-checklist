@@ -417,7 +417,7 @@ def build(wb, data):
         r += 1
         S.put(f"B{r}", f'=IF({total_expr}=0,"No {noun} at the as-of time.",'
                        f'IF({total_expr}>{top_n},"+"&({total_expr}-{top_n})&" more {noun} '
-                       f'not shown – see Checks sheet (filter on column {seq_col}).",""))',
+                       f'not shown – see the Checks sheet (filter Record state).",""))',
               size=NOTE, bold=True, italic=True, color=GREEN_TEXT, merge_to=f"{LAST_COL}{r}")
         ws.conditional_formatting.add(f"B{r}", FormulaRule(
             formula=[f'LEFT($B${r},1)="+"'], font=Font(name=FONT, color=RED, bold=True)))
