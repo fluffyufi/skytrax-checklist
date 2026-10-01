@@ -76,6 +76,34 @@ WIDEBODY = {"A350", "A333", "A339"}
 # station for these sectors, so the return meals travel from KUL on the
 # outbound leg of the same rotation (aircraft rotation still to be confirmed).
 ROUND_TRIP_LOADED_ON = {"F11": "F10", "F21": "F20"}
+# Pair (inbound KUL-outstation) flight of the aircraft that operates each return leg. MAGCS: toiletry kits, sales
+# carts, compendium and meal cart covers are double-loaded at KUL on the pair flight. Timings from the published
+# schedule; pairing confirmed by matching registrations on planemapper.com (MH721/MH720 9M-MTM 30-Sep, MH1148/MH1149
+# 9M-MXE 28-Sep, MH1436/MH1437 9M-MXC/MXH, MH88/MH89 9M-MTG) or by the published turn (MH4->MH1, MH2->MH3).
+# (pair flight, KUL departure local MYT, block hours)
+PAIR = {
+    "F01": ("MH0004", "2026-10-08 09:50", 13.75),
+    "F03": ("MH0721", "2026-10-10 13:45", 2.33),
+    "F05": ("MH0088", "2026-10-14 23:30", 7.17),
+    "F07": ("MH0002", "2026-10-08 23:20", 13.58),
+    "F09": ("MH0752", "2026-10-11 09:35", 3.67),
+    "F11": ("MH1148", "2026-10-12 14:05", 1.00),
+    "F13": ("MH0139", "2026-10-13 22:25", 7.08),
+    "F15": ("MH0002", "2026-10-24 23:20", 13.58),
+    "F17": ("MH0072", "2026-10-27 09:10", 4.08),
+    "F19": ("MH0052", "2026-10-28 22:25", 6.50),
+    "F21": ("MH1436", "2026-10-30 13:10", 1.08),
+}
+# MAGCS requirements given 01-Oct-2026 (not in the reference workbook); double-loaded from KUL
+MAGCS_SRC = "MAGCS instruction 01-Oct-2026"
+# Skytrax tail groups (Engineering 'best aircraft'; tail confirmed 48 h prior)
+TAIL_GROUPS = {"B738MAX": ["9M-MVO", "9M-MVP", "9M-MVQ", "9M-MVR"], "A333": ["9M-MTJ", "9M-MTM", "9M-MTG"],
+               "A350": [f"9M-MA{c}" for c in "BCDEFGH"]}
+# caterer per flight (MAGCS, 01-Oct-2026)
+CATERER = {"F01": "dnata", "F02": "MAGCS", "F03": "Purantara", "F04": "PASB", "F05": "TFK", "F06": "PASB", "F07": "dnata",
+           "F08": "MAGCS", "F09": "NCS", "F10": "MAGCS", "F11": "MAGCS", "F12": "PASB", "F13": "dnata", "F14": "PASB",
+           "F15": "dnata", "F16": "MAGCS", "F17": "CPCS", "F18": "PASB", "F19": "AAS", "F20": "MAGCS", "F21": "MAGCS",
+           "F22": "PASB"}
 
 # ---------------------------------------------------------------- reference
 wb = openpyxl.load_workbook(REF)
@@ -180,7 +208,13 @@ def build():
             std_utc=std_utc.strftime("%Y-%m-%d %H:%M"), block_h=round(block_h, 3),
             widebody=fleet in WIDEBODY,
             galley_info=galley_info(fleet),
+            caterer=CATERER.get(fid, ""), tail_group=TAIL_GROUPS.get(fleet, []),
         ))
+        if fid in PAIR:
+            pf, pl, pb = PAIR[fid]
+            pdt = datetime.strptime(pl, "%Y-%m-%d %H:%M")
+            flights[-1].update(pair_flt=pf, pair_kul_local=pl, pair_block=pb,
+                               pair_kul_utc=(pdt - timedelta(hours=8)).strftime("%Y-%m-%d %H:%M"))
     return flights
 
 
@@ -212,21 +246,11 @@ def requirements_for(f):
     C = lambda a: cite(sh, a)
     tk = cell(sh, f"D{r_tk}")
     tk_stn = cell(sh, f"H{r_tk}")
-    if tick(tk):
-        src = f"{sh}!{C(f'D{r_tk}')} / {C(f'H{r_tk}')}"
-        if out == "LHR" and f["dep"] == "KUL":
-            q = ("" if bc else " The reference also does not state the cabin class for toiletry kits: confirm whether EY "
-                 "receives them.")
-            add("Amenities", "Toiletry kits", "Clarification required", src, "Available (ticked in reference)", "LHR or KUL - confirm",
-                "A350 row AMENITIES!C12 names LHR as the toiletry-kit uplift stn, but this leg departs KUL "
-                f"(general row C11: uplift stn H11 = KUL). Confirm where toiletry kits for this KUL-LHR {f['cls']} leg are uplifted; if at LHR "
-                "they travel on the inbound LHR-KUL sector and must be verified at KUL before this departure." + q)
-        elif bc:
-            add("Amenities", "Toiletry kits", "Required", src, "Available (ticked in reference)", tk_stn)
-        else:
-            add("Amenities", "Toiletry kits", "Clarification required", src, "Available for sector (ticked in reference)", tk_stn,
-                "Reference does not state the cabin class for toiletry kits. Confirm whether EY receives them; "
-                "if not, mark N/A with the confirmation as justification.")
+    if tick(tk) and bc:  # MAGCS: toiletry kits are BC only (EY receives none); double-loaded from KUL
+        src = f"{sh}!{C(f'D{r_tk}')} / {C(f'H{r_tk}')}; {MAGCS_SRC}"
+        add("Amenities", "Toiletry kits (BC)", "Required", src, "Available (ticked in reference)", "KUL",
+            "Toiletry kits are BC only and are double-loaded from KUL (MAGCS)." +
+            ("" if f["dep"] == "KUL" else " This leg's kits travel on the pair flight from KUL."))
     # pajamas (BC red eyes only) - column F
     if bc:
         pj = cell(sh, f"F{r_pj}")
@@ -236,11 +260,7 @@ def requirements_for(f):
             if f["dep"] == "KUL" and dep_h >= 21:
                 add("Amenities", "Pajamas (BC)", "Required", src, "Available - BC red-eye only", cell(sh, f"H{r_pj}"),
                     f"Red-eye departure {f['std_text']} local.")
-            else:
-                add("Amenities", "Pajamas (BC)", "Clarification required", src,
-                    "Available - BC red-eye only", cell(sh, f"H{r_pj}"),
-                    f"Reference limits BC pajamas to red-eye flights; STD {f['std_text']} local "
-                    f"arriving {f['sta_text']} - confirm whether this leg counts as red-eye.")
+            # otherwise not a red-eye (MAGCS confirmed MH0003 LHR 11:00 is not): no pajamas
         sl = cell(sh, f"G{r_sl}")
         if tick(sl):
             rem = cell(sh, f"I{r_sl}")
@@ -272,11 +292,10 @@ def requirements_for(f):
             if name == "Trolley cloth":
                 exp = ("Wide body: Top/Middle & Bottom" if f["widebody"] else "Narrow body: Top only")
                 note = f"Per note {sh}!B79:C80."
-            if name in ("Table cloth", "Bread linen (using table cloth)") and region in ("ASEAN", "DOMESTIC", "ORIENTAL"):
-                applic = "Clarification required"
-                note = (f"Reference contradicts itself: matrix shows _/ for this sector but note {sh}!B78:C78 says table cloth is "
-                        f"'Not Applicable for Domestic/Asean & Regional' ({region}). Confirm before loading; if not carried, "
-                        "mark N/A with the confirmation as justification.")
+            if name in ("Table cloth", "Bread linen (using table cloth)"):
+                if "Refreshment" in f["service"] or f["service"].startswith("0.5"):
+                    continue  # MAGCS: not applicable on refreshment / 0.5 meal sectors
+                note = "MAGCS: table cloth applies on all sectors except refreshment / 0.5 meal."
             add("F&B Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", exp, "Not stated in reference", note)
 
     # ---- SEAT LINEN
@@ -303,9 +322,9 @@ def requirements_for(f):
                 applic = "Clarification required"
                 note += " Matrix shows _/ but block time is not above 3 h - confirm."
             if f["region"] in ("ORIENTAL", "ASEAN", "DOMESTIC"):
-                applic = "Clarification required"
-                note += (f" Matrix shows _/ for this {f['region']} sector but B74 excludes 'Regional sectors' without defining them - "
-                         "confirm whether this sector counts as Regional.")
+                note += f" MAGCS: blanket included on this {f['region']} sector at 100% (one per EY seat)."
+                if not qty and f["fleet"] not in ("A333", "A339", "A350"):
+                    qty = "100% (one per EY seat)"
             if f["fleet"] in ("A333", "A339"):
                 qty = "280"
                 note += f" Qty 280 pcs (14 bundles) for A332/A333/A339 ({sh}!B75:C75)."
@@ -336,32 +355,39 @@ def requirements_for(f):
         caterer = cell(sh, f"C{r}")
         stn_note = ""
         applic = "Required"
+        cart_stn = "KUL"  # MAGCS: double-loaded from KUL (return legs: on the pair flight)
         if f["dep"] != "KUL":
-            applic = "Clarification required"
-            stn_note = (f" Reference names caterer {caterer} for the KUL/{out}/KUL sector but no uplift station: "
-                        f"confirm whether the {f['dep']}-KUL sales cart is loaded at KUL (round trip) or at {f['dep']}.")
+            stn_note = f" Double-loaded from KUL on the pair flight (MAGCS)."
         if f["block_h"] >= 4:
             if f["fleet"] == "B738MAX":
                 loc = cell(sh, f"F{r}")
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic,
                     f"{sh}!{C(f'F{r}')} / {C(f'C{r}')} / {C(f'M{r}')} / C40",
-                    f"Location {loc} (B7M8)", "Not stated in reference",
+                    f"Location {loc} (B7M8)", cart_stn,
                     f"Block {f['block_h']:.2f} h >= 4 h (note {sh}!C40).{stn_note}", cls_scope="All")
             elif f["fleet"] == "A333":
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic, f"{sh}!{C(f'I{r}')} / {C(f'C{r}')} / C40",
-                    f"Location {cell(sh, f'I{r}')} (A333, full cart)", "Not stated in reference",
+                    f"Location {cell(sh, f'I{r}')} (A333, full cart)", cart_stn,
                     f"Block {f['block_h']:.2f} h >= 4 h.{stn_note}", cls_scope="All")
             elif f["fleet"] == "A339":
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic, f"{sh}!{C(f'J{r}')} / {C(f'C{r}')} / C40",
-                    f"Location {cell(sh, f'J{r}')} (A339)", "Not stated in reference",
+                    f"Location {cell(sh, f'J{r}')} (A339)", cart_stn,
                     f"Block {f['block_h']:.2f} h >= 4 h.{stn_note}", cls_scope="All")
             elif f["fleet"] == "A350" and out != "LHR":
                 k = cell(sh, f"K{r}")
                 l = cell(sh, f"L{r}")
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic,
                     f"{sh}!{C(f'K{r}')} / {C(f'L{r}')} / {C(f'C{r}')} / {C(f'O{r}')}",
-                    f"A359: {k} (full cart); 9M-MAH: {l} (half cart) - per tail", "Not stated in reference",
+                    f"A359: {k} (full cart); 9M-MAH: {l} (half cart) - per tail", cart_stn,
                     f"Block {f['block_h']:.2f} h >= 4 h. Location depends on tail.{stn_note}", cls_scope="All")
+    # ---- MAGCS additional requirements (01-Oct-2026): every flight, double-loaded from KUL
+    wb_ = f["widebody"]
+    via = "" if f["dep"] == "KUL" else " This leg's set travels on the pair flight from KUL."
+    add("Cabin items", "Compendium (in DAM cart)", "Required", MAGCS_SRC, "Location: DAM cart",
+        "KUL", "Double-loaded from KUL (MAGCS)." + via, "2" if wb_ else "1", cls_scope="All")
+    add("Cabin items", "Meal cart cover", "Required", MAGCS_SRC,
+        "Wide body 8 (3 BC + 5 EY)" if wb_ else "Narrow body 5 (2 BC + 3 EY)",
+        "KUL", "Double-loaded from KUL (MAGCS)." + via, "8" if wb_ else "5", cls_scope="All")
     return reqs
 
 
@@ -413,8 +439,8 @@ STD_T7 = [
     ("Staffing", "Experienced catering officer assigned to this flight", "Record officer name in Result", 0, 0),
     ("ISOP", "All latest applicable ISOP revisions communicated to caterer", "List revision numbers in Result (see ISOP register)", 0, 0),
     ("ISOP", "Caterer acknowledgement of ISOP revisions recorded", "Record acknowledgement ref in Evidence", 0, 0),
-    ("Documents", "Galley loading diagram (GLD) received, revision recorded & attached", "Documents sheet row complete", 0, 1),
-    ("Documents", "Menu checklist received, revision recorded & attached", "Documents sheet row complete", 0, 1),
+    ("Documents", "Galley loading diagram (GLD) received and its link recorded", "Link on the Documents sheet (ON FILE)", 0, 1),
+    ("Documents", "Menu checklist received and its link recorded", "Link on the Documents sheet (ON FILE)", 0, 1),
     ("Uplift plan", "Uplift plan confirmed with caterer vs STD Uplift Information", "", 0, 0),
 ]
 STD_T24 = [
@@ -467,12 +493,12 @@ def check_lines(f, reqs, flights):
     if f["round_trip"]:
         lf = next(x for x in flights if x["id"] == f["loaded_on"])
         add("T-7D", "Preparation", "Uplift plan",
-            f"Carrying flight for this leg's return catering identified and its KUL departure (UTC) entered on Flights col AX",
+            f"Pair flight {f['pair_flt']} (KUL {f['pair_kul_local'][8:10]}-Oct {f['pair_kul_local'][11:]} local) confirmed as the "
+            f"carrier of this leg's return catering; actual KUL departure on Flights AX",
             f"All catering for {f['flt']} {f['dep']}-KUL is uplifted at KUL (ref uplift stn KUL only)", f"{REFNAME} > {f['service_src']}",
-            "Clarification required",
-            f"{f['dep']} does not cater. Agenda candidate: {lf['flt']} ({lf['id']}, KUL {lf['std_text']} local) - confirm the aircraft "
-            f"rotation and enter the actual KUL departure in Flights AX (cannot be passed until entered). Until then, T-24H, "
-            f"T-12H prep and the KUL loading line assume the candidate's KUL departure.",
+            "Required",
+            f"{f['dep']} does not cater. Pair flight {f['pair_flt']} (aircraft rotation; tail confirmed 48 h prior) - "
+            f"Flights AX is pre-filled with its scheduled KUL departure; correct it if the rotation changes.",
             "KUL", carry=1)
     kul_items = [r for r in reqs if r["uplift_stn"] == "KUL"]
     carry = f["dep"] != "KUL" and not f["round_trip"] and bool(kul_items)
@@ -483,13 +509,14 @@ def check_lines(f, reqs, flights):
         prior = [x for x in inbound if lo <= x["std_utc"] < f["std_utc"]]  # a carrier more than 3 days early is not valid
         cand = (f"agenda candidate {prior[-1]['flt']} {prior[-1]['date'][8:]}-Oct ({prior[-1]['id']})" if prior else
                 "no KUL-" + f["dep"] + " flight before this leg in the agenda")
+        pair = (f"pair flight {f['pair_flt']} (KUL {f['pair_kul_local'][8:10]}-Oct {f['pair_kul_local'][11:]} local)"
+                if f.get("pair_flt") else cand)
         add("T-7D", "Preparation", "Uplift plan",
-            f"Inbound KUL-{f['dep']} flight carrying KUL-sourced items identified and its KUL departure (UTC) entered on Flights col AX",
-            f"KUL-sourced items ({names}) travel on the inbound KUL-{f['dep']} sector",
-            f"{REFNAME} > item uplift stn columns (see Requirements)", "Clarification required",
-            f"Cannot be passed until Flights AX holds the carrying flight's KUL departure ({cand}). Until then the prep and KUL-loading "
-            f"dues assume the agenda candidate's KUL departure, or if none, the latest possible one (STD minus the shortest "
-            f"agenda KUL-{f['dep']} block).",
+            f"Pair flight carrying the KUL double-loaded items confirmed: {pair}; actual KUL departure on Flights AX",
+            f"KUL-sourced items ({names}) travel on the inbound KUL-{f['dep']} pair flight",
+            f"{REFNAME} > item uplift stn columns; {MAGCS_SRC}", "Required",
+            f"Flights AX is pre-filled with the pair flight's scheduled KUL departure (aircraft rotation; tail confirmed 48 h "
+            f"prior); correct it if the rotation changes. Prep and KUL-loading dues follow it.",
             "KUL", carry=1)
     for cat, item, exp, batch, doc in STD_T24:
         add("T-24H", "Preparation", cat, item, exp, "User brief (T-24 hours)", "Required",
@@ -536,7 +563,7 @@ def check_lines(f, reqs, flights):
             due_bound=rt_bound, due_rule="CARRY")
     if carry:
         add("UPLIFT", "Physical uplift", "Uplift plan",
-            f"KUL-sourced items physically loaded at KUL on the inbound KUL-{f['dep']} flight",
+            f"KUL-sourced items physically loaded at KUL on the pair flight {f.get('pair_flt', '')} (KUL-{f['dep']})",
             f"Items: {names}. Quantities as per Requirements", f"{REFNAME} > item uplift stn columns", "Required",
             "Confirmed at KUL inside the uplift window before the carrying flight's KUL departure (Flights AX).", "KUL",
             due_bound=[x["id"] for x in inbound], due_rule="CARRY")

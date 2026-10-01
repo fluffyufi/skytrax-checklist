@@ -24,9 +24,6 @@ def fill_f11(wb):
             ck[f"AD{r}"] = datetime(2026, 10, 11, 23, 0) if ck[f"G{r}"].value == "T-12H PREP" else datetime(2026, 10, 11, 10, 0)
         if ck[f"H{r}"].value == "Physical uplift" and cid != "F11-UPL-03":
             ck[f"AD{r}"] = datetime(2026, 10, 12, 14, 0)  # PEN, after MH1140 arrival
-    d = wb["Documents"]
-    d["F15"], d["G15"], d["H15"], d["I15"] = "GLD-B7M8-PEN", "R1", datetime(2026, 9, 1), "\\\\share\\GLD\\MH1149.pdf"
-    d["K15"], d["L15"], d["M15"], d["N15"] = "MCL-PENKUL-2610", "R1", datetime(2026, 9, 1), "\\\\share\\MCL\\MH1149.pdf"
     wb["Flights"]["AX15"] = datetime(2026, 10, 12, 3, 45)
 
 
@@ -85,7 +82,7 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "more":
 
 def round4():
     d = lambda k, v: (lambda wb, rows: wb["Documents"].__setitem__(k, v))
-    run("doc_placeholders", lambda wb, rows: [wb["Documents"].__setitem__(k, v) for k, v in (("F15", "TBC"), ("G15", "-"), ("I15", "pending"))])
+    run("doc_placeholders", lambda wb, rows: [wb["Documents"].__setitem__(k, v) for k, v in (("F15", "TBC"), ("H15", "pending"))])
     run("doc_date_after_flight", d("H15", datetime(2026, 12, 1)))
     run("evidence_to_be_confirmed", cell("F11-T7-01", "Z", "to be confirmed"))
     run("evidence_dashes", cell("F11-T7-01", "Z", "---"))
@@ -105,7 +102,6 @@ def round5():
     run("evidence_real_uploaded", cell("F11-UPL-01", "Z", "Photo uploaded to SharePoint F11/UPL-01"))
     run("result_discrepancy_pass", cell("F11-T12-03", "V", "Discrepancy found - 3 dirty inserts replaced"))
     run("result_shortbread_ok", cell("F11-T24-01", "V", "Shortbread texture and taste good, temp 4C"))
-    run("doc_rev_2023", lambda wb, rows: wb["Documents"].__setitem__("H15", datetime(2023, 8, 1)))
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r5":
@@ -124,11 +120,10 @@ def round6():
     run("bad_result_short", cell("F11-T12-03", "V", "Short 3 trays, replaced"))
     run("bad_batch_tbc", cell("F11-T24-01", "W", "Batch TBC"))
     run("bad_evidence_verbal", cell("F11-T7-01", "Z", "Verbally confirmed with PASB supervisor"))
-    run("bad_doc_to_follow", lambda wb, rows: wb["Documents"].__setitem__("I15", "to follow from PASB"))
+    run("bad_doc_to_follow", lambda wb, rows: wb["Documents"].__setitem__("F15", "to follow from PASB"))
     run("load_change_ca", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in
                                             (("X", 14), ("Y", 14), ("U", "Pass after CA"),
                                              ("AA", "Final load +2 pax: 2 extra refreshments uplifted"), ("AB", "Closed"))])
-    run("doc_rev_zero", lambda wb, rows: wb["Documents"].__setitem__("G15", "0"))
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r6":
@@ -161,8 +156,6 @@ def round17():
         wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Not applicable for this flight")])
     run("r17_bad_na_as_above", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
         wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "As above - see previous line")])
-    run("r17_bad_doc_no_digits", lambda wb, rows: wb["Documents"].__setitem__("F15", "GLD"))
-    run("r17_bad_doc_flight_no", lambda wb, rows: wb["Documents"].__setitem__("F15", "MH1149"))
     run("r17_bad_fail_on_rule_row", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-03']}", "Fail"),
         wb["Checks"].__setitem__(f"AA{rows['F11-T7-03']}", "n/a"), wb["Checks"].__setitem__(f"AB{rows['F11-T7-03']}", "Open")])
 
@@ -196,7 +189,7 @@ def round18():
                            wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", "A. Rahman")]))
     run("r18_ok_patronymic", lambda wb, rows: [wb["Checks"].__setitem__(f"T{rows['F11-T7-01']}", "Ahmad bin Ali"),
                                                wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", "Ali bin Ahmad")])
-    run("r18_ok_doc_binder", lambda wb, rows: wb["Documents"].__setitem__("I15", "Filed in GLD binder, PEN catering office"))
+    run("r18_ok_doc_binder", lambda wb, rows: wb["Documents"].__setitem__("F15", "Filed in GLD binder, PEN catering office"))
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r18":

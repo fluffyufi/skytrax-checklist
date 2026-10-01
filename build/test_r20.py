@@ -37,21 +37,23 @@ def f05(all_na):
 
 def timing(when_fn):
     def prep(wb, ck, rows):
-        std = wb["Flights"]["I9"].value
-        na(ck, rows["F05-T12-08"], when_fn(std))
-        return ["F05-T12-08"]
+        import test_logic2 as L
+        L.fill_f11(wb)
+        std = datetime(2026, 10, 12, 15, 50)
+        na(ck, rows["F11-T7-02"], when_fn(std), "Refreshment service – no printed menu card")
+        return ["F11-T7-02"]
     return prep
 
 
 def tailqty(tail, x):
     def prep(wb, ck, rows):
         wb["Flights"]["N5"] = tail
-        r = rows["F01-T12-10"]
+        r = rows["F01-T12-09"]  # Blanket (EY)
         std = wb["Flights"]["I5"].value
         for k, v in (("U", "Pass"), ("T", "A. Rahman"), ("AE", "N. Ismail"), ("V", "Blankets counted against GLD, all bundled"),
                      ("S", "Form / checklist"), ("Z", "QF-2210"), ("X", x), ("Y", x), ("AD", std - timedelta(hours=13))):
             ck[f"{k}{r}"] = v
-        return ["F01-T12-10"]
+        return ["F01-T12-09"]
     return prep
 
 
@@ -111,34 +113,11 @@ def sq_case(conf, carrier, prep_local, upl_local=None, flight="F06"):
     return prep
 
 
-if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r23":
-    states("sq_unanswered", sq_case(None, None, datetime(2026, 10, 15, 10, 20)))
-    states("sq_kul_dep_stn", sq_case("KUL", None, datetime(2026, 10, 15, 10, 20)))
-    states("sq_lhr_prep_before_carrier", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 14, 12, 0),
-                                                 datetime(2026, 10, 15, 20, 0)))
-    states("sq_lhr_prep_after_carrier", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 15, 1, 0)))
-    states("sq_lhr_onboard_before_arrival", sq_case("LHR", datetime(2026, 10, 14, 23, 0), datetime(2026, 10, 14, 12, 0),
-                                                    datetime(2026, 10, 15, 18, 0)))
-    states("sq_lhr_no_carrier", sq_case("LHR", None, datetime(2026, 10, 14, 12, 0)))
-    states("sq_f19_kul_no_carrier", sq_case("KUL", None, datetime(2026, 10, 28, 20, 0), flight="F19"))
-
-    def f05_cart_at_kul(wb, ck, rows):
-        ids = f05(True)(wb, ck, rows)
-        st = wb["Settings"]
-        r = next(r for r in range(27, 40) if str(st[f"A{r}"].value or "").split("  ")[-1].startswith("F05"))
-        st[f"F{r}"] = "KUL"
-        return ids
-    states("sq_f05_cart_at_kul_blocks_na", f05_cart_at_kul)
-
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r22":
-    states("r22_gld_revised", r22_gld_revised)
     states("r22_kul_prep_after_loading", r22_kul_prep_after_loading)
-    states("r22_f05_not_carried_no_ax", r22_f05_not_carried_no_ax)
-    states("r22_onboard_clar_photo", r22_onboard_clar_photo)
     states("r22_asof_review", r22_asof_review)
 
 if __name__ == "__main__" and len(sys.argv) == 1:
-    states("carry_na_all_items_na", f05(True))
     states("carry_na_item_open", f05(False))
     states("na_after_departure", timing(lambda std: std + timedelta(days=2)))
     states("na_no_time", timing(lambda std: None))

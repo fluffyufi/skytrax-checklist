@@ -12,6 +12,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
+TAIL_GROUPS = {"B738MAX": ["9M-MVO", "9M-MVP", "9M-MVQ", "9M-MVR"], "A333": ["9M-MTJ", "9M-MTM", "9M-MTG"],
+               "A350": [f"9M-MA{c}" for c in "BCDEFGH"]}  # Skytrax groups (MAGCS, 01-Oct-2026)
 NAVY = "1F3864"
 F_HEAD = PatternFill("solid", fgColor=NAVY)
 F_INPUT = PatternFill("solid", fgColor="FFF2CC")
@@ -311,8 +313,13 @@ def build_settings(wb, data):
     # ---------------- station confirmations: where an item with an open uplift station is actually loaded
     sq = station_questions(data)
     hdr = SQ_FIRST_ROW - 1
-    ws.cell(hdr - 1, 1, "STATION CONFIRMATIONS – where is the item loaded? (answer from MAGCS / caterer; yellow = input)").font = f(10, True, NAVY)
-    for c, h in enumerate(["Question / flight", "Item", "Lines", "Departure stn", "Other possible stn",
+    if not sq:
+        ws.cell(hdr - 1, 1, "STATION CONFIRMATIONS – none open: MAGCS confirmed (01-Oct-2026) that toiletry kits and sales "
+                            "carts are double-loaded from KUL; return legs carry them on the pair flight (Flights AX).").font = f(10, True, NAVY)
+    else:
+        ws.cell(hdr - 1, 1, "STATION CONFIRMATIONS – where is the item loaded? (answer from MAGCS / caterer; yellow = input)").font = f(10, True, NAVY)
+
+    for c, h in enumerate([] if not sq else ["Question / flight", "Item", "Lines", "Departure stn", "Other possible stn",
                            "CONFIRMED uplift stn", "Carrying flight departs that stn (UTC)", "Shortest block (h)",
                            "Carrier arrives (UTC)", "Status"], 1):
         cell = ws.cell(hdr, c, h)
@@ -438,14 +445,11 @@ def build_flights(wb, data, n_checks):
     byid = {x["id"]: x for x in data["flights"]}
     for i, fl in enumerate(data["flights"]):
         r = 5 + i
-        loaded = ""
-        if fl["loaded_on"]:
-            lf = byid[fl["loaded_on"]]
-            loaded = lf["id"]
+        loaded = fl.get("pair_flt", "") if fl["loaded_on"] else ""
         static = [fl["id"], fl["itin"], fl["seq"], dt(fl["date"] + " 00:00"), fl["day"], fl["flt"], fl["dep"],
                   fl["arr"], dt(fl["std_local"]), dt(fl["sta_local"]), fl["cls"], fl["fleet"], fl["fleet_ref"],
                   None, fl["seat"], fl["transit"], fl["remark"], fl["sector"], fl["region"], fl["service"],
-                  fl["ref_uplift_stns"], fl["meal_uplift_stn"], loaded, None, None]
+                  fl["ref_uplift_stns"], fl["meal_uplift_stn"], loaded, fl.get("caterer") or None, None]
         for j, v in enumerate(static, 1):
             ws.cell(r, j, v)
         ws.cell(r, 4).number_format = "dd-mmm-yy"
@@ -467,8 +471,8 @@ def build_flights(wb, data, n_checks):
         if fl["loaded_on"]:
             ws[f"W{r}"].comment = Comment(
                 "Round-trip catered: reference uplift stn for this sector is KUL only, so return catering is loaded at KUL "
-                f"on {byid[fl['loaded_on']]['flt']}. Preparation checks must finish before that loading window. "
-                "Enter the actual carrying flight's KUL departure (UTC) in column AX; the deadlines follow it.", "MAGCS")
+                f"on the pair flight {fl.get('pair_flt', '')}. Preparation checks must finish before that loading window. "
+                "Its KUL departure (UTC) is in column AX; the deadlines follow it.", "MAGCS")
         ws[f"AF{r}"] = f"=AA{r}"
         for src, dst in (("AC", "AG"), ("AD", "AH"), ("AE", "AI")):
             ws[f"{dst}{r}"] = f"={src}{r}+({off(f'V{r}', f'{src}{r}')})/24"
@@ -488,10 +492,13 @@ def build_flights(wb, data, n_checks):
         ws[f"AO{r}"] = f"=AW{r}-AV{r}"
         ws[f"AP{r}"] = f"=SUMIFS({rng('AK')},{rng('B')},$A{r})"
         ws[f"AQ{r}"] = f"=SUMIFS({rng('AL')},{rng('B')},$A{r})"
-        ws[f"AR{r}"] = f"=Documents!P{r}"
-        tails = "{" + ",".join(f'\"9MMA{c}\"' for c in "BCDEFGH") + "}"
-        tail_open = (f"IF(AND(TRIM(L{r})=\"A350\",ISNA(MATCH(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(N{r}),\"-\",\"\"),\" \",\"\")),"
-                     f"{tails},0))),1,0)")  # A350 quantities / cart positions depend on the tail (9M-MAB..MAH)
+        ws[f"AR{r}"] = f"=Documents!J{r}"
+        tn = f"UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(N{r}),\"-\",\"\"),\" \",\"\"))"
+        grp = lambda fleet: "{" + ",".join(f'\"{t.replace("-", "")}\"' for t in TAIL_GROUPS[fleet]) + "}"
+        # tail confirmed 48 h prior; must be in the Skytrax group for the fleet (A339: any 9M- registration)
+        tail_open = (f"IF(TRIM(N{r})=\"\",1,IF(TRIM(L{r})=\"A350\",--ISNA(MATCH({tn},{grp('A350')},0)),"
+                     f"IF(TRIM(L{r})=\"A333\",--ISNA(MATCH({tn},{grp('A333')},0)),"
+                     f"IF(TRIM(L{r})=\"B738MAX\",--ISNA(MATCH({tn},{grp('B738MAX')},0)),--(LEFT({tn},2)<>\"9M\")))))")
         ws[f"AS{r}"] = f"=SUMIFS({rng('AN')},{rng('B')},$A{r})+{tail_open}"
         prep_done = (f"SUMIFS({rng('AJ')},{rng('B')},$A{r},{rng('H')},\"Preparation\")="
                      f"SUMIFS({rng('AI')},{rng('B')},$A{r},{rng('H')},\"Preparation\")")
@@ -514,13 +521,19 @@ def build_flights(wb, data, n_checks):
                 default = f"AA{r}-MIN({mb})/24"
             ws[f"AY{r}"] = f"=ROUND((IF(ISNUMBER(AX{r}),AX{r},{default})-UpliftWindowH/24)*1440,0)/1440"
             mb2 = ",".join(f"$AB${5 + int(b[1:]) - 1}" for b in bounds)
+            if fl.get("pair_flt"):
+                ws[f"AX{r}"] = dt(fl["pair_kul_utc"])  # pre-filled: scheduled KUL departure of the pair flight (editable)
+                mb2 = str(fl["pair_block"])
             az = f"ROUND((AY{r}+UpliftWindowH/24+MIN({mb2})/24)*1440,0)/1440"
             # without an agenda candidate the 'latest possible' carrier only caps preparation dues; it is not used to
             # reject on-board checks (the carrying-flight line itself must still be resolved before READY)
             ws[f"AZ{r}"] = f"={az}" if prior else f"=IF(ISNUMBER(AX{r}),{az},\"\")"
             ws[f"AX{r}"].comment = Comment(
-                "Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
-                "loading deadline assumes the latest possible departure (STD minus shortest agenda block).", "MAGCS")
+                (f"Pre-filled: pair flight {fl['pair_flt']} scheduled KUL departure {fl['pair_kul_local'][8:10]}-Oct "
+                 f"{fl['pair_kul_local'][11:]} MYT (= UTC shown). Correct it if the rotation or timing changes; the KUL loading "
+                 "deadline and the earliest on-board time follow it.") if fl.get("pair_flt") else
+                ("Enter the UTC departure from KUL of the flight that carries this leg's KUL-sourced items. Until entered, the "
+                 "loading deadline assumes the latest possible departure (STD minus shortest agenda block)."), "MAGCS")
         else:
             ws[f"AX{r}"] = "n/a"
             ws[f"AY{r}"] = "n/a"
@@ -569,6 +582,17 @@ def build_flights(wb, data, n_checks):
                          errorTitle="Fleet", error="Choose the fleet from the list (schedule values).")
     dvl.add("L5:L26")
     ws.add_data_validation(dvl)
+    for fleet, tails in TAIL_GROUPS.items():
+        rows_f = [5 + i for i, x in enumerate(data["flights"]) if x["fleet"] == fleet]
+        if not rows_f:
+            continue
+        dvt = DataValidation(type="list", formula1='"' + ",".join(tails) + '"', allow_blank=True, showErrorMessage=True,
+                             errorStyle="warning", errorTitle="Tail", showInputMessage=True, promptTitle="Tail / Reg",
+                             prompt=f"Skytrax {fleet} group: {', '.join(tails)}. Confirmed 48 h prior.",
+                             error=f"Not in the Skytrax {fleet} group ({', '.join(tails)}). Keep only if Engineering changed it.")
+        for rr in rows_f:
+            dvt.add(f"N{rr}")
+        ws.add_data_validation(dvt)
     ws.add_data_validation(dvx)
     ws.sheet_view.zoomScale = 85
     ws.print_options.gridLines = False
@@ -951,10 +975,8 @@ def build_checks(wb, data):
             vals["AS"] = 1 if "GLD" in ck["item"] else 2
         if ck.get("req_carry"):
             vals["AS"] = 3
-        doc_chk = (f"IF(AND(AS{r}=1,Documents!$J${fr}<>\"ON FILE\"),\"INVALID {ND} GLD not on file (Documents sheet)\","
-                   f"IF(AND(AS{r}=1,ISNUMBER(Documents!$H${fr}),Documents!$H${fr}>AD{r}),\"INVALID {ND} GLD revised after this check (Documents rev date): re-check against the current revision\","
-                   f"IF(AND(AS{r}=2,ISNUMBER(Documents!$M${fr}),Documents!$M${fr}>AD{r}),\"INVALID {ND} menu checklist revised after this check (Documents rev date): re-check against the current revision\","
-                   f"IF(AND(AS{r}=2,Documents!$O${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist not on file (Documents sheet)\","
+        doc_chk = (f"IF(AND(AS{r}=1,Documents!$G${fr}<>\"ON FILE\"),\"INVALID {ND} GLD link not on file (Documents sheet)\","
+                   f"IF(AND(AS{r}=2,Documents!$I${fr}<>\"ON FILE\"),\"INVALID {ND} menu checklist link not on file (Documents sheet)\","
                    f"IF(AND(AS{r}=3,NOT(ISNUMBER(Flights!$AX${fr}))),\"INVALID {ND} enter carrying flight KUL departure (Flights AX)\","
                    f"IF(AND(AS{r}=3,OR(Flights!$AZ${fr}>Flights!$AA${fr},Flights!$AX${fr}<Flights!$AA${fr}-3)),"
                    f"\"INVALID {ND} carrying flight (Flights AX) cannot arrive before this leg's STD, or is over 3 days early\",")
@@ -1034,7 +1056,7 @@ def build_checks(wb, data):
                 f"IF(AG{r}>Flights!$AA${fr},\"INVALID {ND} completed after departure (cannot establish readiness)\","
                 f"IF(AND(H{r}=\"Preparation\",AG{r}>={cutoff}),\"INVALID {ND} {cut_msg}\","
                 f"IF(AND(H{r}=\"Physical uplift\",AG{r}>Q{r}),\"INVALID {ND} recorded after the loading flight departed\","
-                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))))")
+                f"IF(AG{r}>Q{r},\"COMPLETE {ND} LATE\",\"COMPLETE\"))))))))))")
         link_chk, link_close = "", ""
         if ck.get("prep_link"):
             pr = rowmap[ck["prep_link"]]
@@ -1077,17 +1099,6 @@ def build_checks(wb, data):
             f"IF(AND(AR{r}=1,OR(X{r}<=0,Y{r}<0)),\"INVALID {ND} expected qty must be above 0 and actual not negative\","
             f"{link_chk}"
             f"IF(BB{r}<>\"\",BB{r},{rest}){link_close}))))))))))))))))))")
-        itm = ck["item"].lower()
-        for key, dcol, dname in (("gld", "H", "GLD"), ("menu checklist", "M", "menu checklist")):
-            if key in itm and not ck["req_doc"]:
-                msg += (f"&IF(AND(ISNUMBER(Documents!${dcol}${fr}),Documents!${dcol}${fr}>AD{r}),\"INVALID {ND} {dname} "
-                        f"revised after this check (Documents rev date): re-check against the current revision\",\"\")")
-        if sq and ck["check_type"] == "Preparation":
-            msg += (f"&IF({conf}=\"\",\"INVALID {ND} confirm where this item is loaded (Settings, station confirmations {sq['qid']})\","
-                    f"IF(AND({moved},NOT(ISNUMBER({carr}))),\"INVALID {ND} enter the carrying flight's departure from the confirmed stn (Settings {sq['qid']})\","
-                    f"IF(AND({moved},OR({arr}>Flights!$AA${fr},{carr}<Flights!$AA${fr}-3)),\"INVALID {ND} carrying flight ({sq['qid']}) must arrive before STD and leave within 3 days of it\","
-                    f"IF(AND({conf}=\"KUL\",IFERROR(ABS({carr}-Flights!$AX${fr})>1/1440,FALSE)),"
-                    f"\"INVALID {ND} carrying-flight time ({sq['qid']}) differs from the KUL departure on Flights for this leg\",\"\"))))")
         if "Qty per tail: A350 280 pcs" in (ck["note"] or ""):
             tq = (f"IF(UPPER(SUBSTITUTE(SUBSTITUTE(TRIM(Flights!$N${fr}),\"-\",\"\"),\" \",\"\"))=\"9MMAH\",280,260)")
             msg += (f"&IF(AND(ISNUMBER(X{r}),X{r}<>{tq}),\"INVALID {ND} expected qty must be the reference quantity for this "
@@ -1230,15 +1241,14 @@ def build_checks(wb, data):
 def build_documents(wb, data):
     ws = wb.create_sheet("Documents")
     title(ws, "Documents",
-          "PIC reference documents: galley loading diagrams (GLD) and menu checklists. No GLD or menu checklist was supplied with the brief: every row starts OUTSTANDING. A row is ON FILE only with a real doc no, revision, a revision date between 2020 and the flight date, and an attachment location. Enter doc no, revision, "
-          "revision date and attachment location/link (or embed on the flight's P-sheet) to clear it.",
+          "Galley loading diagram (GLD) and menu checklist per flight: paste the link (SharePoint / OneDrive URL, network path "
+          "or file name) – or a hyperlink whose text names the document. A row is ON FILE once a real link or document "
+          "name is entered (placeholders such as 'TBC' or 'to follow' do not count).",
           "C2:I2", 99)
-    labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD doc no", "GLD revision", "GLD rev date (issued or received, whichever later)",
-              "GLD attachment (link / location)", "GLD status", "Menu checklist doc no", "Menu checklist revision",
-              "Menu checklist rev date (issued or received, whichever later)", "Menu checklist attachment (link / location)", "Menu checklist status",
-              "Outstanding", "Notes"]
-    widths = [7, 9, 10, 9, 9, 16, 10, 11, 34, 14, 16, 10, 11, 34, 14, 10, 40]
-    header(ws, 4, labels, widths, height=42)
+    labels = ["Flight ID", "Flight No", "Date", "Sector", "Fleet", "GLD link", "GLD status",
+              "Menu checklist link", "Menu checklist status", "Outstanding", "Notes"]
+    widths = [7, 9, 10, 9, 9, 48, 14, 48, 14, 11, 40]
+    header(ws, 4, labels, widths, height=32)
     for i, fl in enumerate(data["flights"]):
         r = 5 + i
         fr = r
@@ -1248,60 +1258,41 @@ def build_documents(wb, data):
         ws[f"C{r}"].number_format = "dd-mmm-yy"
         ws[f"D{r}"] = f"=Flights!G{fr}&\"-\"&Flights!H{fr}"
         ws[f"E{r}"] = f"=Flights!L{fr}"
-        def docok(no, rev, dt, att):
-            ok = lambda x, n: f"AND(LEN({norm(x + str(r))})>={n},NOT(ISNUMBER(MATCH(LEFT({norm(x + str(r))},255),L_Placeholder,0))))"
-            docno = (f"AND(SUMPRODUCT(--ISNUMBER(FIND({{\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"}},{no}{r})))>0,"
-                     f"ISNA(MATCH(TRIM({no}{r}),{{\"12345\",\"123456\",\"00000\",\"000000\",\"11111\",\"99999\"}},0)),"
-                     f"LOWER(TRIM({no}{r}))<>LOWER(Flights!$F${fr}),NOT(AND(LEFT(LOWER(TRIM({no}{r})),2)=\"mh\",ISNUMBER(--MID(TRIM({no}{r}),3,6)))))")
-            return (f"=IFERROR(IF(AND({ok(no, 3)},{docno},{ok(rev, 1)},ISNUMBER({dt}{r}),{dt}{r}>=DATE(2020,1,1),"
-                    f"{dt}{r}<=Flights!$I${fr},{ok(att, 5)},OR({ref_ok(att + str(r), ('R' if att == 'I' else 'T') + str(r), ('S' if att == 'I' else 'U') + str(r))},SUMPRODUCT(--ISNUMBER(SEARCH({{\"binder\",\"cabinet\",\"shelf\",\"filed in\",\"file room\",\"lever arch\"}},{att}{r})))>0),NOT({pending(('X' if att == 'I' else 'Y') + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
-        ws[f"X{r}"] = "=" + spaced(f"I{r}")
-        ws[f"Y{r}"] = "=" + spaced(f"N{r}")
-        ws[f"V{r}"] = "=" + masked(f"X{r}", f"Flights!$F${fr}", 1)
-        ws[f"W{r}"] = "=" + masked(f"Y{r}", f"Flights!$F${fr}", 1)
-        ws[f"Z{r}"] = "=" + masked(f"V{r}", f"Flights!$F${fr}", 2)
-        ws[f"AA{r}"] = "=" + masked(f"W{r}", f"Flights!$F${fr}", 2)
-        ws[f"AB{r}"] = "=" + masked(f"Z{r}", f"Flights!$F${fr}", 3)
-        ws[f"AC{r}"] = "=" + masked(f"AA{r}", f"Flights!$F${fr}", 3)
-        ws[f"R{r}"] = "=" + digitmap(f"AB{r}")
-        ws[f"S{r}"] = "=" + alphamap(f"R{r}")
-        ws[f"T{r}"] = "=" + digitmap(f"AC{r}")
-        ws[f"U{r}"] = "=" + alphamap(f"T{r}")
-        ws[f"J{r}"] = docok("F", "G", "H", "I")
-        ws[f"O{r}"] = docok("K", "L", "M", "N")
-        ws[f"P{r}"] = f"=(J{r}=\"OUTSTANDING\")+(O{r}=\"OUTSTANDING\")"
-        note = "Not supplied with brief – obtain from caterer / MAGCS."
+
+        def docok(att, sp):
+            n = norm(att + str(r))
+            return (f"=IFERROR(IF(AND(LEN({n})>=5,ISNA(MATCH(LEFT({n},255),L_Placeholder,0)),"
+                    f"NOT({pending(sp + str(r), 'L_PendStrict')})),\"ON FILE\",\"OUTSTANDING\"),\"OUTSTANDING\")")
+        ws[f"L{r}"] = "=" + spaced(f"F{r}")
+        ws[f"M{r}"] = "=" + spaced(f"H{r}")
+        ws[f"G{r}"] = docok("F", "L")
+        ws[f"I{r}"] = docok("H", "M")
+        ws[f"J{r}"] = f"=(G{r}=\"OUTSTANDING\")+(I{r}=\"OUTSTANDING\")"
+        note = "Obtain from caterer / MAGCS."
         if fl["round_trip"]:
             note += " Return catering loaded at KUL: GLD must show return-leg stowage."
-        ws[f"Q{r}"] = note
-        for j in range(1, 18):
-            c = ws.cell(r, j)
+        ws[f"K{r}"] = note
+        for jj in range(1, 12):
+            c = ws.cell(r, jj)
             c.font = f(9)
             c.border = BORDER
             c.alignment = WRAP
-            if j in (6, 7, 8, 9, 11, 12, 13, 14):
+            if jj in (6, 8):
                 c.fill = F_INPUT
-            elif j in (10, 15, 16):
+            elif jj in (7, 9, 10):
                 c.fill = F_CALC
-        ws[f"H{r}"].number_format = "dd-mmm-yy"
-        ws[f"M{r}"].number_format = "dd-mmm-yy"
-        for col in ("A", "C", "D", "E", "J", "O", "P"):
+        for col in ("A", "C", "D", "E", "G", "I", "J"):
             ws[f"{col}{r}"].alignment = Alignment(horizontal="center", vertical="top", wrap_text=True)
         ws.row_dimensions[r].height = 30
-    for rng in ("J5:J26", "O5:O26"):
-        ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"OUTSTANDING"'],
+    for rng_ in ("G5:G26", "I5:I26"):
+        ws.conditional_formatting.add(rng_, CellIsRule(operator="equal", formula=['"OUTSTANDING"'],
                                       fill=PatternFill("solid", fgColor="FFC7CE"), font=Font(name=FONT, color="9C0006", bold=True)))
-        ws.conditional_formatting.add(rng, CellIsRule(operator="equal", formula=['"ON FILE"'],
+        ws.conditional_formatting.add(rng_, CellIsRule(operator="equal", formula=['"ON FILE"'],
                                       fill=PatternFill("solid", fgColor="C6EFCE"), font=Font(name=FONT, color="006100", bold=True)))
-    dvd = DataValidation(type="date", operator="between", formula1="43831", formula2="46387", allow_blank=True,
-                         showErrorMessage=True, error="Enter the revision date (2020–2026).")
-    dvd.add("H5:H26")
-    dvd.add("M5:M26")
-    ws.add_data_validation(dvd)
     ws.freeze_panes = "C5"
     ws.print_title_cols = "A:B"
     ws.print_title_rows = "4:4"
-    for col in ("R", "S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AB", "AC"):
+    for col in ("L", "M"):
         ws.column_dimensions[col].hidden = True
     ws.print_area = "A1:Q26"
     fit_pages(ws, "A", "Q", title_cols_w=16)
@@ -1431,7 +1422,7 @@ INSTR = [
     ("b", "Completion % = complete ÷ in-scope checks; justified and rule-based N/A are removed from both, so they neither raise nor lower the rate."),
     ("b", "Preparation checks (T-12H PREP, at the caterer) never confirm loading. Physical uplift rows (UPLIFT) are only accepted when the completion time is inside the uplift window before STD (Settings B7) – an earlier entry shows 'INVALID – before uplift window'."),
     ("b", "Completion times in the future, before the valid window or after departure (uplift) are rejected."),
-    ("b", "GLD / menu-checklist checks cannot be passed until the Documents row is ON FILE (doc no, revision, date and attachment all present). The revision date is the date the revision was issued or received at the station, whichever is later: every line checked 'vs GLD' or 'vs menu checklist' before that date is INVALID and must be re-checked against the current revision."),
+    ("b", "GLD / menu-checklist checks cannot be passed until the Documents sheet holds the document's link (SharePoint / OneDrive URL, network path, file name or a hyperlink naming the document) – the status then shows ON FILE."),
     ("b", "Readiness order: NOT READY – OVERDUE, – DISCREPANCY, – INVALID ENTRY, – DOCUMENTS (GLD / menu checklist not on file), – CLARIFICATION (reference question open), then PREP DONE – AWAITING UPLIFT, IN PROGRESS or NOT STARTED."),
     ("b", "READY only when every in-scope check (including physical uplift) is complete, with zero open discrepancies, zero invalid entries and both documents on file. 'Clarification required' rows (reference ambiguous) also block READY until confirmed (Pass) or justified N/A."),
     ("b", "Overdue = not complete and the effective as-of time is past the due time. Settings B4 is an optional override (UTC); when blank the live clock is used. The effective as-of time is shown in Settings B6."),
@@ -1445,13 +1436,13 @@ INSTR = [
     ("b", "Row heights do not grow automatically for long typed entries: after entering long text, select the rows and use Home > Format > AutoFit Row Height."),
     ("h2", "Time zones & special cases"),
     ("b", "Due times are computed from STD converted to UTC, then shown in local time of the check station. LHR changes from BST to GMT on 25-Oct-2026; ADL is on ACDT (UTC+10:30) from 4-Oct-2026."),
-    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so all their catering is loaded at KUL on a carrying flight (agenda candidates MH1140 / MH1450 shown in Flights W). Enter the actual carrying flight's KUL departure (UTC) in Flights AX: T-24H, T-12H prep and the KUL loading-confirmation line are capped at that departure minus the uplift window. Until entered they assume the agenda candidate's KUL departure."),
-    ("b", "Outstation departures that carry KUL-sourced items (e.g. MH0003 LHR-KUL: pajamas, slippers, signature drinks) have a clarification check to identify the inbound KUL flight. Enter its KUL departure (UTC) on Flights column AX: the preparation due and the KUL loading-confirmation line (UPLIFT, station KUL) follow it. Until entered, they assume the latest possible KUL departure."),
-    ("b", "Items whose uplift station differs from the departure station (e.g. signature drinks and slippers for LHR-KUL and HKG-KUL are uplifted at KUL) show the item uplift station in Checks column M. Their preparation due time is capped at the KUL loading deadline on Flights AY (carrying flight's KUL departure in AX minus the uplift window)."),
+    ("b", "MH1149 PEN-KUL and MH1437 LGK-KUL: the reference lists KUL as the only uplift station, so all their catering is loaded at KUL on the pair flight (MH1148 KUL 14:05 for MH1149; MH1436 KUL 13:10 for MH1437 – confirmed from aircraft registrations). Flights AX is pre-filled with the pair flight's KUL departure (UTC); correct it if the rotation changes."),
+    ("b", "Double-loaded from KUL (MAGCS): toiletry kits (BC only), sales carts, compendium (DAM cart) and meal cart covers are loaded at KUL for both legs. On every return leg they travel on the pair flight (the aircraft's inbound KUL-outstation flight). Flights AX is pre-filled with that flight's scheduled KUL departure; preparation of these items must finish before it leaves, and the 'KUL-sourced items loaded at KUL' line is confirmed at KUL."),
+    ("b", "Pair flights used: MH0004→MH0001, MH0721→MH0720, MH0088→MH0089, MH0002→MH0003 (9 & 25 Oct), MH0752→MH0753, MH1148→MH1149, MH0139→MH0138, MH0072→MH0073, MH0052→MH0053, MH1436→MH1437 (schedule timings; pairing checked against aircraft registrations). Tail assignment is confirmed 48 h prior – correct Flights AX if the rotation changes."),
     ("h2", "Outstanding inputs at issue"),
-    ("b", "Galley loading diagrams and menu checklists were not supplied – all 44 are flagged OUTSTANDING (Documents sheet, Dashboard and each P-sheet cover). Record doc no, revision, revision date and file location on Documents; in Excel you may also insert the image in the area after each P-sheet's checklist."),
-    ("b", "A350 tail (A359 vs 9M-MAH) decides sales-cart location and EY blanket quantity – enter Tail/Reg on Flights (9M-MAB … 9M-MAH). An A350 flight cannot be READY until its tail is entered (counted as an open clarification)."),
-    ("b", "Open uplift-station questions (A350 toiletry kits on KUL-LHR legs, sales carts on return legs – 7 in all) are answered on Settings, 'Station confirmations' (row 26 onward): choose the CONFIRMED uplift stn, and if it is not the departure station enter the carrying flight's departure from that station (UTC). The preparation line then uses that station's time zone, due time and loading cap (it must be done before the carrying flight leaves), and the on-board line cannot be confirmed before the carrier arrives. Until answered, the preparation line cannot be passed."),
+    ("b", "GLD and menu checklists: paste each flight's links on the Documents sheet; until then both show OUTSTANDING and the flight cannot be READY."),
+    ("b", "Tails (Engineering 'best aircraft', confirmed 48 h prior): B737-8 9M-MVO / MVP / MVQ / MVR; A333 9M-MTJ / MTM / MTG; A350 9M-MAB … MAH (9M-MAH sets the 280-blanket and half-cart positions). Enter Tail/Reg on Flights (dropdown); no flight can be READY until its tail is entered and in the group."),
+    ("b", "Clarifications answered by MAGCS (01-Oct-2026): toiletry kits BC only; table cloth on all sectors except refreshment / 0.5 meal; EY blanket on MH0072 KUL-HKG at 100%; MH0003 LHR 11:00 not a red-eye (no pajamas); toiletry kits and sales carts double-loaded from KUL. Additional MAGCS items on every flight: compendium (DAM cart; wide body 2, narrow body 1) and meal cart covers (wide body 8 = 3 BC + 5 EY; narrow body 5 = 2 BC + 3 EY)."),
     ("b", "Caterer per station, ISOP revision numbers and expected meal/equipment quantities come from the caterer/MAGCS documents – not invented here."),
     ("h2", "Illustrative entry (example only – not recorded anywhere in this workbook)"),
     ("p", "Check F02-T24-01 · PIC: A. Rahman · Status: Pass · Result: Panel score 4.5/5, texture & temperature OK · Batch ID: PASB-261008-BC-017 · "

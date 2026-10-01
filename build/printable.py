@@ -383,11 +383,10 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         if f["round_trip"]:
             cand = (f'{FL("W")}&IFERROR(" "&INDEX(Flights!$F${FIRST_FLIGHT_ROW}:$F${FIRST_FLIGHT_ROW + NFL - 1},'
                     f'MATCH(TRIM({FL("W")}),Flights!$A${FIRST_FLIGHT_ROW}:$A${FIRST_FLIGHT_ROW + NFL - 1},0)),"")')
-            note = (f'="ROUND-TRIP LEG: all catering is loaded at KUL on the carrying flight (candidate "&{cand}'
-                    f'&"); prep dues are capped at the KUL loading window; on-board checks at "'
+            note = (f'="ROUND-TRIP LEG: all catering is loaded at KUL on the pair flight "&{cand}'
+                    f'&"; prep dues are capped at the KUL loading window; on-board checks at "'
                     f'&{FL("G")}&". Each row shows its own due."&CHAR(10)&{times}')
-            head = ("ROUND-TRIP LEG: all catering is loaded at KUL on the carrying flight (candidate F10 "
-                    "MH1140); prep dues are capped at the KUL loading window; on-board checks at PEN. Each row shows its own due.")
+            head = ("ROUND-TRIP LEG: all catering is loaded at KUL on the pair flight MH1148; prep dues are capped at the KUL loading window; on-board checks at PEN. Each row shows its own due.")
         else:
             note = (f'="KUL-SOURCED ITEMS: some items are uplifted at KUL on the inbound carrying flight; '
                     f'their preparation is capped at the KUL loading window. Each row shows its own due."'
@@ -402,23 +401,19 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
 
     # ---------------- attachments register (paper pack)
     r += 1
-    for (c1, c2), t in zip([(1, 1), (2, 2), (3, 4), (5, 5), (6, 8)],
-                           ["Attachments", "Doc no", "Rev / rev date", "Status",
-                            "Paper pack instruction / location"]):
+    for (c1, c2), t in zip([(1, 1), (2, 4), (5, 5), (6, 8)],
+                           ["Attachments", "Link (Documents sheet)", "Status", "Paper pack instruction"]):
         _put(ws, r, c1, t, c2, font=_font(LS, True, "FFFFFF"), fill=F_NAVY, align=AL_CEN)
     ws.row_dimensions[r].height = 14
-    for code, name, (no, rev, rdate, att, st) in [("A1", "Galley Loading Diagram", ("F", "G", "H", "I", "J")),
-                                                  ("A2", "Menu Checklist", ("K", "L", "M", "N", "O"))]:
+    for code, name, (att, st) in [("A1", "Galley Loading Diagram", ("F", "G")),
+                                  ("A2", "Menu Checklist", ("H", "I"))]:
         r += 1
         _put(ws, r, 1, f"{code}  {name}", 1, **lab)
-        _put(ws, r, 2, _blank(DC(no)), 2)
-        _put(ws, r, 3, f'=IF({DC(rev)}="","",{DC(rev)})&IF(ISNUMBER({DC(rdate)}),"  "&TEXT({DC(rdate)},"DD-MMM-YY"),"")',
-             4, align=AL_CEN)
+        _put(ws, r, 2, _blank(DC(att)), 4, font=_font(LS))
         _put(ws, r, 5, f'=IF({DC(st)}="OUTSTANDING","OUTSTANDING – attach before T-7D (due "&{_t(FL("AG"))}'
                        f'&" "&{FL("V")}&")",IF({DC(st)}="","Status not recorded",{DC(st)}))', 5,
              font=_font(FS, True))
-        _put(ws, r, 6, f'="Staple behind this sheet as page {code}."&IF({DC(att)}="",""," Location: "&{DC(att)})',
-             8, font=_font(LS))
+        _put(ws, r, 6, f'="Print and staple behind this sheet as page {code}."', 8, font=_font(LS))
         ws.row_dimensions[r].height = _height(
             _lines("OUTSTANDING – attach before T-7D (due 01-Oct-26 21:35 LHR)", COLS[4][1], FS, True), FS, 3)
         ws.conditional_formatting.add(f"E{r}", FormulaRule(formula=[f'LEFT($E${r},11)="OUTSTANDING"'],
@@ -427,7 +422,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         ws.conditional_formatting.add(f"E{r}", FormulaRule(formula=[f'$E${r}="ON FILE"'], fill=GREEN_FILL))
     r += 1
     _put(ws, r, 1, "Document notes", 1, **lab)
-    _put(ws, r, 2, _blank(DC("Q")), NCOL, font=_font(8))
+    _put(ws, r, 2, _blank(DC("K")), NCOL, font=_font(8))
     ws.row_dimensions[r].height = _height(2, 8, 3)  # Documents notes (free text) up to ~2 lines at full width
     ws.cell(r, 1).comment = Comment("Excel only: insert the GLD / menu checklist image (Insert > Picture) in the "
                                     "insertion area after the checklist table; it is not printed.", "MAGCS")

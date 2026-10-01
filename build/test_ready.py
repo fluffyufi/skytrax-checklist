@@ -16,6 +16,7 @@ for _lk in _glob.glob(os.path.join(os.path.dirname(TMP), ".~lock.*#")):
     except OSError:
         pass
 STD = datetime(2026, 10, 9, 21, 50)  # local KUL
+TAIL = {"B738MAX": "9M-MVO", "A333": "9M-MTJ", "A350": "9M-MAB", "A339": "9M-MTA"}
 
 
 def fill(ws, docs, fid="F02"):
@@ -45,8 +46,11 @@ def fill(ws, docs, fid="F02"):
         else:
             ws[f"U{r}"] = "Pass"
     d = docs
-    d["F6"], d["G6"], d["H6"], d["I6"] = "GLD-B7M8-KULCGK", "Rev 3", datetime(2026, 9, 1), "\\\\share\\GLD\\MH0727.pdf"
-    d["K6"], d["L6"], d["M6"], d["N6"] = "MCL-KULCGK-2610", "Rev 2", datetime(2026, 9, 15), "\\\\share\\MCL\\MH0727.pdf"
+    fr = int(fid[1:]) + 4
+    d[f"F{fr}"] = f"https://magcs.sharepoint.com/catering/GLD/{fid}-GLD.pdf"
+    d[f"H{fr}"] = f"https://magcs.sharepoint.com/catering/MCL/{fid}-menu-checklist.pdf"
+    fl = d.parent["Flights"]
+    fl[f"N{fr}"] = TAIL.get(fl[f"L{fr}"].value, "9M-MTA")
 
 
 def run(tag, mutate=None, asof=datetime(2026, 10, 9, 13, 49)):
@@ -85,29 +89,19 @@ if __name__ == "__main__":
   run("uplift_before_window", m([("F02-UPL-02", "AD", datetime(2026, 10, 9, 14, 0))]))
   run("qty_variance", m([("F02-T12-02", "Y", 11)]))
   run("uplift_blank_not_due", m([("F02-UPL-01", "U", None)]))
-  run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("N6", None))
-  run("na_clar_no_outcome", m([("F02-T12-12", "AC", None)]))
-  run("na_clar_no_confirmation", m([("F02-T12-12", "Z", None)]))
-  run("pass_clar_query_raised", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", None),
-                                   ("F02-T12-12", "V", "Query raised with MAGCS planning on 20 Oct")]))
-  run("r19_opposite_outcomes", m([("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
-                                  ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))
-  run("r19_clar_photo_evidence", m([("F02-T12-12", "S", "Photo"), ("F02-T12-12", "Z", "IMG_2231")]))
-  run("r21_na_confirmed_days_before", m([(c, "AD", STD - timedelta(days=3)) for c in
-                                        ("F02-T12-12", "F02-T12-13", "F02-UPL-07", "F02-UPL-08")]))
+  run("doc_outstanding", lambda wb, rows: wb["Documents"].__setitem__("H6", None))
+  run("doc_placeholder", lambda wb, rows: wb["Documents"].__setitem__("F6", "TBC"))
+  run("doc_named_hyperlink_text", lambda wb, rows: wb["Documents"].__setitem__("H6", "Menu Checklist MH0727 YCL"))
+  run("na_on_required_line", m([("F02-T12-12", "U", "N/A"), ("F02-T12-12", "AC", "Confirmed – not carried on this sector")]))
+  run("tail_missing", lambda wb, rows: wb["Flights"].__setitem__("N6", None))
+  run("tail_not_in_group", lambda wb, rows: wb["Flights"].__setitem__("N6", "9M-MXE"))
+  run("tail_in_group", lambda wb, rows: wb["Flights"].__setitem__("N6", "9M-MVR"))
   run("r21_one_bad_uplift_time", m([("F02-UPL-02", "AD", STD - timedelta(hours=20))]))
-  run("r21_gld_revised_after_check", lambda wb, rows: wb["Documents"].__setitem__("H6", datetime(2026, 10, 8)))
 
-  def clar_prep_pass_uplift_blank(wb, rows):
+  def uplift_blank(wb, rows):
       ck = wb["Checks"]
-      for c in ("F02-T12-12", "F02-T12-13"):
-          ck[f"U{rows[c]}"] = "Pass"; ck[f"AC{rows[c]}"] = "Confirmed – applies / carried as listed"
-          ck[f"V{rows[c]}"] = "MAGCS planning confirmed item is carried"
       for c, r in rows.items():
           if c and c.startswith("F02-UPL-"):
-              for k in ("U", "AD", "AC"):
+              for k in ("U", "AD"):
                   ck[f"{k}{r}"] = None
-  run("r21_label_prep_done_awaiting_uplift", clar_prep_pass_uplift_blank, asof=datetime(2026, 10, 9, 10, 50))
-  run("pass_clar_confirmed", m([("F02-UPL-07", "U", "Pass"), ("F02-UPL-07", "AC", "Confirmed – applies / carried as listed"),
-                                ("F02-UPL-07", "V", "Table cloth loaded on board as confirmed"), ("F02-UPL-07", "Y", 12),("F02-T12-12", "U", "Pass"), ("F02-T12-12", "AC", "Confirmed – applies / carried as listed"),
-                                ("F02-T12-12", "V", "MAGCS planning confirmed table cloth is carried")]))
+  run("label_prep_done_awaiting_uplift", uplift_blank, asof=datetime(2026, 10, 9, 10, 50))
