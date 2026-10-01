@@ -166,10 +166,7 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r17":
 
 def round18():
     C = lambda cid, kv: (lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows[cid]}", v) for k, v in kv])
-    # clarification lines need the structured outcome
-    run("r18_bad_clar_query_raised", C("F11-T7-10", [("U", "Pass"), ("AC", None), ("V", "Query raised with MAGCS planning on 20 Oct")]))
-    run("r18_ok_clar_confirmed", C("F11-T7-10", [("U", "Pass"), ("AC", "Confirmed – applies / carried as listed"),
-                                                 ("V", "MAGCS planning confirmed slippers carried from KUL")]))
+    # (clarification-line outcome tests retired: MAGCS resolved every clarification on 01-Oct-2026)
     run("r18_bad_na_wrong_outcome", C("F11-T12-08", [("AC", "Refreshment service – no printed menu card")]))
     run("r18_bad_na_no_evidence", C("F11-T12-08", [("Z", None)]))
     run("r18_bad_pass_with_na_outcome", C("F11-T7-01", [("AC", "Confirmed – not carried on this sector")]))
