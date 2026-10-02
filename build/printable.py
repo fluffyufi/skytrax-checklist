@@ -74,7 +74,7 @@ LS = 8.5  # label size
 BLANK = "__________________"
 AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED IN THE WORKBOOK: its timing is assumed, so on-board (UPLIFT) checks "
            "before the assumed arrival show INVALID – before uplift window.")
-CA_BLANK = "________________________"
+CA_BLANK = "__________________"
 W_BLANK = "________________"
 Q_BLANK = "______"
 
@@ -323,7 +323,9 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, rr, 5, cp_label.get(cp, "OVERALL (all checkpoints)"), 5, **lab)
         _put(ws, rr, 6, due_txt.get(cp, "–"), 6, font=_font(FS, cp != "OVERALL"), align=AL_CEN)
         _put(ws, rr, 7, f"={FL(pct)}", 8, font=_font(FS, True), fmt="0%", align=AL_CEN)
-        right_h[rr] = _lines(cp_label.get(cp, ""), COLS[4][1], LS, True)
+        due_sample = {"UPLIFT": "STD 08-Oct-26 21:35 LHR (dep stn)",
+                      "T-12H PREP": "08-Oct-26 09:35 LHR  (= T-24H due)"}.get(cp, "08-Oct-26 09:35 LHR")
+        right_h[rr] = max(_lines(cp_label.get(cp, ""), COLS[4][1], LS, True), _lines(due_sample, COLS[5][1], FS, True))
     # counts: three per row, each value in its own cell for local conditional formatting
     for label, cols, red, names in [("Overdue / discrep. / invalid", ("AP", "AQ", "AU"), True,
                                      ("Overdue", "Discrep.", "Invalid")),

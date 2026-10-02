@@ -437,7 +437,7 @@ STD_T7 = [
     ("IFE", "Digital menu in IFE confirmed (A339 only)", "Applies when fleet = A339", 0, 0),
     ("Staffing", "Experienced catering officer assigned to this flight", "Record officer name in Result", 0, 0),
     ("ISOP", "All latest applicable ISOP revisions communicated to caterer", "List revision numbers in Result (see ISOP register)", 0, 0),
-    ("ISOP", "Caterer acknowledgement of ISOP revisions recorded", "Record acknowledgement ref in Evidence", 0, 0),
+    ("ISOP", "Caterer acknowledgement of ISOP revisions recorded", "Record the acknowledgement (who, how, which revisions) in Result", 0, 0),
     ("Documents", "Galley loading diagram (GLD) received and its link recorded", "Link on the Documents sheet (ON FILE)", 0, 1),
     ("Documents", "Menu checklist received and its link recorded", "Link on the Documents sheet (ON FILE)", 0, 1),
     ("Uplift plan", "Uplift plan confirmed with caterer vs STD Uplift Information", "", 0, 0),

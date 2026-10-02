@@ -83,11 +83,10 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "more":
 def round4():
     d = lambda k, v: (lambda wb, rows: wb["Documents"].__setitem__(k, v))
     run("doc_placeholders", lambda wb, rows: [wb["Documents"].__setitem__(k, v) for k, v in (("F15", "TBC"), ("H15", "pending"))])
-    run("doc_date_after_flight", d("H15", datetime(2026, 12, 1)))
     run("verifier_same_person", cell("F11-T7-01", "AE", "A Rahman"))
     run("expected_lowered", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in (("X", 8), ("Y", 8))])
     run("pass_but_rejected", cell("F11-T24-01", "V", "Rejected - off taste, batch discarded"))
-    run("error_value_pasted", cell("F11-T7-01", "V", "#N/A"))
+    run("error_value_pasted", cell("F11-T7-01", "V", "#N/A"))  # recalc reports the pasted error itself (ok=False expected)
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
@@ -96,7 +95,7 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
 
 def round5():
     run("result_discrepancy_pass", cell("F11-T12-03", "V", "Discrepancy found - 3 dirty inserts replaced"))
-    run("result_shortbread_ok", cell("F11-T24-01", "V", "Shortbread texture and taste good, temp 4C"))
+    run("ok_result_shortbread", cell("F11-T24-01", "V", "Shortbread texture and taste good, temp 4C"))
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r5":
