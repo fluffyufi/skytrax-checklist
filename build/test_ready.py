@@ -16,7 +16,7 @@ for _lk in _glob.glob(os.path.join(os.path.dirname(TMP), ".~lock.*#")):
     except OSError:
         pass
 STD = datetime(2026, 10, 9, 21, 50)  # local KUL
-TAIL = {"B738MAX": "9M-MVO", "A333": "9M-MTJ", "A350": "9M-MAB", "A339": "9M-MTA"}
+TAIL = {"B738MAX": "9M-MVO", "A333": "9M-MTJ", "A350": "9M-MAD", "A339": "9M-MNH"}
 
 
 def fill(ws, docs, fid="F02"):
@@ -30,8 +30,6 @@ def fill(ws, docs, fid="F02"):
              "T-12H PREP": STD - timedelta(hours=13), "UPLIFT": STD - timedelta(hours=2)}[cp]
         ws[f"T{r}"] = "A. Rahman"
         ws[f"V{r}"] = "Checked against menu checklist, all to spec"
-        ws[f"S{r}"] = "Form / checklist"
-        ws[f"Z{r}"] = f"QF-{1000 + r}"
         ws[f"AE{r}"] = "N. Ismail"
         ws[f"AD{r}"] = t
         if ws[f"AQ{r}"].value == 1:
@@ -42,7 +40,6 @@ def fill(ws, docs, fid="F02"):
         if ws[f"N{r}"].value == "Clarification required":
             ws[f"U{r}"] = "N/A"
             ws[f"AC{r}"] = "Confirmed – not carried on this sector"
-            ws[f"S{r}"] = "Email"; ws[f"Z{r}"] = f"EM-26-{1000 + r}"
         else:
             ws[f"U{r}"] = "Pass"
     d = docs
@@ -50,7 +47,7 @@ def fill(ws, docs, fid="F02"):
     d[f"F{fr}"] = f"https://magcs.sharepoint.com/catering/GLD/{fid}-GLD.pdf"
     d[f"H{fr}"] = f"https://magcs.sharepoint.com/catering/MCL/{fid}-menu-checklist.pdf"
     fl = d.parent["Flights"]
-    fl[f"N{fr}"] = TAIL.get(fl[f"L{fr}"].value, "9M-MTA")
+    fl[f"N{fr}"] = TAIL[fl[f"L{fr}"].value]
 
 
 def run(tag, mutate=None, asof=datetime(2026, 10, 9, 13, 49)):
@@ -83,7 +80,7 @@ if __name__ == "__main__":
   run("baseline_full")
   run("after_departure_T24", m([("F02-T24-01", "AD", datetime(2026, 10, 9, 21, 55))]), asof=datetime(2026, 10, 9, 14, 0))
   run("pic_missing", m([("F02-T7-01", "T", None)]))
-  run("whitespace_evidence", m([("F02-T7-02", "Z", " ")]))
+  run("ok_evidence_cells_ignored", m([("F02-T7-02", "Z", "TBC"), ("F02-T7-02", "S", "x")]))  # S / Z no longer used
   run("na_on_meal_uplift", m([("F02-UPL-01", "U", "N/A"), ("F02-UPL-01", "AC", "not needed")]))
   run("status_trailing_space", m([("F02-T7-01", "U", "Pass ")]))
   run("uplift_before_window", m([("F02-UPL-02", "AD", datetime(2026, 10, 9, 14, 0))]))

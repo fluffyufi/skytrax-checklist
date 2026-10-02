@@ -64,10 +64,10 @@ STATIONS = {
 
 # Schedule fleet -> reference AIRCRAFT TYPE row(s)
 FLEET_REF = {
-    "A350": ("A350-900: A359 (9M-MAB..MAG) or A350 (9M-MAH) - tail to confirm",
-             "AIRCRAFT TYPE!C6:R7"),
+    "A350": ("A350-900 (A359): 9M-MAD / MAE / MAF - tail to confirm",
+             "AIRCRAFT TYPE!C6:R6"),
     "A333": ("A330-300 (A333)", "AIRCRAFT TYPE!C9:R9"),
-    "A339": ("A330-900 (A339)", "AIRCRAFT TYPE!C8:R8"),
+    "A339": ("A330-900 (A339): 9M-MNH / MNJ / MNP - tail to confirm", "AIRCRAFT TYPE!C8:R8"),
     "B738MAX": ("B737-8 (B7M8)", "AIRCRAFT TYPE!C16:R16"),
 }
 WIDEBODY = {"A350", "A333", "A339"}
@@ -98,7 +98,7 @@ PAIR = {
 MAGCS_SRC = "MAGCS instruction 01-Oct-2026"
 # Skytrax tail groups (Engineering 'best aircraft'; tail confirmed 48 h prior)
 TAIL_GROUPS = {"B738MAX": ["9M-MVO", "9M-MVP", "9M-MVQ", "9M-MVR"], "A333": ["9M-MTJ", "9M-MTM", "9M-MTG"],
-               "A350": [f"9M-MA{c}" for c in "BCDEFGH"]}
+               "A350": ["9M-MAD", "9M-MAF", "9M-MAE"], "A339": ["9M-MNH", "9M-MNJ", "9M-MNP"]}
 # caterer per flight (MAGCS, 01-Oct-2026)
 CATERER = {"F01": "dnata", "F02": "MAGCS", "F03": "Purantara", "F04": "PASB", "F05": "TFK", "F06": "PASB", "F07": "dnata",
            "F08": "MAGCS", "F09": "NCS", "F10": "MAGCS", "F11": "MAGCS", "F12": "PASB", "F13": "dnata", "F14": "PASB",
@@ -161,7 +161,7 @@ def local_dt(date, hhmm, plus=0):
 
 def galley_info(fleet):
     sh = "AIRCRAFT TYPE"
-    rows = {"A350": [6, 7], "A333": [9], "A339": [8], "B738MAX": [16]}[fleet]
+    rows = {"A350": [6], "A333": [9], "A339": [8], "B738MAX": [16]}[fleet]
     parts = []
     for r in rows:
         v = {c: cell(sh, f"{c}{r}") for c in "CIJKLMNOPQR"}
@@ -329,8 +329,8 @@ def requirements_for(f):
                 qty = "280"
                 note += f" Qty 280 pcs (14 bundles) for A332/A333/A339 ({sh}!B75:C75)."
             elif f["fleet"] == "A350":
-                qty = "280 (A350 9M-MAH) / 260 (A359) - per tail"
-                note += f" Qty per tail: A350 280 pcs ({sh}!B76:C76), A359 260 pcs ({sh}!B77:C77)."
+                qty = "260"
+                note += f" Qty 260 pcs (13 bundles) for A359 ({sh}!B77:C77); the Skytrax A350 tails are all A359."
             else:
                 note += " Quantity for this aircraft not stated in reference."
         add("Seat Linen", name, applic, f"{sh}!{C(f'{c}{r}')}", "Available 100% (ticked in reference)", "Not stated in reference", note, qty)
@@ -375,11 +375,10 @@ def requirements_for(f):
                     f"Block {f['block_h']:.2f} h >= 4 h.{stn_note}", cls_scope="All")
             elif f["fleet"] == "A350" and out != "LHR":
                 k = cell(sh, f"K{r}")
-                l = cell(sh, f"L{r}")
                 add("Sales Cart", f"Sales cart (caterer {caterer})", applic,
-                    f"{sh}!{C(f'K{r}')} / {C(f'L{r}')} / {C(f'C{r}')} / {C(f'O{r}')}",
-                    f"A359: {k} (full cart); 9M-MAH: {l} (half cart) - per tail", cart_stn,
-                    f"Block {f['block_h']:.2f} h >= 4 h. Location depends on tail.{stn_note}", cls_scope="All")
+                    f"{sh}!{C(f'K{r}')} / {C(f'C{r}')} / {C(f'O{r}')}",
+                    f"Location {k} (A359, full cart)", cart_stn,
+                    f"Block {f['block_h']:.2f} h >= 4 h.{stn_note}", cls_scope="All")
     # ---- MAGCS additional requirements (01-Oct-2026): every flight, double-loaded from KUL
     wb_ = f["widebody"]
     via = "" if f["dep"] == "KUL" else " This leg's set travels on the pair flight from KUL."
@@ -422,8 +421,8 @@ def not_provided(f):
         if not tick(cell(sh, f"{c}{r}"), f["widebody"]):
             rows.append(("Seat Linen", name, f"{sh}!{cite(sh, f'{c}{r}')} (blank)"))
     if out == "LHR":
-        rows.append(("Sales Cart", "No sales cart location on LHR sector (A359 'not applicable for LHR'; 9M-MAH '-')",
-                     "SALES CART!K7:K14 / L7"))
+        rows.append(("Sales Cart", "No sales cart location on LHR sector (A359 'not applicable for LHR')",
+                     "SALES CART!K7:K14"))
     elif not find_row("SALES CART", "D", sector):
         rows.append(("Sales Cart", "Sector not listed", "SALES CART!D7:D37"))
     elif f["block_h"] < 4:

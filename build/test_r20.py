@@ -20,7 +20,7 @@ def states(tag, prep):
 
 
 def na(ck, r, when, outcome="Confirmed – not carried on this sector"):
-    ck[f"U{r}"] = "N/A"; ck[f"AC{r}"] = outcome; ck[f"S{r}"] = "Email"; ck[f"Z{r}"] = f"EM-26-{1000 + r}"
+    ck[f"U{r}"] = "N/A"; ck[f"AC{r}"] = outcome
     ck[f"T{r}"] = "A. Rahman"; ck[f"AE{r}"] = "N. Ismail"; ck[f"AD{r}"] = when
 
 
@@ -51,7 +51,7 @@ def tailqty(tail, x):
         r = rows["F01-T12-09"]  # Blanket (EY)
         std = wb["Flights"]["I5"].value
         for k, v in (("U", "Pass"), ("T", "A. Rahman"), ("AE", "N. Ismail"), ("V", "Blankets counted against GLD, all bundled"),
-                     ("S", "Form / checklist"), ("Z", "QF-2210"), ("X", x), ("Y", x), ("AD", std - timedelta(hours=13))):
+                     ("X", x), ("Y", x), ("AD", std - timedelta(hours=13))):
             ck[f"{k}{r}"] = v
         return ["F01-T12-09"]
     return prep
@@ -82,7 +82,6 @@ def r22_onboard_clar_photo(wb, ck, rows):
     for c in ("F02-T12-12", "F02-UPL-07"):
         r = rows[c]; ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"
         ck[f"V{r}"] = "Table cloth confirmed and counted"
-    r = rows["F02-UPL-07"]; ck[f"S{r}"] = "Photo"; ck[f"Z{r}"] = "IMG_2231"
     return ["F02-T12-12", "F02-UPL-07"]
 
 
@@ -93,7 +92,7 @@ def r22_asof_review(wb, ck, rows):
 
 
 def passline(ck, r, when, result="Confirmed with MAGCS, item prepared and counted"):
-    for k, v in (("U", "Pass"), ("AC", "Confirmed – applies / carried as listed"), ("S", "Email"), ("Z", f"EM-26-{1000 + r}"),
+    for k, v in (("U", "Pass"), ("AC", "Confirmed – applies / carried as listed"),
                  ("T", "A. Rahman"), ("AE", "N. Ismail"), ("V", result), ("AD", when)):
         ck[f"{k}{r}"] = v
 
@@ -122,6 +121,4 @@ if __name__ == "__main__" and len(sys.argv) == 1:
     states("na_after_departure", timing(lambda std: std + timedelta(days=2)))
     states("na_no_time", timing(lambda std: None))
     states("na_before_departure", timing(lambda std: std - timedelta(days=2)))
-    states("tail_mac_280", tailqty("9M-MAC", 280))
-    states("tail_mac_260", tailqty("9M-MAC", 260))
-    states("tail_mah_280", tailqty("9M-MAH", 280))
+    states("tail_mad_260", tailqty("9M-MAD", 260))  # A359 blanket qty (all Skytrax A350 tails are A359)

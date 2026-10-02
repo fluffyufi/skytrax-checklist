@@ -288,7 +288,7 @@ def build(wb, data):
                 "(applicability “N/A – rule”, e.g. fleet-specific items) or JUSTIFIED: "
                 "Status N/A with a written N/A justification AND a named verifier. An unjustified "
                 "or unverified N/A is flagged INVALID and still counts as open."),
-        ("Complete", "Status Pass or Pass after CA, with a completion time, evidence ref and verifier; "
+        ("Complete", "Status Pass or Pass after CA, with PIC, result, completion time and verifier; "
                      "plus the batch ID on T-24H lines and expected + actual quantity on quantity "
                      "lines. A quantity variance is only accepted as Pass after CA with the CA status "
                      "Closed. GLD / menu-checklist lines also need the document ON FILE (Documents "

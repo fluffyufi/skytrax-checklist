@@ -51,9 +51,9 @@ A CheckID · B FlightID · C Flight No · D Date · E Sector (DEP-ARR) · F Clas
 (`T-7D`,`T-24H`,`T-12H PREP`,`UPLIFT`) · H Check type (Preparation / Physical uplift) · I Category ·
 J Check item · K Requirement / expected · L Source reference · M Item uplift stn · N Applicability
 (`Required`, `Clarification required`, `N/A – rule`) · O Rule note / clarification · P Check station ·
-Q Due UTC · R Due local @ check station · S Evidence type (INPUT, dropdown L_EvidenceType) ·
+Q Due UTC · R Due local @ check station · S (not used – hidden, locked) ·
 INPUTS: T PIC · U Status · V Result / assessment · W Batch ID · X Expected qty · Y Actual qty ·
-Z Evidence ID / reference · AA Corrective action · AB CA status · AC Outcome (INPUT, dropdown L_Outcome: clarification resolution / N/A reason) · AD Completion time
+Z (not used – hidden, locked; evidence removed at MAGCS request 02-Oct-2026) · AA Corrective action · AB CA status · AC Outcome (INPUT, dropdown L_Outcome: clarification resolution / N/A reason) · AD Completion time
 (local @ check station) · AE Verifier ·
 COMPUTED: AF Qty variance · AG Completion UTC · AH Record state (text) · AI In scope (1/0) ·
 AJ Complete (1/0) · AK Overdue (1/0) · AL Open discrepancy (1/0) · AM Invalid (1/0) ·
@@ -65,20 +65,17 @@ The last data row number is `5 + len(data["checks"]) - 1`; use `len(data["checks
 Rows of one flight are contiguous and ordered T-7D, T-24H, T-12H PREP, UPLIFT.
 
 ## Documents (owner: core) — header row 4, rows 5-26 per flight (same order as Flights)
-A FlightID · B Flight No · C Date · D Sector · E Fleet · F GLD doc no · G GLD revision · H GLD rev date ·
-I GLD attachment (link / location) · J GLD status (`ON FILE` / `OUTSTANDING`) · K Menu checklist doc no ·
-L revision · M rev date · N attachment · O Menu checklist status · P Outstanding count · Q Notes
+A FlightID · B Flight No · C Date · D Sector · E Fleet · F GLD link · G GLD status (`ON FILE` / `OUTSTANDING`) ·
+H Menu checklist link · I Menu checklist status · J Outstanding count · K Notes · L/M hidden spaced F/H
 ISOP revision register below (rows 30+).
 
 ## Dashboard (owner: dashboard builder) — see prompt.
 ## P01..P22 printable flight checklists (owner: printable builder) — see prompt.
 
 
-Earliest valid UTC moved from S to hidden BY; BZ = evidence ID shape ok for its type.
-Evidence ID helpers: BM digit map of Z, BN full shape (letters a / digits 0), BT shape without month / zone / revision
-words, BU letters before the first digit, BW digits only, BX letters only, BZ = ID ok for its type.
+Earliest valid UTC moved from S to hidden BY. Evidence helpers (AW, BD, BI, BL, BM, BN, BT, BU, BW, BX, BZ) are retired (empty).
 Batch helpers: BO/BP digit map / shape of W, CA shape without month words, CB digits only, BQ = batch ok.
 People: CC / CD spaced PIC / verifier, BR / BS = name letters left after whole-word role list L_Role (Settings V; < 3 = role
 only → INVALID), CE = same person in another word order. AT = N/A permitted (0 no, 1 clarification line,
 2 refreshment menu card); N/A needs the matching Outcome (Settings X, L_Outcome). BG = plain Pass whose result describes a problem (blocking).
-Flights AS also counts an A350 leg without a valid tail (9M-MAB..MAH); READY requires AS = 0.
+Flights AS also counts a leg without a tail in its fleet's Skytrax group (A350 9M-MAD/MAF/MAE, A339 9M-MNH/MNJ/MNP, A333 9M-MTJ/MTM/MTG, B737-8 9M-MVO/MVP/MVQ/MVR); READY requires AS = 0.

@@ -17,7 +17,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.pagebreak import Break
 
-from core import EVIDENCE_TYPES as EV_TYPES_SAMPLE, station_questions
+from core import station_questions
 
 NAVY = "1F3864"
 FONT = "Arial"
@@ -30,8 +30,8 @@ COLS = [
     ("Requirement / expected", 19),
     ("Applic. / due (local)", 12),
     ("Status (CA)", 10),
-    ("Result  |  batch  |  exp / act qty", 25),
-    ("Evidence  |  corrective action", 28),
+    ("Result  |  batch  |  exp / act qty", 31),
+    ("Corrective action", 22),
     ("Done (local) / verifier / PIC", 18),
     ("Record state", 13)  # fits "CLARIFICATION" in bold 8.5 pt without a mid-word break,
 ]
@@ -74,8 +74,7 @@ LS = 8.5  # label size
 BLANK = "__________________"
 AX_WARN = ("CARRYING FLIGHT NOT YET ENTERED IN THE WORKBOOK: its timing is assumed, so on-board (UPLIFT) checks "
            "before the assumed arrival show INVALID – before uplift window.")
-EV_BLANK = "________________________"
-ID_BLANK = "________________________"
+CA_BLANK = "________________________"
 W_BLANK = "________________"
 Q_BLANK = "______"
 
@@ -176,7 +175,7 @@ def sheet_title(n, f):
 _RESULT_SAMPLE = ("Panel of 4 tasted chicken rendang and nasi lemak; texture, seasoning and temperature within spec; "
                   "plating matched the menu photo ok.")  # 140 chars
 _CA_SAMPLE = ("Sauce re-seasoned and re-tasted; batch re-labelled; caterer supervisor informed; re-check logged "
-              "at 20:40 by QA.")  # ~115 chars (+ evidence line ~ 160)
+              "at 20:40 by QA.")  # ~115 chars
 
 
 _SHEET = r"(?:AIRCRAFT TYPE|CATERING UPLIFT STN|AMENITIES|F&B LINEN|SEAT LINEN|SALES CART|Signature Drinks)"
@@ -361,15 +360,6 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
         _put(ws, r, c, t, c, font=_font(8, True), fill=fill, align=AL_CEN)
     ws.row_dimensions[r].height = _height(max(_lines(warn, _width(1, 4), LS, True),
                                               _lines("OVERDUE / FAIL / INVALID", COLS[7][1], 8, True)), LS, 3)
-    # ---------------- evidence legend: the Checks sheet needs a type from this list plus the record's own ID
-    r += 1
-    ev_list = "&\" · \"&".join(f"Settings!$U${4 + i}" for i in range(len(EV_TYPES_SAMPLE)))
-    ev_head = ("EVIDENCE  Type (one of): ")
-    ev_tail = ("  |  ID: the record's own no. only (SF-2210, IMG_2231, 1045521); a link or path only for "
-               "'Link / file path'.")
-    _put(ws, r, 1, f'="{ev_head}"&{ev_list}&"{ev_tail}"', NCOL, font=_font(LS, False, "1F3864"), fill=F_LABEL)
-    ev_sample = ev_head + " · ".join(EV_TYPES_SAMPLE) + ev_tail
-    ws.row_dimensions[r].height = _height(_lines(ev_sample, _width(1, NCOL), LS), LS, 3)
     carry = f["round_trip"] or f["id"] in carry_ids
     if carry:
         r += 1
@@ -453,7 +443,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
 
     entry_lines = max(
         _lines(_RESULT_SAMPLE + "\nBatch: BATCH-LHR-20261001-JCL-0042\nExp: 280  /  Act: 280", COLS[4][1]),
-        _lines("Type: Document (GLD / menu / ISOP)\nID: IMG_20261001_2035_panel.jpg\nCA: " + _CA_SAMPLE, COLS[5][1]),
+        _lines("CA: " + _CA_SAMPLE, COLS[5][1]),
         _lines("Done: 01-Oct-26 20:35 LHR\nVerifier: Nurul Izzah Mohd Shahrizal (QA Lead)\n"
                "PIC: Capt. Ahmad Rahman bin Abdullah", COLS[6][1]),
         _lines("[ ] Pass\n[ ] Pass after CA\n[ ] Fail\n[ ] N/A\nCA: Open / Closed", COLS[3][1]),
@@ -512,10 +502,7 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                  f'"MH______  KUL dep (UTC): ___-___ __:__"),"")'
                  f'&IF(OR({C("X")}<>"",{C("Y")}<>"",AND({C("AR")}=1,NOT({rna}))),CHAR(10)&"Exp: "'
                  f'&IF({C("X")}="","{Q_BLANK}",{C("X")})&"  /  Act: "&IF({C("Y")}="","{Q_BLANK}",{C("Y")}),"")'),
-                (f'=IF(AND({rna},TRIM({C("S")}&{C("Z")})=""),"",'
-                 f'"Type: "&IF(TRIM({C("S")})="","{EV_BLANK}",{C("S")})'
-                 f'&CHAR(10)&"ID: "&IF(TRIM({C("Z")})="","{ID_BLANK}",{C("Z")}))'
-                 f'&IF({C("AA")}="","",CHAR(10)&"CA: "&{C("AA")})'),
+                f'=IF({C("AA")}<>"","CA: "&{C("AA")},IF({rna},"","CA (if any): "&CHAR(10)&"{CA_BLANK}"))',
                 (f'=IF(AND({rna},NOT(ISNUMBER({C("AD")})),{C("AE")}="",{C("T")}=""),"",'
                  f'"Done (dd-mmm hh:mm "&{C("P")}&"): "&IF(ISNUMBER({C("AD")}),TEXT({C("AD")},"{TFMT}"),"{W_BLANK}")'
                  f'&CHAR(10)&"Verifier: "&IF({C("AE")}="","{W_BLANK}",{C("AE")})'

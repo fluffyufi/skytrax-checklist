@@ -17,7 +17,7 @@ def fill_f11(wb):
             continue
         cid = ck[f"A{r}"].value
         if cid == "F11-T7-10":  # carrying flight clarification: must be Pass (N/A not allowed)
-            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"; ck[f"S{r}"] = "Email"
+            ck[f"U{r}"] = "Pass"; ck[f"AC{r}"] = "Confirmed – applies / carried as listed"
         if cid == "F11-UPL-03":  # KUL loading line: before MH1140 dep 11:45 KUL
             ck[f"AD{r}"] = datetime(2026, 10, 12, 10, 0)
         if ck[f"G{r}"].value in ("T-24H", "T-12H PREP"):  # capped by loading (AY = 12-Oct 05:45 KUL)
@@ -65,7 +65,7 @@ if __name__ == "__main__" and len(sys.argv) == 1:
 
 
 def more():
-    run("placeholder_evidence", cell("F11-T7-01", "Z", "TBC"))
+    run("ok_evidence_cells_ignored", cell("F11-T7-01", "Z", "TBC"))  # S / Z no longer used
     run("placeholder_verifier", cell("F11-T7-01", "AE", "?"))
     run("prep_after_carrier", cell("F11-T12-01", "AD", datetime(2026, 10, 12, 12, 0)))
     run("onboard_before_arrival", cell("F11-UPL-01", "AD", datetime(2026, 10, 12, 12, 30)))
@@ -84,12 +84,10 @@ def round4():
     d = lambda k, v: (lambda wb, rows: wb["Documents"].__setitem__(k, v))
     run("doc_placeholders", lambda wb, rows: [wb["Documents"].__setitem__(k, v) for k, v in (("F15", "TBC"), ("H15", "pending"))])
     run("doc_date_after_flight", d("H15", datetime(2026, 12, 1)))
-    run("evidence_to_be_confirmed", cell("F11-T7-01", "Z", "to be confirmed"))
-    run("evidence_dashes", cell("F11-T7-01", "Z", "---"))
     run("verifier_same_person", cell("F11-T7-01", "AE", "A Rahman"))
     run("expected_lowered", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in (("X", 8), ("Y", 8))])
     run("pass_but_rejected", cell("F11-T24-01", "V", "Rejected - off taste, batch discarded"))
-    run("error_value_pasted", cell("F11-T7-01", "Z", "#N/A"))
+    run("error_value_pasted", cell("F11-T7-01", "V", "#N/A"))
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
@@ -97,9 +95,6 @@ if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "r4":
 
 
 def round5():
-    run("evidence_photo_to_follow", cell("F11-UPL-01", "Z", "TBC - photo to follow"))
-    run("evidence_done", cell("F11-UPL-01", "Z", "Done"))
-    run("evidence_real_uploaded", cell("F11-UPL-01", "Z", "Photo uploaded to SharePoint F11/UPL-01"))
     run("result_discrepancy_pass", cell("F11-T12-03", "V", "Discrepancy found - 3 dirty inserts replaced"))
     run("result_shortbread_ok", cell("F11-T24-01", "V", "Shortbread texture and taste good, temp 4C"))
 
@@ -113,13 +108,9 @@ def round6():
                   "Shortbread and dessert to spec", "Defect-free, temps 4C"]
     for i, (cid, txt) in enumerate(zip(["F11-T7-01", "F11-T7-02", "F11-T7-04", "F11-T7-05", "F11-T7-06", "F11-T24-01", "F11-T12-01"], ok_results)):
         run(f"ok_result_{i}", cell(cid, "V", txt))
-    for i, txt in enumerate(["Sensory report BC-017", "Photo at BC galley G2", "OCT BD sheet 12", "Log no. photo 17",
-                             "Email from PASB 08-Oct ref 4471"]):
-        run(f"legacy_freetext_evidence_rejected_{i}", cell("F11-T7-01", "Z", txt))  # sentences are not IDs
     run("bad_result_awaiting", cell("F11-T24-01", "V", "Awaiting panel score"))
     run("bad_result_short", cell("F11-T12-03", "V", "Short 3 trays, replaced"))
     run("bad_batch_tbc", cell("F11-T24-01", "W", "Batch TBC"))
-    run("bad_evidence_verbal", cell("F11-T7-01", "Z", "Verbally confirmed with PASB supervisor"))
     run("bad_doc_to_follow", lambda wb, rows: wb["Documents"].__setitem__("F15", "to follow from PASB"))
     run("load_change_ca", lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows['F11-UPL-01']}", v) for k, v in
                                             (("X", 14), ("Y", 14), ("U", "Pass after CA"),
@@ -139,7 +130,6 @@ def round7():
     run("r7_ok_na_not_available", lambda wb, rows: [wb["Checks"].__setitem__(f"U{rows['F11-T7-02']}", "N/A"),
         wb["Checks"].__setitem__(f"AC{rows['F11-T7-02']}", "Refreshment service – no printed menu card")])
     run("r7_bad_missing_no_spares", cell("F11-T12-03", "V", "2 BC meals missing, no spares available"))
-    run("r7_bad_evidence_visual", cell("F11-T7-01", "Z", "Visually checked"))
     run("r7_bad_verifier_self", cell("F11-T7-01", "AE", "Self"))
     run("r7_bad_prep_same_minute_as_loading", cell("F11-T12-01", "AD", datetime(2026, 10, 12, 14, 0)))
 
@@ -168,7 +158,6 @@ def round18():
     C = lambda cid, kv: (lambda wb, rows: [wb["Checks"].__setitem__(f"{k}{rows[cid]}", v) for k, v in kv])
     # (clarification-line outcome tests retired: MAGCS resolved every clarification on 01-Oct-2026)
     run("r18_bad_na_wrong_outcome", C("F11-T12-08", [("AC", "Refreshment service – no printed menu card")]))
-    run("r18_bad_na_no_evidence", C("F11-T12-08", [("Z", None)]))
     run("r18_bad_pass_with_na_outcome", C("F11-T7-01", [("AC", "Confirmed – not carried on this sector")]))
     # wording safety net
     for i, txt in enumerate(["Partially loaded", "Loading not complete", "Only 40 of 44 slippers on board",
@@ -197,9 +186,6 @@ def round19():
     for i, (pic, ver) in enumerate([("Raj Kumar", "Ravi Kumar"), ("John Smith", "Jane Smith")]):
         run(f"r19_ok_people_{i}", lambda wb, rows, pic=pic, ver=ver: [wb["Checks"].__setitem__(f"T{rows['F11-T7-01']}", pic),
                                                                    wb["Checks"].__setitem__(f"AE{rows['F11-T7-01']}", ver)])
-    run("r19_ok_id_year_serial", cell("F11-T7-01", "Z", "CAT/KUL/2026/0415"))
-    run("r19_ok_phone_photo", lambda wb, rows: [wb["Checks"].__setitem__(f"S{rows['F11-T7-01']}", "Photo"),
-                                                wb["Checks"].__setitem__(f"Z{rows['F11-T7-01']}", "20261008_101512")])
     for i, txt in enumerate(["Not all meals loaded", "Meal temperature too high at 12C", "Toiletry kits left at caterer"]):
         run(f"r19_bad_wording_{i}", cell("F11-UPL-01", "V", txt))
     for i, txt in enumerate(["Leak test on water bottles passed, seals intact", "Missing items: none, all 12 on board",
