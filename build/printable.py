@@ -11,7 +11,6 @@ for hand-written or typed entries of ~140 characters in the combined cells.
 import re
 from datetime import datetime
 
-from openpyxl.comments import Comment
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -416,8 +415,6 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
     _put(ws, r, 1, "Document notes", 1, **lab)
     _put(ws, r, 2, _blank(DC("K")), NCOL, font=_font(8))
     ws.row_dimensions[r].height = _height(2, 8, 3)  # Documents notes (free text) up to ~2 lines at full width
-    ws.cell(r, 1).comment = Comment("Excel only: insert the GLD / menu checklist image (Insert > Picture) in the "
-                                    "insertion area after the checklist table; it is not printed.", "MAGCS")
 
     # ---------------- sign-off (horizontal)
     r += 1
@@ -549,24 +546,8 @@ def _build_one(wb, n, f, checks_idx, carry_ids=()):
                                       FormulaRule(formula=[f'LEFT($D{first_data},4)="Fail"'], fill=RED_FILL,
                                                   font=Font(color="9C0006", bold=True)))
 
-    # ---------------- Excel insertion area (end of sheet, never pushes the table)
-    r += 2
-    _put(ws, r, 1, "EXCEL INSERTION AREA (on-screen only, not printed) – A1 Galley Loading Diagram: Insert > "
-                   "Picture here. On paper: staple behind this sheet as page A1.", 4, font=_font(LS, True, NAVY),
-         fill=F_BAND)
-    _put(ws, r, 5, "EXCEL INSERTION AREA (on-screen only, not printed) – A2 Menu Checklist: Insert > Picture here. "
-                   "On paper: staple behind this sheet as page A2.", 8, font=_font(LS, True, NAVY), fill=F_BAND)
-    ws.row_dimensions[r].height = _height(2, LS, 3)
-    body = r + 1
-    for c1, c2 in ((1, 4), (5, 8)):
-        _merge(ws, body, c1, body + 9, c2)
-        ws.cell(body, c1).alignment = AL_CEN
-        _box(ws, r, c1, body + 9, c2, side=Side(style="medium", color=NAVY))
-    for i in range(10):
-        ws.row_dimensions[body + i].height = 22
-
     # ---------------- print setup
-    ws.print_area = f"A1:{LASTCOL}{last_table}"  # insertion area stays on screen only
+    ws.print_area = f"A1:{LASTCOL}{last_table}"
     ws.print_title_rows = f"{head_row}:{head_row}"
     ps = ws.page_setup
     ps.orientation = "landscape"
